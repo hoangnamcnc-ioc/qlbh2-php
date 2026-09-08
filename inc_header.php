@@ -13,6 +13,8 @@ $navGroups = [
     'Sản phẩm' => [
         'products.php' => 'Danh sách sản phẩm',
         'inventory.php' => 'Quản lý kho',
+        'stock_receipts.php' => 'Nhập hàng',
+        'suppliers.php' => 'Nhà cung cấp',
     ],
     'Khách hàng' => [
         'customers.php' => 'Danh sách khách hàng',

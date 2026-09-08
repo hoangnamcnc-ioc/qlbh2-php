@@ -52,6 +52,8 @@ Khách hàng + Công nợ + Nhóm khách hàng, Sổ quỹ (phiếu thu/chi + t�
 (tìm đơn gốc, chọn SL trả từng dòng, tự hoàn tồn kho + tự tạo phiếu chi hoàn tiền trong Sổ quỹ)
 — đã deploy và test thành công trên app.kt-soft.vn.
 
+**Nhà cung cấp + Nhập hàng**: tạo/xem NCC, công nợ phải trả tự tăng khi nhập hàng, ghi nhận trả
+nợ, tạo phiếu nhập (chọn sản phẩm động, tồn kho + giá vốn tự cập nhật) — đã test đầy đủ.
+
 Chưa có: phân quyền theo role trên từng trang (mới có role trong DB + session, chưa chặn UI theo
-role), Báo cáo chi tiết, quản lý biến thể sản phẩm, nhập hàng + Nhà cung cấp, sửa/hủy đơn sau khi
-tạo.
+role), Báo cáo chi tiết, quản lý biến thể sản phẩm, sửa/hủy đơn sau khi tạo.
