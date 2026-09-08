@@ -216,6 +216,53 @@ CREATE TABLE IF NOT EXISTS stock_receipt_items (
   FOREIGN KEY (variant_id) REFERENCES product_variants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS stock_takes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  branch_id INT NOT NULL,
+  created_by_id INT NOT NULL,
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (branch_id) REFERENCES branches(id),
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS stock_take_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  take_id INT NOT NULL,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  system_qty INT NOT NULL,
+  counted_qty INT NOT NULL,
+  FOREIGN KEY (take_id) REFERENCES stock_takes(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS stock_transfers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  from_branch_id INT NOT NULL,
+  to_branch_id INT NOT NULL,
+  created_by_id INT NOT NULL,
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (from_branch_id) REFERENCES branches(id),
+  FOREIGN KEY (to_branch_id) REFERENCES branches(id),
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS stock_transfer_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  transfer_id INT NOT NULL,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  quantity INT NOT NULL,
+  FOREIGN KEY (transfer_id) REFERENCES stock_transfers(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Dữ liệu khởi tạo
 INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')
   ON DUPLICATE KEY UPDATE name = name;

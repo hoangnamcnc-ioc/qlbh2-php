@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireLogin();
+requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $error = null;

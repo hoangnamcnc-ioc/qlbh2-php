@@ -24,7 +24,7 @@ $customers = $stmt->fetchAll();
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
   <h1 style="font-size:24px;font-weight:600;">Danh sách khách hàng</h1>
   <div style="display:flex;gap:8px;">
-    <a href="groups.php" class="btn btn-secondary">Nhóm khách hàng</a>
+    <?php if (hasRole('ADMIN', 'MANAGER')): ?><a href="groups.php" class="btn btn-secondary">Nhóm khách hàng</a><?php endif; ?>
     <a href="customer_form.php" class="btn">+ Thêm khách hàng</a>
   </div>
 </div>

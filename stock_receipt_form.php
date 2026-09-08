@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-$currentUser = requireLogin();
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $suppliers = $pdo->query('SELECT * FROM suppliers ORDER BY name')->fetchAll();

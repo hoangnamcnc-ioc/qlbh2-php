@@ -3,6 +3,8 @@ require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireLogin();
 
+$isManagerUp = hasRole('ADMIN', 'MANAGER');
+
 $navGroups = [
     'Tổng quan' => ['index.php' => 'Tổng quan'],
     'Bán hàng' => ['pos.php' => 'Bán hàng (POS)'],
@@ -10,19 +12,30 @@ $navGroups = [
         'orders.php' => 'Danh sách đơn hàng',
         'order_returns.php' => 'Đơn trả hàng',
     ],
-    'Sản phẩm' => [
-        'products.php' => 'Danh sách sản phẩm',
-        'inventory.php' => 'Quản lý kho',
-        'stock_receipts.php' => 'Nhập hàng',
-        'suppliers.php' => 'Nhà cung cấp',
-    ],
-    'Khách hàng' => [
-        'customers.php' => 'Danh sách khách hàng',
-        'groups.php' => 'Nhóm khách hàng',
-    ],
-    'Sổ quỹ' => ['cashbook.php' => 'Sổ quỹ'],
-    'Báo cáo' => ['reports.php' => 'Báo cáo'],
+    'Sản phẩm' => array_merge(
+        [
+            'products.php' => 'Danh sách sản phẩm',
+            'inventory.php' => 'Quản lý kho',
+        ],
+        $isManagerUp ? [
+            'stock_takes.php' => 'Kiểm hàng',
+            'stock_transfers.php' => 'Chuyển hàng',
+            'stock_receipts.php' => 'Nhập hàng',
+            'suppliers.php' => 'Nhà cung cấp',
+        ] : []
+    ),
+    'Khách hàng' => array_merge(
+        ['customers.php' => 'Danh sách khách hàng'],
+        $isManagerUp ? ['groups.php' => 'Nhóm khách hàng'] : []
+    ),
 ];
+if ($isManagerUp) {
+    $navGroups['Sổ quỹ'] = ['cashbook.php' => 'Sổ quỹ'];
+    $navGroups['Báo cáo'] = ['reports.php' => 'Báo cáo'];
+}
+if (hasRole('ADMIN')) {
+    $navGroups['Cấu hình'] = ['branches.php' => 'Chi nhánh'];
+}
 
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
 ?>

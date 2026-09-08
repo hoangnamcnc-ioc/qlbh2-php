@@ -25,7 +25,9 @@ $products = $stmt->fetchAll();
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
   <h1 style="font-size:24px;font-weight:600;">Danh sách sản phẩm</h1>
-  <a href="product_form.php" class="btn">+ Thêm sản phẩm</a>
+  <?php if (hasRole('ADMIN', 'MANAGER')): ?>
+    <a href="product_form.php" class="btn">+ Thêm sản phẩm</a>
+  <?php endif; ?>
 </div>
 
 <form style="margin-bottom:16px;">
@@ -48,7 +50,7 @@ $products = $stmt->fetchAll();
       <?php foreach ($products as $p): ?>
         <tr>
           <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($p['sku']) ?></td>
-          <td><a href="product_form.php?id=<?= (int) $p['id'] ?>"><?= e($p['name']) ?></a></td>
+          <td><?php if (hasRole('ADMIN', 'MANAGER')): ?><a href="product_form.php?id=<?= (int) $p['id'] ?>"><?= e($p['name']) ?></a><?php else: ?><?= e($p['name']) ?><?php endif; ?></td>
           <td><?= e($p['unit'] ?: '—') ?></td>
           <td class="text-right"><?= money($p['cost_price']) ?></td>
           <td class="text-right"><?= money($p['sell_price']) ?></td>

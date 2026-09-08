@@ -52,10 +52,48 @@ require_once __DIR__ . '/inc_header.php';
     <p class="muted" style="margin:2px 0 0;"><?= date('d/m/Y H:i', strtotime($order['created_at'])) ?></p>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
-    <a href="order_return_form.php?q=<?= urlencode($order['code']) ?>" class="btn btn-secondary">Đổi trả hàng</a>
-    <span class="badge badge-green"><?= e($statusLabels[$order['status']] ?? $order['status']) ?></span>
+    <?php if ($order['status'] !== 'CANCELLED'): ?>
+      <a href="order_return_form.php?q=<?= urlencode($order['code']) ?>" class="btn btn-secondary">Đổi trả hàng</a>
+    <?php endif; ?>
+    <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
+      <form method="post" action="order_cancel.php" onsubmit="return confirm('Hủy đơn hàng này? Tồn kho sẽ được hoàn lại.');">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+        <button type="submit" class="btn btn-danger">Hủy đơn hàng</button>
+      </form>
+    <?php endif; ?>
+    <?php if ($order['status'] === 'CANCELLED'): ?>
+      <span class="badge badge-red">Đã hủy</span>
+    <?php else: ?>
+      <span class="badge badge-green"><?= e($statusLabels[$order['status']] ?? $order['status']) ?></span>
+    <?php endif; ?>
   </div>
 </div>
+
+<?php if ($order['status'] !== 'CANCELLED'):
+  $pipeline = ['DRAFT' => 'Đặt hàng', 'APPROVED' => 'Duyệt', 'PACKED' => 'Đóng gói', 'SHIPPED' => 'Xuất kho', 'COMPLETED' => 'Hoàn thành'];
+  $currentIdx = array_search($order['status'], array_keys($pipeline), true);
+  $currentIdx = $currentIdx === false ? 0 : $currentIdx;
+?>
+<div class="card" style="margin-bottom:24px;">
+  <div style="display:flex;align-items:center;">
+    <?php foreach (array_values($pipeline) as $i => $label): ?>
+      <div style="flex:1;display:flex;align-items:center;">
+        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+          <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;
+            <?= $i <= $currentIdx ? 'background:#2563eb;color:#fff;' : 'background:#e2e8f0;color:#94a3b8;' ?>">
+            <?= $i + 1 ?>
+          </div>
+          <div style="font-size:12px;margin-top:4px;white-space:nowrap;<?= $i <= $currentIdx ? 'color:#1e293b;font-weight:600;' : 'color:#94a3b8;' ?>"><?= e($label) ?></div>
+        </div>
+        <?php if ($i < count($pipeline) - 1): ?>
+          <div style="flex:1;height:2px;<?= $i < $currentIdx ? 'background:#2563eb;' : 'background:#e2e8f0;' ?>margin:0 4px 18px;"></div>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="grid-2" style="margin-bottom:24px;">
   <div class="card">

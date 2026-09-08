@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireLogin();
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('products.php');
 checkCsrf();
@@ -33,10 +33,14 @@ $pdo->prepare(
 )->execute([$productId, $sku, $name, $costPrice, $sellPrice]);
 $variantId = (int) $pdo->lastInsertId();
 
-$branch = $pdo->query('SELECT id FROM branches ORDER BY id LIMIT 1')->fetch();
-if ($branch) {
+$targetBranchId = $currentUser['branch_id'];
+if (!$targetBranchId) {
+    $branch = $pdo->query('SELECT id FROM branches ORDER BY id LIMIT 1')->fetch();
+    $targetBranchId = $branch['id'] ?? null;
+}
+if ($targetBranchId) {
     $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
-        ->execute([$branch['id'], $productId, $variantId, $initialQty]);
+        ->execute([$targetBranchId, $productId, $variantId, $initialQty]);
 }
 
 redirect('product_form.php?id=' . $productId);

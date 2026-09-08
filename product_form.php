@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-$currentUser = requireLogin();
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
@@ -72,9 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $initialQty = postInt('initial_qty');
                 $minStock = postInt('min_stock');
-                if ($branches) {
+                // Gán tồn kho ban đầu vào chi nhánh của người tạo; nếu tài khoản chưa gán
+                // chi nhánh (vd admin tổng) thì dùng chi nhánh đầu tiên trong hệ thống.
+                $targetBranchId = $currentUser['branch_id'] ?: ($branches[0]['id'] ?? null);
+                if ($targetBranchId) {
                     $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity, min_stock) VALUES (?,?,?,?)')
-                        ->execute([$branches[0]['id'], $id, $initialQty, $minStock]);
+                        ->execute([$targetBranchId, $id, $initialQty, $minStock]);
                 }
             }
             redirect('product_form.php?id=' . $id . '&saved=1');

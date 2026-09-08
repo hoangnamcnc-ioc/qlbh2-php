@@ -63,8 +63,23 @@ vốn/giá bán/tồn kho riêng theo từng chi nhánh — khi có biến thể
 tiếp (phải chọn biến thể). Đã tích hợp xuyên suốt: tìm kiếm & bán trong POS, nhập hàng, đổi trả
 hàng (hoàn đúng kho biến thể), báo cáo (giá vốn/tồn kho tính theo biến thể) — test đầy đủ.
 
-Chưa có: phân quyền theo role trên từng trang (mới có role trong DB + session, chưa chặn UI theo
-role), sửa/hủy đơn sau khi tạo.
+**Phân quyền theo role**: `requireRole()`/`hasRole()` chặn UI + backend theo role (ADMIN/MANAGER
+đầy đủ quyền, CASHIER chỉ Bán hàng/Đơn hàng/Khách hàng/xem Sản phẩm-Kho, không có Nhập hàng/Sổ
+quỹ/Báo cáo/Cấu hình) — sidebar tự ẩn mục không có quyền, truy cập trực tiếp URL bị chặn (403).
+
+**Quy trình đơn hàng kiểu Sapo**: pipeline stepper (Đặt hàng→Duyệt→Đóng gói→Xuất kho→Hoàn thành)
+trên trang chi tiết đơn, nút **Hủy đơn hàng** (ADMIN/MANAGER) tự hoàn tồn kho.
+
+**Kiểm hàng + Chuyển hàng giữa chi nhánh** (ADMIN/MANAGER): kiểm hàng ghi nhận tồn hệ thống vs
+thực tế và cập nhật tồn kho theo số đếm thực tế; chuyển hàng validate đủ tồn kho, trừ/cộng đúng 2
+chi nhánh trong 1 transaction. Thêm trang quản lý **Chi nhánh** (ADMIN) — cần thiết vì trước đó chỉ
+có 1 chi nhánh mặc định.
+
+Đã test đầy đủ trên app.kt-soft.vn, phát hiện và sửa 1 bug: tồn kho ban đầu khi tạo sản phẩm/biến
+thể mới bị gán nhầm vào chi nhánh đầu tiên theo alphabet thay vì chi nhánh của người tạo.
+
+Chưa có: Vận chuyển, Marketing, Bảo hành, Kế toán/Thuế, Khuyến mại/coupon, Đặt hàng nhập (trước khi
+nhập kho thực tế), Điều chỉnh giá vốn riêng, xuất/nhập file Excel, sửa đơn hàng (chỉ hủy được).
 
 **Lưu ý kỹ thuật khi migrate DB có dữ liệu cũ**: nếu nâng cấp từ bản trước khi có biến thể, bảng
 `inventory` có unique key cũ `(branch_id, product_id)` được ràng buộc bởi FK — cần thêm index phụ

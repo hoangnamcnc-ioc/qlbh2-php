@@ -20,6 +20,26 @@ function requireLogin(): array
     return $user;
 }
 
+/** Chỉ cho phép các role được liệt kê. Chặn (403) nếu không đúng quyền. */
+function requireRole(string ...$roles): array
+{
+    $user = requireLogin();
+    if (!in_array($user['role'], $roles, true)) {
+        http_response_code(403);
+        require_once __DIR__ . '/inc_header.php';
+        echo '<div class="alert alert-error">Bạn không có quyền truy cập trang này.</div>';
+        require_once __DIR__ . '/inc_footer.php';
+        exit;
+    }
+    return $user;
+}
+
+function hasRole(string ...$roles): bool
+{
+    $user = currentUser();
+    return $user && in_array($user['role'], $roles, true);
+}
+
 function attemptLogin(string $email, string $password): ?array
 {
     $stmt = db()->prepare('SELECT * FROM users WHERE email = ? AND is_active = 1');
