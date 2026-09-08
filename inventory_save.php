@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 checkCsrf();
 
 $productId = postInt('product_id');
+$variantId = postInt('variant_id') ?: null;
 $branchId = postInt('branch_id');
 $quantity = postInt('quantity');
 $minStock = postInt('min_stock');
@@ -20,16 +21,22 @@ if ($redirectTo === '' || !preg_match('/^[a-zA-Z0-9_.\\-]+\\.php(\\?[a-zA-Z0-9_=
 
 if ($productId && $branchId) {
     $pdo = db();
-    $stmt = $pdo->prepare('SELECT id FROM inventory WHERE product_id = ? AND branch_id = ?');
-    $stmt->execute([$productId, $branchId]);
+
+    if ($variantId) {
+        $stmt = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
+        $stmt->execute([$branchId, $variantId]);
+    } else {
+        $stmt = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+        $stmt->execute([$branchId, $productId]);
+    }
     $existing = $stmt->fetch();
 
     if ($existing) {
         $pdo->prepare('UPDATE inventory SET quantity = ?, min_stock = ? WHERE id = ?')
             ->execute([$quantity, $minStock, $existing['id']]);
     } else {
-        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity, min_stock) VALUES (?,?,?,?)')
-            ->execute([$branchId, $productId, $quantity, $minStock]);
+        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity, min_stock) VALUES (?,?,?,?,?)')
+            ->execute([$branchId, $productId, $variantId, $quantity, $minStock]);
     }
 }
 

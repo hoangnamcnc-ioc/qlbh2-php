@@ -17,10 +17,11 @@ $stmt->execute([$fromDt, $toDt]);
 $salesSummary = $stmt->fetch();
 
 $stmt = $pdo->prepare(
-    "SELECT COALESCE(SUM(oi.quantity * p.cost_price),0) AS total_cost
+    "SELECT COALESCE(SUM(oi.quantity * COALESCE(v.cost_price, p.cost_price)),0) AS total_cost
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
      JOIN products p ON p.id = oi.product_id
+     LEFT JOIN product_variants v ON v.id = oi.variant_id
      WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'"
 );
 $stmt->execute([$fromDt, $toDt]);
@@ -29,12 +30,14 @@ $grossProfit = (float) $salesSummary['revenue'] - $totalCost;
 
 // --- Top sản phẩm bán chạy ---
 $stmt = $pdo->prepare(
-    "SELECT p.name, p.sku, SUM(oi.quantity) AS qty, SUM(oi.line_total) AS total
+    "SELECT CASE WHEN v.name IS NOT NULL THEN CONCAT(p.name, ' - ', v.name) ELSE p.name END AS name,
+            p.sku, SUM(oi.quantity) AS qty, SUM(oi.line_total) AS total
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
      JOIN products p ON p.id = oi.product_id
+     LEFT JOIN product_variants v ON v.id = oi.variant_id
      WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
-     GROUP BY oi.product_id ORDER BY qty DESC LIMIT 10"
+     GROUP BY oi.product_id, oi.variant_id ORDER BY qty DESC LIMIT 10"
 );
 $stmt->execute([$fromDt, $toDt]);
 $topProducts = $stmt->fetchAll();
@@ -61,8 +64,10 @@ $byDay = $stmt->fetchAll();
 // --- Tồn kho ---
 $stock = $pdo->query(
     "SELECT COALESCE(SUM(i.quantity),0) AS total_qty,
-            COALESCE(SUM(i.quantity * p.cost_price),0) AS total_value
-     FROM inventory i JOIN products p ON p.id = i.product_id"
+            COALESCE(SUM(i.quantity * COALESCE(v.cost_price, p.cost_price)),0) AS total_value
+     FROM inventory i
+     JOIN products p ON p.id = i.product_id
+     LEFT JOIN product_variants v ON v.id = i.variant_id"
 )->fetch();
 
 // --- Sổ quỹ trong kỳ ---

@@ -54,21 +54,34 @@ try {
 
     foreach ($items as $line) {
         $productId = (int) ($line['product_id'] ?? 0);
+        $variantId = (int) ($line['variant_id'] ?? 0) ?: null;
         $quantity = (int) ($line['quantity'] ?? 0);
         $unitPrice = (float) ($line['unit_price'] ?? 0);
         if ($productId <= 0 || $quantity <= 0) {
             throw new RuntimeException('Dữ liệu sản phẩm không hợp lệ');
         }
 
-        $stmt = $pdo->prepare(
-            'SELECT * FROM inventory WHERE product_id = ? AND branch_id = ? FOR UPDATE'
-        );
-        $stmt->execute([$productId, $branchId]);
+        if ($variantId) {
+            $stmt = $pdo->prepare('SELECT * FROM inventory WHERE variant_id = ? AND branch_id = ? FOR UPDATE');
+            $stmt->execute([$variantId, $branchId]);
+        } else {
+            $stmt = $pdo->prepare(
+                'SELECT * FROM inventory WHERE product_id = ? AND branch_id = ? AND variant_id IS NULL FOR UPDATE'
+            );
+            $stmt->execute([$productId, $branchId]);
+        }
         $inv = $stmt->fetch();
 
         if (!$inv || (int) $inv['quantity'] < $quantity) {
-            $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
-            $prod->execute([$productId]);
+            if ($variantId) {
+                $prod = $pdo->prepare(
+                    "SELECT CONCAT(p.name, ' - ', v.name) AS name FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = ?"
+                );
+                $prod->execute([$variantId]);
+            } else {
+                $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
+                $prod->execute([$productId]);
+            }
             $pname = $prod->fetchColumn() ?: ('#' . $productId);
             throw new RuntimeException("Sản phẩm \"$pname\" không đủ tồn kho");
         }
@@ -78,7 +91,7 @@ try {
 
         $lineTotal = $unitPrice * $quantity;
         $subTotal += $lineTotal;
-        $lineData[] = [$productId, $quantity, $unitPrice, $lineTotal];
+        $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal];
     }
 
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
@@ -90,10 +103,10 @@ try {
     $orderId = (int) $pdo->lastInsertId();
 
     $itemStmt = $pdo->prepare(
-        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?)'
+        'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)'
     );
-    foreach ($lineData as [$productId, $quantity, $unitPrice, $lineTotal]) {
-        $itemStmt->execute([$orderId, $productId, $quantity, $unitPrice, $lineTotal]);
+    foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal]) {
+        $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal]);
     }
 
     $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')

@@ -47,16 +47,32 @@ CREATE TABLE IF NOT EXISTS products (
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Biến thể sản phẩm (màu, size...). Sản phẩm không có variant thì bán/nhập/tồn kho
+-- vẫn dùng product_id trực tiếp với variant_id = NULL ở các bảng liên quan.
+CREATE TABLE IF NOT EXISTS product_variants (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  sku VARCHAR(100) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL, -- vd "Đỏ - L"
+  cost_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+  sell_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS inventory (
   id INT AUTO_INCREMENT PRIMARY KEY,
   branch_id INT NOT NULL,
   product_id INT NOT NULL,
+  variant_id INT NULL,
   quantity INT NOT NULL DEFAULT 0,
   min_stock INT NOT NULL DEFAULT 0,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_branch_product (branch_id, product_id),
+  UNIQUE KEY uniq_branch_product_variant (branch_id, product_id, variant_id),
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS suppliers (
@@ -112,12 +128,14 @@ CREATE TABLE IF NOT EXISTS order_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   order_id INT NOT NULL,
   product_id INT NOT NULL,
+  variant_id INT NULL,
   quantity INT NOT NULL,
   unit_price DECIMAL(14,2) NOT NULL,
   discount DECIMAL(14,2) NOT NULL DEFAULT 0,
   line_total DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id)
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS payments (
@@ -162,12 +180,14 @@ CREATE TABLE IF NOT EXISTS order_return_items (
   return_id INT NOT NULL,
   order_item_id INT NOT NULL,
   product_id INT NOT NULL,
+  variant_id INT NULL,
   quantity INT NOT NULL,
   unit_price DECIMAL(14,2) NOT NULL,
   line_total DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (return_id) REFERENCES order_returns(id) ON DELETE CASCADE,
   FOREIGN KEY (order_item_id) REFERENCES order_items(id),
-  FOREIGN KEY (product_id) REFERENCES products(id)
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS stock_receipts (
@@ -188,10 +208,12 @@ CREATE TABLE IF NOT EXISTS stock_receipt_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   receipt_id INT NOT NULL,
   product_id INT NOT NULL,
+  variant_id INT NULL,
   quantity INT NOT NULL,
   cost_price DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (receipt_id) REFERENCES stock_receipts(id) ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id)
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Dữ liệu khởi tạo

@@ -28,7 +28,11 @@ $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
 
 $items = $pdo->prepare(
-    'SELECT oi.*, p.name AS product_name FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ?'
+    'SELECT oi.*, p.name AS product_name, v.name AS variant_name
+     FROM order_items oi
+     JOIN products p ON p.id = oi.product_id
+     LEFT JOIN product_variants v ON v.id = oi.variant_id
+     WHERE oi.order_id = ?'
 );
 $items->execute([$id]);
 $items = $items->fetchAll();
@@ -74,7 +78,7 @@ require_once __DIR__ . '/inc_header.php';
     <tbody>
       <?php foreach ($items as $it): ?>
         <tr>
-          <td><?= e($it['product_name']) ?></td>
+          <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
           <td class="text-right"><?= money($it['unit_price']) ?></td>
           <td class="text-center"><?= (int) $it['quantity'] ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($it['line_total']) ?></td>

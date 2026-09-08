@@ -23,12 +23,13 @@ if ($q !== '') {
         $error = 'Không tìm thấy đơn hàng với mã "' . $q . '"';
     } else {
         $stmt = $pdo->prepare(
-            'SELECT oi.*, p.name AS product_name,
+            'SELECT oi.*, p.name AS product_name, v.name AS variant_name,
                     oi.quantity - COALESCE((
                         SELECT SUM(ori.quantity) FROM order_return_items ori WHERE ori.order_item_id = oi.id
                     ), 0) AS remaining_qty
              FROM order_items oi
              JOIN products p ON p.id = oi.product_id
+             LEFT JOIN product_variants v ON v.id = oi.variant_id
              WHERE oi.order_id = ?'
         );
         $stmt->execute([$order['id']]);
@@ -82,18 +83,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $lineTotal = (float) $item['unit_price'] * $qty;
                     $refundTotal += $lineTotal;
-                    $lineData[] = [$item['id'], $item['product_id'], $qty, $item['unit_price'], $lineTotal];
+                    $lineData[] = [$item['id'], $item['product_id'], $item['variant_id'], $qty, $item['unit_price'], $lineTotal];
 
-                    // Hoàn lại tồn kho tại chi nhánh đã bán
-                    $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ?');
-                    $inv->execute([$orderRow['branch_id'], $item['product_id']]);
+                    // Hoàn lại tồn kho tại chi nhánh đã bán (đúng biến thể nếu có)
+                    if ($item['variant_id']) {
+                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
+                        $inv->execute([$orderRow['branch_id'], $item['variant_id']]);
+                    } else {
+                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                        $inv->execute([$orderRow['branch_id'], $item['product_id']]);
+                    }
                     $invRow = $inv->fetch();
                     if ($invRow) {
                         $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')
                             ->execute([$qty, $invRow['id']]);
                     } else {
-                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity) VALUES (?,?,?)')
-                            ->execute([$orderRow['branch_id'], $item['product_id'], $qty]);
+                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
+                            ->execute([$orderRow['branch_id'], $item['product_id'], $item['variant_id'], $qty]);
                     }
                 }
 
@@ -106,10 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $returnId = (int) $pdo->lastInsertId();
 
                 $itemStmt = $pdo->prepare(
-                    'INSERT INTO order_return_items (return_id, order_item_id, product_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)'
+                    'INSERT INTO order_return_items (return_id, order_item_id, product_id, variant_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?,?)'
                 );
-                foreach ($lineData as [$orderItemId, $productId, $qty, $unitPrice, $lineTotal]) {
-                    $itemStmt->execute([$returnId, $orderItemId, $productId, $qty, $unitPrice, $lineTotal]);
+                foreach ($lineData as [$orderItemId, $productId, $variantId, $qty, $unitPrice, $lineTotal]) {
+                    $itemStmt->execute([$returnId, $orderItemId, $productId, $variantId, $qty, $unitPrice, $lineTotal]);
                 }
 
                 if ($refundTotal > 0) {
@@ -168,7 +174,7 @@ require_once __DIR__ . '/inc_header.php';
       <tbody>
         <?php foreach ($items as $it): ?>
           <tr>
-            <td><?= e($it['product_name']) ?></td>
+            <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
             <td class="text-right"><?= money($it['unit_price']) ?></td>
             <td class="text-right"><?= (int) $it['quantity'] ?></td>
             <td class="text-right"><?= (int) $it['remaining_qty'] ?></td>

@@ -5,9 +5,10 @@ $pdo = db();
 $branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
 $branchId = (int) ($_GET['branch_id'] ?? 0);
 
-$sql = 'SELECT i.*, p.name AS product_name, b.name AS branch_name
+$sql = 'SELECT i.*, p.name AS product_name, v.name AS variant_name, b.name AS branch_name
         FROM inventory i
         JOIN products p ON p.id = i.product_id
+        LEFT JOIN product_variants v ON v.id = i.variant_id
         JOIN branches b ON b.id = i.branch_id';
 $params = [];
 if ($branchId) {
@@ -44,7 +45,7 @@ $inventories = $stmt->fetchAll();
       <?php endif; ?>
       <?php foreach ($inventories as $inv): $isLow = (int) $inv['quantity'] <= (int) $inv['min_stock']; ?>
         <tr>
-          <td><a href="product_form.php?id=<?= (int) $inv['product_id'] ?>"><?= e($inv['product_name']) ?></a></td>
+          <td><a href="product_form.php?id=<?= (int) $inv['product_id'] ?>"><?= e($inv['product_name']) ?><?php if ($inv['variant_name']): ?> <span class="muted">(<?= e($inv['variant_name']) ?>)</span><?php endif; ?></a></td>
           <td><?= e($inv['branch_name']) ?></td>
           <td class="text-right" style="font-weight:600;"><?= (int) $inv['quantity'] ?></td>
           <td class="text-right muted"><?= (int) $inv['min_stock'] ?></td>

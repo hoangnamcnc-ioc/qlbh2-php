@@ -19,7 +19,11 @@ $receipt = $stmt->fetch();
 if (!$receipt) redirect('stock_receipts.php');
 
 $items = $pdo->prepare(
-    'SELECT ri.*, p.name AS product_name FROM stock_receipt_items ri JOIN products p ON p.id = ri.product_id WHERE ri.receipt_id = ?'
+    'SELECT ri.*, p.name AS product_name, v.name AS variant_name
+     FROM stock_receipt_items ri
+     JOIN products p ON p.id = ri.product_id
+     LEFT JOIN product_variants v ON v.id = ri.variant_id
+     WHERE ri.receipt_id = ?'
 );
 $items->execute([$id]);
 $items = $items->fetchAll();
@@ -51,7 +55,7 @@ require_once __DIR__ . '/inc_header.php';
     <tbody>
       <?php foreach ($items as $it): ?>
         <tr>
-          <td><?= e($it['product_name']) ?></td>
+          <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
           <td class="text-right"><?= (int) $it['quantity'] ?></td>
           <td class="text-right"><?= money($it['cost_price']) ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($it['quantity'] * $it['cost_price']) ?></td>

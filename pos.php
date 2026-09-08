@@ -77,8 +77,8 @@ function doSearch(q) {
     .then(r => r.json())
     .then(data => {
       if (!data.length) { searchResults.style.display = 'none'; return; }
-      searchResults.innerHTML = data.map(p => `
-        <div class="search-item" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-price="${p.sell_price}"
+      searchResults.innerHTML = data.map((p, i) => `
+        <div class="search-item" data-i="${i}"
              style="padding:8px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;">
           <span>${escapeHtml(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${escapeHtml(p.sku)})</span></span>
           <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${p.qty}</span>
@@ -88,7 +88,8 @@ function doSearch(q) {
         el.addEventListener('mouseenter', () => el.style.background = '#f8fafc');
         el.addEventListener('mouseleave', () => el.style.background = '#fff');
         el.addEventListener('click', () => {
-          addToCart(el.dataset.id, el.dataset.name, parseFloat(el.dataset.price));
+          const p = data[parseInt(el.dataset.i, 10)];
+          addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price));
           searchInput.value = '';
           searchResults.style.display = 'none';
         });
@@ -96,9 +97,10 @@ function doSearch(q) {
     });
 }
 
-function addToCart(id, name, price) {
-  const existing = cart.find(c => c.id === id);
-  if (existing) { existing.qty += 1; } else { cart.push({ id, name, price, qty: 1 }); }
+function addToCart(id, variantId, name, price) {
+  const key = id + ':' + (variantId ?? '');
+  const existing = cart.find(c => c.key === key);
+  if (existing) { existing.qty += 1; } else { cart.push({ key, id, variantId, name, price, qty: 1 }); }
   renderCart();
 }
 
@@ -148,7 +150,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       csrf: csrfToken,
-      items: cart.map(c => ({ product_id: c.id, quantity: c.qty, unit_price: c.price })),
+      items: cart.map(c => ({ product_id: c.id, variant_id: c.variantId, quantity: c.qty, unit_price: c.price })),
       payment_method: document.getElementById('payment-method').value,
       customer_phone: document.getElementById('customer-phone').value,
     }),

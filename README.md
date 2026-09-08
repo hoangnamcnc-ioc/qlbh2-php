@@ -58,5 +58,15 @@ nợ, tạo phiếu nhập (chọn sản phẩm động, tồn kho + giá vốn 
 **Báo cáo**: doanh thu/lãi gộp/tồn kho theo khoảng ngày, top sản phẩm bán chạy, top khách hàng,
 doanh thu theo ngày, tổng thu/chi sổ quỹ trong kỳ — đã test số liệu khớp chính xác.
 
+**Biến thể sản phẩm** (màu/size): mỗi sản phẩm có thể có nhiều biến thể, mỗi biến thể có SKU/giá
+vốn/giá bán/tồn kho riêng theo từng chi nhánh — khi có biến thể, sản phẩm gốc không còn bán trực
+tiếp (phải chọn biến thể). Đã tích hợp xuyên suốt: tìm kiếm & bán trong POS, nhập hàng, đổi trả
+hàng (hoàn đúng kho biến thể), báo cáo (giá vốn/tồn kho tính theo biến thể) — test đầy đủ.
+
 Chưa có: phân quyền theo role trên từng trang (mới có role trong DB + session, chưa chặn UI theo
-role), quản lý biến thể sản phẩm, sửa/hủy đơn sau khi tạo.
+role), sửa/hủy đơn sau khi tạo.
+
+**Lưu ý kỹ thuật khi migrate DB có dữ liệu cũ**: nếu nâng cấp từ bản trước khi có biến thể, bảng
+`inventory` có unique key cũ `(branch_id, product_id)` được ràng buộc bởi FK — cần thêm index phụ
+trên `product_id` trước khi xóa key cũ để đổi sang `(branch_id, product_id, variant_id)` (xem lịch
+sử migration trong quá trình phát triển nếu cần làm lại thao tác này).

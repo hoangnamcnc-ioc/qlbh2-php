@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
     $note = post('note') ?: null;
     $productIds = $_POST['product_id'] ?? [];
+    $variantIds = $_POST['variant_id'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
     $costPrices = $_POST['cost_price'] ?? [];
 
@@ -22,10 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lines = [];
         foreach ($productIds as $i => $pid) {
             $pid = (int) $pid;
+            $vid = (int) ($variantIds[$i] ?? 0) ?: null;
             $qty = (int) ($quantities[$i] ?? 0);
             $cost = (float) ($costPrices[$i] ?? 0);
             if ($pid > 0 && $qty > 0 && $cost >= 0) {
-                $lines[] = [$pid, $qty, $cost];
+                $lines[] = [$pid, $vid, $qty, $cost];
             }
         }
 
@@ -35,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             try {
                 $total = 0.0;
-                foreach ($lines as [$pid, $qty, $cost]) {
+                foreach ($lines as [$pid, $vid, $qty, $cost]) {
                     $total += $qty * $cost;
                 }
 
@@ -46,24 +48,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $receiptId = (int) $pdo->lastInsertId();
 
                 $itemStmt = $pdo->prepare(
-                    'INSERT INTO stock_receipt_items (receipt_id, product_id, quantity, cost_price) VALUES (?,?,?,?)'
+                    'INSERT INTO stock_receipt_items (receipt_id, product_id, variant_id, quantity, cost_price) VALUES (?,?,?,?,?)'
                 );
-                foreach ($lines as [$pid, $qty, $cost]) {
-                    $itemStmt->execute([$receiptId, $pid, $qty, $cost]);
+                foreach ($lines as [$pid, $vid, $qty, $cost]) {
+                    $itemStmt->execute([$receiptId, $pid, $vid, $qty, $cost]);
 
-                    $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ?');
-                    $inv->execute([$branchId, $pid]);
+                    if ($vid) {
+                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
+                        $inv->execute([$branchId, $vid]);
+                    } else {
+                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                        $inv->execute([$branchId, $pid]);
+                    }
                     $invRow = $inv->fetch();
                     if ($invRow) {
                         $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')
                             ->execute([$qty, $invRow['id']]);
                     } else {
-                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity) VALUES (?,?,?)')
-                            ->execute([$branchId, $pid, $qty]);
+                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
+                            ->execute([$branchId, $pid, $vid, $qty]);
                     }
 
-                    // Cập nhật giá vốn mới nhất cho sản phẩm
-                    $pdo->prepare('UPDATE products SET cost_price = ? WHERE id = ?')->execute([$cost, $pid]);
+                    // Cập nhật giá vốn mới nhất
+                    if ($vid) {
+                        $pdo->prepare('UPDATE product_variants SET cost_price = ? WHERE id = ?')->execute([$cost, $vid]);
+                    } else {
+                        $pdo->prepare('UPDATE products SET cost_price = ? WHERE id = ?')->execute([$cost, $pid]);
+                    }
                 }
 
                 if ($supplierId) {
@@ -142,13 +153,14 @@ searchInput.addEventListener('input', () => {
       .then(r => r.json())
       .then(data => {
         if (!data.length) { searchResults.style.display = 'none'; return; }
-        searchResults.innerHTML = data.map(p => `
-          <div class="s-item" data-id="${p.id}" data-name="${esc(p.name)}" data-cost="${p.cost_price}"
+        searchResults.innerHTML = data.map((p, i) => `
+          <div class="s-item" data-i="${i}"
                style="padding:8px 12px;font-size:14px;cursor:pointer;">${esc(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${esc(p.sku)})</span></div>`).join('');
         searchResults.style.display = 'block';
         searchResults.querySelectorAll('.s-item').forEach(el => {
           el.addEventListener('click', () => {
-            addLine(el.dataset.id, el.dataset.name, parseFloat(el.dataset.cost) || 0);
+            const p = data[parseInt(el.dataset.i, 10)];
+            addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0);
             searchInput.value = '';
             searchResults.style.display = 'none';
           });
@@ -157,9 +169,10 @@ searchInput.addEventListener('input', () => {
   }, 250);
 });
 
-function addLine(id, name, cost) {
-  const existing = lines.find(l => l.id === id);
-  if (existing) { existing.qty += 1; } else { lines.push({ id, name, qty: 1, cost }); }
+function addLine(id, variantId, name, cost) {
+  const key = id + ':' + (variantId ?? '');
+  const existing = lines.find(l => l.key === key);
+  if (existing) { existing.qty += 1; } else { lines.push({ key, id, variantId, name, qty: 1, cost }); }
   render();
 }
 
@@ -170,7 +183,7 @@ function render() {
   } else {
     body.innerHTML = lines.map((l, i) => `
       <tr>
-        <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"></td>
+        <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"><input type="hidden" name="variant_id[]" value="${l.variantId ?? ''}"></td>
         <td class="text-right"><input type="number" min="1" value="${l.qty}" data-i="${i}" data-f="qty" name="quantity[]" style="width:70px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-right"><input type="number" min="0" value="${l.cost}" data-i="${i}" data-f="cost" name="cost_price[]" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-right">${fmt(l.qty * l.cost)}</td>
