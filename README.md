@@ -48,9 +48,10 @@ Xem [docs đặc tả chức năng gốc](../QLBH2-SOFT/docs/feature-spec.md) (k
 ## Trạng thái hiện tại
 
 Đã có: Đăng nhập + Đổi mật khẩu, Dashboard cơ bản, Sản phẩm + Tồn kho, Bán hàng POS + Đơn hàng,
-Khách hàng + Công nợ + Nhóm khách hàng, Sổ quỹ (phiếu thu/chi + tổng hợp) — đã deploy và test
-thành công trên app.kt-soft.vn (xem lịch sử làm việc để biết các bug đã phát hiện và sửa).
+Khách hàng + Công nợ + Nhóm khách hàng, Sổ quỹ (phiếu thu/chi + tổng hợp), **Đổi trả hàng**
+(tìm đơn gốc, chọn SL trả từng dòng, tự hoàn tồn kho + tự tạo phiếu chi hoàn tiền trong Sổ quỹ)
+— đã deploy và test thành công trên app.kt-soft.vn.
 
 Chưa có: phân quyền theo role trên từng trang (mới có role trong DB + session, chưa chặn UI theo
-role), Báo cáo chi tiết, quản lý biến thể sản phẩm, nhập/chuyển hàng, đổi trả hàng,
-sửa/hủy đơn sau khi tạo.
+role), Báo cáo chi tiết, quản lý biến thể sản phẩm, nhập hàng + Nhà cung cấp, sửa/hủy đơn sau khi
+tạo.

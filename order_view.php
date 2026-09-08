@@ -47,7 +47,10 @@ require_once __DIR__ . '/inc_header.php';
     <h1 style="font-size:24px;font-weight:600;font-family:monospace;margin:0;"><?= e($order['code']) ?></h1>
     <p class="muted" style="margin:2px 0 0;"><?= date('d/m/Y H:i', strtotime($order['created_at'])) ?></p>
   </div>
-  <span class="badge badge-green"><?= e($statusLabels[$order['status']] ?? $order['status']) ?></span>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="order_return_form.php?q=<?= urlencode($order['code']) ?>" class="btn btn-secondary">Đổi trả hàng</a>
+    <span class="badge badge-green"><?= e($statusLabels[$order['status']] ?? $order['status']) ?></span>
+  </div>
 </div>
 
 <div class="grid-2" style="margin-bottom:24px;">

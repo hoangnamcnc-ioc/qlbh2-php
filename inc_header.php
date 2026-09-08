@@ -6,7 +6,10 @@ $currentUser = requireLogin();
 $navGroups = [
     'Tổng quan' => ['index.php' => 'Tổng quan'],
     'Bán hàng' => ['pos.php' => 'Bán hàng (POS)'],
-    'Đơn hàng' => ['orders.php' => 'Danh sách đơn hàng'],
+    'Đơn hàng' => [
+        'orders.php' => 'Danh sách đơn hàng',
+        'order_returns.php' => 'Đơn trả hàng',
+    ],
     'Sản phẩm' => [
         'products.php' => 'Danh sách sản phẩm',
         'inventory.php' => 'Quản lý kho',

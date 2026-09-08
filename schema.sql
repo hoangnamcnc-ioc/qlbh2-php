@@ -142,6 +142,34 @@ CREATE TABLE IF NOT EXISTS cashbook_entries (
   FOREIGN KEY (created_by_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS order_returns (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  order_id INT NOT NULL,
+  customer_id INT NULL,
+  reason VARCHAR(255) NULL,
+  refund_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  status ENUM('RECEIVED','PENDING') NOT NULL DEFAULT 'RECEIVED',
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id),
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS order_return_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  return_id INT NOT NULL,
+  order_item_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(14,2) NOT NULL,
+  line_total DECIMAL(14,2) NOT NULL,
+  FOREIGN KEY (return_id) REFERENCES order_returns(id) ON DELETE CASCADE,
+  FOREIGN KEY (order_item_id) REFERENCES order_items(id),
+  FOREIGN KEY (product_id) REFERENCES products(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Dữ liệu khởi tạo
 INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')
   ON DUPLICATE KEY UPDATE name = name;
