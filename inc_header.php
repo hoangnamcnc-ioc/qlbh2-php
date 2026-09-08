@@ -81,6 +81,7 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
   <div class="main">
     <div class="topbar">
       <span><?= e($currentUser['name']) ?> · <span class="muted"><?= e($currentUser['role']) ?></span></span>
+      <a href="change_password.php" style="color:#64748b;">Đổi mật khẩu</a>
       <a href="logout.php" style="color:#64748b;">Đăng xuất</a>
     </div>
     <div class="content">

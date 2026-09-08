@@ -42,7 +42,7 @@ try {
         if ($existingCustomer) {
             $customerId = (int) $existingCustomer['id'];
         } else {
-            $code = 'CUZN' . substr((string) (microtime(true) * 1000), -8);
+            $code = 'CUZN' . substr((string) (int) round(microtime(true) * 1000), -8);
             $pdo->prepare('INSERT INTO customers (code, name, phone) VALUES (?, ?, ?)')
                 ->execute([$code, $customerPhone, $customerPhone]);
             $customerId = (int) $pdo->lastInsertId();
