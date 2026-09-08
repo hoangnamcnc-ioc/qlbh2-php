@@ -47,9 +47,10 @@ Xem [docs đặc tả chức năng gốc](../QLBH2-SOFT/docs/feature-spec.md) (k
 
 ## Trạng thái hiện tại
 
-Đã có: Đăng nhập, Dashboard cơ bản, Sản phẩm + Tồn kho, Bán hàng POS + Đơn hàng,
-Khách hàng + Công nợ + Nhóm khách hàng — tương đương 4 module MVP của bản Next.js trước.
+Đã có: Đăng nhập + Đổi mật khẩu, Dashboard cơ bản, Sản phẩm + Tồn kho, Bán hàng POS + Đơn hàng,
+Khách hàng + Công nợ + Nhóm khách hàng, Sổ quỹ (phiếu thu/chi + tổng hợp) — đã deploy và test
+thành công trên app.kt-soft.vn (xem lịch sử làm việc để biết các bug đã phát hiện và sửa).
 
 Chưa có: phân quyền theo role trên từng trang (mới có role trong DB + session, chưa chặn UI theo
-role), Sổ quỹ, Báo cáo chi tiết, quản lý biến thể sản phẩm, nhập/chuyển hàng, đổi trả hàng,
-sửa/hủy đơn sau khi tạo — chưa test với dữ liệu thật trên hosting.
+role), Báo cáo chi tiết, quản lý biến thể sản phẩm, nhập/chuyển hàng, đổi trả hàng,
+sửa/hủy đơn sau khi tạo.
