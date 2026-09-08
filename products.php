@@ -26,7 +26,11 @@ $products = $stmt->fetchAll();
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
   <h1 style="font-size:24px;font-weight:600;">Danh sách sản phẩm</h1>
   <?php if (hasRole('ADMIN', 'MANAGER')): ?>
-    <a href="product_form.php" class="btn">+ Thêm sản phẩm</a>
+    <div style="display:flex;gap:8px;">
+      <a href="products_export.php" class="btn btn-secondary">Xuất file</a>
+      <a href="products_import.php" class="btn btn-secondary">Nhập file</a>
+      <a href="product_form.php" class="btn">+ Thêm sản phẩm</a>
+    </div>
   <?php endif; ?>
 </div>
 

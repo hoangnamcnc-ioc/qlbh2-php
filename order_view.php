@@ -41,6 +41,14 @@ $payments = $pdo->prepare('SELECT * FROM payments WHERE order_id = ?');
 $payments->execute([$id]);
 $payments = $payments->fetchAll();
 
+$shipmentStmt = $pdo->prepare('SELECT * FROM shipments WHERE order_id = ?');
+$shipmentStmt->execute([$id]);
+$shipment = $shipmentStmt->fetch();
+$shipmentStatusLabels = [
+    'PENDING' => 'Chờ lấy hàng', 'PICKED_UP' => 'Đã lấy hàng', 'IN_TRANSIT' => 'Đang giao',
+    'DELIVERED' => 'Đã giao', 'FAILED' => 'Giao thất bại', 'RETURNED' => 'Đã hoàn',
+];
+
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -54,6 +62,10 @@ require_once __DIR__ . '/inc_header.php';
   <div style="display:flex;align-items:center;gap:12px;">
     <?php if ($order['status'] !== 'CANCELLED'): ?>
       <a href="order_return_form.php?q=<?= urlencode($order['code']) ?>" class="btn btn-secondary">Đổi trả hàng</a>
+      <a href="shipment_form.php?order_id=<?= (int) $order['id'] ?>" class="btn btn-secondary">Vận chuyển</a>
+    <?php endif; ?>
+    <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
+      <a href="order_edit.php?id=<?= (int) $order['id'] ?>" class="btn btn-secondary">Sửa đơn hàng</a>
     <?php endif; ?>
     <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
       <form method="post" action="order_cancel.php" onsubmit="return confirm('Hủy đơn hàng này? Tồn kho sẽ được hoàn lại.');">
@@ -107,7 +119,16 @@ require_once __DIR__ . '/inc_header.php';
     <p style="margin:2px 0;">Bán tại: <?= e($order['branch_name']) ?></p>
     <p style="margin:2px 0;">Bán bởi: <?= e($order['sold_by_name']) ?></p>
     <p style="margin:2px 0;">Nguồn: <?= e($order['source']) ?></p>
+    <?php if ($order['coupon_code']): ?><p style="margin:2px 0;">Mã giảm giá: <span style="font-family:monospace;"><?= e($order['coupon_code']) ?></span></p><?php endif; ?>
   </div>
+  <?php if ($shipment): ?>
+  <div class="card">
+    <h2 style="font-size:14px;font-weight:600;margin:0 0 8px;">Vận chuyển</h2>
+    <p style="margin:2px 0;">Đơn vị: <?= e($shipment['carrier_name'] ?: '—') ?></p>
+    <p style="margin:2px 0;">Mã vận đơn: <?= e($shipment['tracking_code'] ?: '—') ?></p>
+    <p style="margin:2px 0;">Trạng thái: <span class="badge badge-gray"><?= e($shipmentStatusLabels[$shipment['status']] ?? $shipment['status']) ?></span></p>
+  </div>
+  <?php endif; ?>
 </div>
 
 <div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">

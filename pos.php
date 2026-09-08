@@ -48,6 +48,23 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       </select>
     </div>
 
+    <div class="field">
+      <label>Mã giảm giá (không bắt buộc)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="coupon-input" class="input" placeholder="vd: SALE10" style="text-transform:uppercase;">
+        <button type="button" id="coupon-apply-btn" class="btn btn-secondary" style="white-space:nowrap;">Áp dụng</button>
+      </div>
+      <div id="coupon-message" style="font-size:12px;margin-top:4px;"></div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;">
+      <span>Tạm tính</span>
+      <span id="cart-subtotal">0</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;color:#dc2626;" id="coupon-discount-row">
+      <span>Giảm giá</span>
+      <span id="coupon-discount">0</span>
+    </div>
     <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:12px;margin-bottom:16px;">
       <span>Tổng tiền</span>
       <span id="cart-total" style="font-size:20px;font-weight:700;color:#2563eb;">0</span>
@@ -132,9 +149,41 @@ function renderCart() {
       });
     });
   }
-  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  document.getElementById('cart-total').textContent = formatMoney(total);
+  updateTotals();
 }
+
+let appliedCoupon = null;
+
+function updateTotals() {
+  const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const discount = appliedCoupon ? appliedCoupon.discount : 0;
+  document.getElementById('cart-subtotal').textContent = formatMoney(subTotal);
+  document.getElementById('coupon-discount').textContent = formatMoney(discount);
+  document.getElementById('cart-total').textContent = formatMoney(Math.max(0, subTotal - discount));
+}
+
+document.getElementById('coupon-apply-btn').addEventListener('click', () => {
+  const code = document.getElementById('coupon-input').value.trim();
+  const msgEl = document.getElementById('coupon-message');
+  msgEl.textContent = '';
+  if (!code) { appliedCoupon = null; updateTotals(); return; }
+
+  const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  fetch('coupon_check.php?code=' + encodeURIComponent(code) + '&sub_total=' + subTotal)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        appliedCoupon = null;
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = data.error;
+      } else {
+        appliedCoupon = { code: data.code, discount: data.discount };
+        msgEl.style.color = '#059669';
+        msgEl.textContent = `Đã áp dụng mã ${data.code}, giảm ${formatMoney(data.discount)}`;
+      }
+      updateTotals();
+    });
+});
 
 document.getElementById('checkout-btn').addEventListener('click', () => {
   const msgBox = document.getElementById('pos-message');
@@ -153,6 +202,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       items: cart.map(c => ({ product_id: c.id, variant_id: c.variantId, quantity: c.qty, unit_price: c.price })),
       payment_method: document.getElementById('payment-method').value,
       customer_phone: document.getElementById('customer-phone').value,
+      coupon_code: appliedCoupon ? appliedCoupon.code : null,
     }),
   })
     .then(r => r.json())
@@ -162,6 +212,9 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       } else {
         msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công!</div>`;
         cart = [];
+        appliedCoupon = null;
+        document.getElementById('coupon-input').value = '';
+        document.getElementById('coupon-message').textContent = '';
         renderCart();
         document.getElementById('customer-phone').value = '';
       }

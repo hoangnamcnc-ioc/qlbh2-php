@@ -263,6 +263,140 @@ CREATE TABLE IF NOT EXISTS stock_transfer_items (
   FOREIGN KEY (variant_id) REFERENCES product_variants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ===== Khuyến mại / Mã giảm giá =====
+CREATE TABLE IF NOT EXISTS coupons (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  discount_type ENUM('PERCENT','AMOUNT') NOT NULL DEFAULT 'AMOUNT',
+  discount_value DECIMAL(14,2) NOT NULL DEFAULT 0,
+  min_order_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  max_uses INT NULL,
+  used_count INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  start_date DATE NULL,
+  end_date DATE NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(50) NULL;
+
+-- ===== Bảo hành =====
+CREATE TABLE IF NOT EXISTS warranty_policies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  duration_months INT NOT NULL DEFAULT 12,
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS warranty_cards (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  order_item_id INT NOT NULL,
+  product_id INT NOT NULL,
+  customer_id INT NULL,
+  policy_id INT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_item_id) REFERENCES order_items(id),
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+  FOREIGN KEY (policy_id) REFERENCES warranty_policies(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS warranty_claims (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  warranty_card_id INT NOT NULL,
+  issue_description VARCHAR(500) NOT NULL,
+  status ENUM('PENDING','PROCESSING','DONE','REJECTED') NOT NULL DEFAULT 'PENDING',
+  note VARCHAR(500) NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME NULL,
+  FOREIGN KEY (warranty_card_id) REFERENCES warranty_cards(id),
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Vận chuyển (theo dõi nội bộ, không gọi API hãng vận chuyển thật) =====
+CREATE TABLE IF NOT EXISTS shipments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  tracking_code VARCHAR(100) NULL,
+  carrier_name VARCHAR(100) NULL,
+  status ENUM('PENDING','PICKED_UP','IN_TRANSIT','DELIVERED','FAILED','RETURNED') NOT NULL DEFAULT 'PENDING',
+  shipping_fee DECIMAL(14,2) NOT NULL DEFAULT 0,
+  cod_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  note VARCHAR(255) NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id),
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Marketing (lưu chiến dịch, KHÔNG gửi SMS/Email thật — cần cấu hình gateway riêng) =====
+CREATE TABLE IF NOT EXISTS campaigns (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  channel ENUM('SMS','EMAIL','OTHER') NOT NULL DEFAULT 'SMS',
+  message VARCHAR(1000) NOT NULL,
+  target_group_id INT NULL,
+  status ENUM('DRAFT','SENT') NOT NULL DEFAULT 'DRAFT',
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (target_group_id) REFERENCES customer_groups(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Đặt hàng nhập (trước khi nhập kho thực tế) =====
+CREATE TABLE IF NOT EXISTS purchase_orders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  supplier_id INT NULL,
+  branch_id INT NOT NULL,
+  created_by_id INT NOT NULL,
+  status ENUM('PENDING','RECEIVED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+  FOREIGN KEY (branch_id) REFERENCES branches(id),
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS purchase_order_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  po_id INT NOT NULL,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  quantity INT NOT NULL,
+  cost_price DECIMAL(14,2) NOT NULL,
+  FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE stock_receipts ADD COLUMN purchase_order_id INT NULL,
+  ADD CONSTRAINT fk_receipt_po FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE SET NULL;
+
+-- ===== Điều chỉnh giá vốn =====
+CREATE TABLE IF NOT EXISTS price_adjustments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  old_cost_price DECIMAL(14,2) NOT NULL,
+  new_cost_price DECIMAL(14,2) NOT NULL,
+  reason VARCHAR(255) NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id),
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Dữ liệu khởi tạo
 INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')
   ON DUPLICATE KEY UPDATE name = name;

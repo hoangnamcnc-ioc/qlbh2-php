@@ -78,8 +78,25 @@ có 1 chi nhánh mặc định.
 Đã test đầy đủ trên app.kt-soft.vn, phát hiện và sửa 1 bug: tồn kho ban đầu khi tạo sản phẩm/biến
 thể mới bị gán nhầm vào chi nhánh đầu tiên theo alphabet thay vì chi nhánh của người tạo.
 
-Chưa có: Vận chuyển, Marketing, Bảo hành, Kế toán/Thuế, Khuyến mại/coupon, Đặt hàng nhập (trước khi
-nhập kho thực tế), Điều chỉnh giá vốn riêng, xuất/nhập file Excel, sửa đơn hàng (chỉ hủy được).
+**14/14 nhóm chức năng đã có** (khớp cấu trúc menu Sapo gốc):
+- **Khuyến mại**: mã giảm giá (số tiền/%, đơn tối thiểu, giới hạn lượt dùng), áp dụng trong POS
+  (validate lại phía server, không tin số liệu client).
+- **Bảo hành**: chính sách bảo hành, phiếu bảo hành (tạo từ đơn hàng), yêu cầu bảo hành + xử lý.
+- **Vận chuyển**: vận đơn nội bộ (mã vận đơn, đơn vị, trạng thái, phí ship, COD) gắn với đơn hàng.
+- **Marketing**: lưu chiến dịch SMS/Email nội bộ (**chưa gửi thật** — cần cấu hình gateway riêng).
+- **Kế toán và Thuế**: trang hướng dẫn (**chưa tích hợp hóa đơn điện tử thật** — cần nhà cung cấp
+  được Tổng cục Thuế công nhận).
+- **Đặt hàng nhập**: tạo trước khi nhập kho, nút "Nhập kho từ đặt hàng này" tự tạo phiếu nhập.
+- **Điều chỉnh giá vốn**: log lịch sử thay đổi giá vốn độc lập với nhập hàng.
+- **Xuất/nhập file**: CSV (Excel mở được) cho Sản phẩm (2 chiều) và Khách hàng (xuất).
+- **Sửa đơn hàng**: sửa ghi chú + chiết khấu sau khi tạo (có cảnh báo không tự đối soát thanh toán).
+
+Đã test toàn bộ trên app.kt-soft.vn bằng cURL + browser thật: coupon giảm đúng giá trong đơn, phiếu
+bảo hành tính đúng hạn 12 tháng, đặt hàng nhập → nhập kho tự động cộng đúng tồn kho + giá vốn, điều
+chỉnh giá vốn ghi log đúng, CSV export/import đọc/ghi đúng dữ liệu.
+
+Giới hạn còn lại: Kênh bán hàng (tích hợp Shopee/Facebook/sàn TMĐT) chưa có kể cả khung dữ liệu —
+đây là phần phụ thuộc nhiều vào API riêng từng sàn, cần yêu cầu cụ thể mới xây được đúng hướng.
 
 **Lưu ý kỹ thuật khi migrate DB có dữ liệu cũ**: nếu nâng cấp từ bản trước khi có biến thể, bảng
 `inventory` có unique key cũ `(branch_id, product_id)` được ràng buộc bởi FK — cần thêm index phụ

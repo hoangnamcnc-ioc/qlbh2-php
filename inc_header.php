@@ -12,6 +12,7 @@ $navGroups = [
         'orders.php' => 'Danh sách đơn hàng',
         'order_returns.php' => 'Đơn trả hàng',
     ],
+    'Vận chuyển' => ['shipments.php' => 'Vận chuyển'],
     'Sản phẩm' => array_merge(
         [
             'products.php' => 'Danh sách sản phẩm',
@@ -20,8 +21,10 @@ $navGroups = [
         $isManagerUp ? [
             'stock_takes.php' => 'Kiểm hàng',
             'stock_transfers.php' => 'Chuyển hàng',
+            'purchase_orders.php' => 'Đặt hàng nhập',
             'stock_receipts.php' => 'Nhập hàng',
             'suppliers.php' => 'Nhà cung cấp',
+            'price_adjustments.php' => 'Điều chỉnh giá vốn',
         ] : []
     ),
     'Khách hàng' => array_merge(
@@ -30,8 +33,15 @@ $navGroups = [
     ),
 ];
 if ($isManagerUp) {
+    $navGroups['Marketing'] = ['campaigns.php' => 'Chiến dịch'];
+    $navGroups['Bảo hành'] = [
+        'warranty_cards.php' => 'Phiếu bảo hành',
+        'warranty_policies.php' => 'Chính sách bảo hành',
+    ];
     $navGroups['Sổ quỹ'] = ['cashbook.php' => 'Sổ quỹ'];
     $navGroups['Báo cáo'] = ['reports.php' => 'Báo cáo'];
+    $navGroups['Khuyến mại'] = ['coupons.php' => 'Mã giảm giá'];
+    $navGroups['Kế toán và Thuế'] = ['accounting.php' => 'Kế toán và Thuế'];
 }
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = ['branches.php' => 'Chi nhánh'];

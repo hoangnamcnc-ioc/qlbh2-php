@@ -94,12 +94,39 @@ try {
         $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal];
     }
 
+    // Xác thực mã giảm giá lại phía server (không tin số liệu client gửi lên)
+    $discount = 0.0;
+    $couponCode = null;
+    $couponId = null;
+    $rawCouponCode = strtoupper(trim((string) ($input['coupon_code'] ?? '')));
+    if ($rawCouponCode !== '') {
+        $cStmt = $pdo->prepare('SELECT * FROM coupons WHERE code = ? FOR UPDATE');
+        $cStmt->execute([$rawCouponCode]);
+        $coupon = $cStmt->fetch();
+
+        if (
+            $coupon && $coupon['is_active']
+            && (!$coupon['start_date'] || strtotime($coupon['start_date']) <= time())
+            && (!$coupon['end_date'] || strtotime($coupon['end_date'] . ' 23:59:59') >= time())
+            && (!$coupon['max_uses'] || (int) $coupon['used_count'] < (int) $coupon['max_uses'])
+            && $subTotal >= (float) $coupon['min_order_amount']
+        ) {
+            $discount = $coupon['discount_type'] === 'PERCENT'
+                ? $subTotal * (float) $coupon['discount_value'] / 100
+                : (float) $coupon['discount_value'];
+            $discount = min($discount, $subTotal);
+            $couponCode = $coupon['code'];
+            $couponId = $coupon['id'];
+        }
+    }
+    $totalAmount = $subTotal - $discount;
+
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
-        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $subTotal, $subTotal]);
+        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, total_amount, paid_amount)
+         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $totalAmount, $totalAmount]);
     $orderId = (int) $pdo->lastInsertId();
 
     $itemStmt = $pdo->prepare(
@@ -109,11 +136,15 @@ try {
         $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal]);
     }
 
+    if ($couponId) {
+        $pdo->prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?')->execute([$couponId]);
+    }
+
     $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
-        ->execute([$orderId, $paymentMethod, $subTotal]);
+        ->execute([$orderId, $paymentMethod, $totalAmount]);
 
     if ($customerId) {
-        $points = (int) floor($subTotal / 10000);
+        $points = (int) floor($totalAmount / 10000);
         $pdo->prepare('UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?')
             ->execute([$points, $customerId]);
     }
