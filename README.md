@@ -55,5 +55,8 @@ Khách hàng + Công nợ + Nhóm khách hàng, Sổ quỹ (phiếu thu/chi + t�
 **Nhà cung cấp + Nhập hàng**: tạo/xem NCC, công nợ phải trả tự tăng khi nhập hàng, ghi nhận trả
 nợ, tạo phiếu nhập (chọn sản phẩm động, tồn kho + giá vốn tự cập nhật) — đã test đầy đủ.
 
+**Báo cáo**: doanh thu/lãi gộp/tồn kho theo khoảng ngày, top sản phẩm bán chạy, top khách hàng,
+doanh thu theo ngày, tổng thu/chi sổ quỹ trong kỳ — đã test số liệu khớp chính xác.
+
 Chưa có: phân quyền theo role trên từng trang (mới có role trong DB + session, chưa chặn UI theo
-role), Báo cáo chi tiết, quản lý biến thể sản phẩm, sửa/hủy đơn sau khi tạo.
+role), quản lý biến thể sản phẩm, sửa/hủy đơn sau khi tạo.

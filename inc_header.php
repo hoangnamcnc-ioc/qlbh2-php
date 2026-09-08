@@ -21,6 +21,7 @@ $navGroups = [
         'groups.php' => 'Nhóm khách hàng',
     ],
     'Sổ quỹ' => ['cashbook.php' => 'Sổ quỹ'],
+    'Báo cáo' => ['reports.php' => 'Báo cáo'],
 ];
 
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
