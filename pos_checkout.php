@@ -34,6 +34,7 @@ $isDelivery = !empty($input['is_delivery']);
 $deliveryAddress = $isDelivery ? trim((string) ($input['delivery_address'] ?? '')) : null;
 $shippingFee = $isDelivery ? max(0, (float) ($input['shipping_fee'] ?? 0)) : 0.0;
 $orderNote = trim((string) ($input['note'] ?? '')) ?: null;
+$orderTags = trim((string) ($input['tags'] ?? '')) ?: null;
 
 $pdo = db();
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
@@ -199,9 +200,9 @@ try {
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
-        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $totalAmount, $totalAmount]);
+        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, tags, total_amount, paid_amount)
+         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $totalAmount]);
     $orderId = (int) $pdo->lastInsertId();
 
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, "COMPLETED", ?)')

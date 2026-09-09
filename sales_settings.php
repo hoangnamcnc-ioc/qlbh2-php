@@ -4,23 +4,27 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN');
 
 $pdo = db();
-$fields = ['require_customer_phone', 'auto_print_receipt', 'round_total'];
+$checkboxFields = ['require_customer_phone', 'auto_print_receipt', 'round_total', 'suggest_cash_amounts'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
-    foreach ($fields as $key) {
+    foreach ($checkboxFields as $key) {
         $value = isset($_POST[$key]) ? '1' : '0';
         $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
             ->execute([$key, $value]);
     }
+    $discountUnit = ($_POST['default_discount_unit'] ?? '') === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
+    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
+        ->execute(['default_discount_unit', $discountUnit]);
     logActivity('SALES_SETTINGS_UPDATE');
     redirect('sales_settings.php?saved=1');
 }
 
 $values = [];
-foreach ($fields as $key) {
+foreach ($checkboxFields as $key) {
     $values[$key] = getSetting($key, '0');
 }
+$values['default_discount_unit'] = getSetting('default_discount_unit', 'AMOUNT');
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -41,6 +45,16 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <div class="field">
       <label><input type="checkbox" name="round_total" <?= $values['round_total'] === '1' ? 'checked' : '' ?>> Làm tròn tổng tiền đơn hàng đến hàng nghìn đồng</label>
+    </div>
+    <div class="field">
+      <label><input type="checkbox" name="suggest_cash_amounts" <?= $values['suggest_cash_amounts'] === '1' ? 'checked' : '' ?>> Gợi ý nhanh các mức tiền khách đưa (tròn chục/trăm nghìn) trong POS</label>
+    </div>
+    <div class="field">
+      <label>Đơn vị chiết khấu mặc định trong POS</label>
+      <select class="input" name="default_discount_unit" style="max-width:160px;">
+        <option value="AMOUNT" <?= $values['default_discount_unit'] === 'AMOUNT' ? 'selected' : '' ?>>VNĐ</option>
+        <option value="PERCENT" <?= $values['default_discount_unit'] === 'PERCENT' ? 'selected' : '' ?>>%</option>
+      </select>
     </div>
     <button type="submit" class="btn">Lưu cấu hình</button>
   </form>

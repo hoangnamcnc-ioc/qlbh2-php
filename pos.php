@@ -53,6 +53,8 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       <a href="orders.php" class="btn btn-secondary" style="text-align:center;">Xem danh sách đơn hàng</a>
       <a href="reports.php" class="btn btn-secondary" style="text-align:center;">Xem báo cáo</a>
       <a href="sales_settings.php" class="btn btn-secondary" style="text-align:center;">Thiết lập chung</a>
+      <a href="cashbook.php" class="btn btn-secondary" style="text-align:center;">Tạo phiếu thu/chi</a>
+      <button type="button" id="qa-print-last" class="btn btn-secondary" disabled>In đơn gần nhất (Alt+1)</button>
     </div>
     <div id="service-picker" style="display:none;margin-top:8px;" class="card">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
@@ -117,6 +119,11 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       <input type="text" id="order-note" class="input" placeholder="Ghi chú cho đơn hàng này...">
     </div>
 
+    <div class="field">
+      <label>Tags đơn hàng (cách nhau bằng dấu phẩy)</label>
+      <input type="text" id="order-tags" class="input" placeholder="vd: khach quen, giao gap">
+    </div>
+
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;">
       <span>Tạm tính</span>
       <span id="cart-subtotal">0</span>
@@ -137,6 +144,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
     <div class="field">
       <label>Tiền khách đưa (F2)</label>
       <input type="number" min="0" id="cash-given" class="input" placeholder="0">
+      <div id="cash-suggestions" style="display:none;gap:6px;margin-top:6px;flex-wrap:wrap;"></div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:16px;">
       <span>Tiền thối lại</span>
@@ -145,7 +153,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
     <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
     <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
-      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F8 Khuyến mại · F9 Thêm dịch vụ
+      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F8 Khuyến mại · F9 Thêm dịch vụ · Alt+1 In đơn gần nhất
     </p>
   </div>
 </div>
@@ -154,11 +162,14 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 const csrfToken = <?= json_encode(csrfToken()) ?>;
 const requireCustomerPhone = <?= json_encode(getSetting('require_customer_phone', '0') === '1') ?>;
 const autoPrintReceipt = <?= json_encode(getSetting('auto_print_receipt', '0') === '1') ?>;
+const suggestCashAmounts = <?= json_encode(getSetting('suggest_cash_amounts', '0') === '1') ?>;
+const defaultDiscountUnit = <?= json_encode(getSetting('default_discount_unit', 'AMOUNT')) ?>;
+let lastOrderId = null;
 function makeEmptyOrder() {
   return {
     cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, paymentMethod: 'CASH',
-    manualDiscountType: 'AMOUNT', manualDiscountValue: '', appliedCoupon: null, couponInput: '',
-    isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', cashGiven: '',
+    manualDiscountType: defaultDiscountUnit, manualDiscountValue: '', appliedCoupon: null, couponInput: '',
+    isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', tags: '', cashGiven: '',
   };
 }
 
@@ -181,6 +192,7 @@ function saveCurrentOrderState() {
   o.deliveryAddress = document.getElementById('delivery-address').value;
   o.shippingFee = document.getElementById('shipping-fee').value;
   o.note = document.getElementById('order-note').value;
+  o.tags = document.getElementById('order-tags').value;
   o.cashGiven = document.getElementById('cash-given').value;
 }
 
@@ -204,6 +216,7 @@ function loadOrderState(idx) {
   document.getElementById('delivery-address').value = o.deliveryAddress;
   document.getElementById('shipping-fee').value = o.shippingFee;
   document.getElementById('order-note').value = o.note;
+  document.getElementById('order-tags').value = o.tags;
   document.getElementById('cash-given').value = o.cashGiven;
   document.getElementById('pos-message').innerHTML = '';
   renderCart();
@@ -419,7 +432,25 @@ function updateTotals() {
   document.getElementById('coupon-discount').textContent = formatMoney(discount);
   document.getElementById('shipping-fee-display').textContent = formatMoney(shippingFee);
   document.getElementById('cart-total').textContent = formatMoney(total);
+  renderCashSuggestions(total);
   updateChange();
+}
+
+function renderCashSuggestions(total) {
+  const box = document.getElementById('cash-suggestions');
+  if (!suggestCashAmounts || total <= 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const rounds = [10000, 50000, 100000, 200000, 500000];
+  const amounts = new Set([Math.ceil(total / 1000) * 1000]);
+  rounds.forEach(r => { if (r >= total) amounts.add(Math.ceil(total / r) * r); });
+  const list = Array.from(amounts).filter(a => a >= total).sort((a, b) => a - b).slice(0, 4);
+  box.style.display = 'flex';
+  box.innerHTML = list.map(a => `<button type="button" class="btn btn-secondary cash-suggest-btn" data-amt="${a}" style="padding:4px 10px;font-size:12px;">${formatMoney(a)}</button>`).join('');
+  box.querySelectorAll('.cash-suggest-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('cash-given').value = btn.dataset.amt;
+      updateChange();
+    });
+  });
 }
 
 document.getElementById('manual-discount-value').addEventListener('input', updateTotals);
@@ -491,6 +522,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       delivery_address: document.getElementById('delivery-address').value,
       shipping_fee: getShippingFee(),
       note: document.getElementById('order-note').value,
+      tags: document.getElementById('order-tags').value,
     }),
   })
     .then(r => r.json())
@@ -499,6 +531,8 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
         msgBox.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error)}</div>`;
       } else {
         msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công! <a href="order_print.php?id=${data.order_id}" target="_blank">In hóa đơn</a></div>`;
+        lastOrderId = data.order_id;
+        document.getElementById('qa-print-last').disabled = false;
         if (autoPrintReceipt) { window.open('order_print.php?id=' + data.order_id, '_blank'); }
         // Đơn đã thanh toán xong: đóng tab này (hoặc reset nếu là tab duy nhất) rồi chuyển sang đơn kế tiếp.
         const successMsg = msgBox.innerHTML;
@@ -517,6 +551,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
     .finally(() => { btn.disabled = false; btn.textContent = 'Thanh toán'; });
 });
 
+document.getElementById('manual-discount-type').value = defaultDiscountUnit;
 renderTabs();
 
 document.getElementById('tab-browse-off').addEventListener('click', () => setBrowseMode(false));
@@ -672,9 +707,18 @@ document.addEventListener('click', (e) => {
   }
 });
 
+document.getElementById('qa-print-last').addEventListener('click', () => {
+  if (lastOrderId) { window.open('order_print.php?id=' + lastOrderId, '_blank'); }
+});
+
 // Phím tắt bán hàng kiểu Sapo
 document.addEventListener('keydown', (e) => {
   const key = e.key;
+  if (e.altKey && key === '1') {
+    e.preventDefault();
+    document.getElementById('qa-print-last').click();
+    return;
+  }
   if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7', 'F8', 'F9'].includes(key)) return;
   e.preventDefault();
   switch (key) {

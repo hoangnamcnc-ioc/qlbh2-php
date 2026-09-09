@@ -328,7 +328,27 @@ thành công → còn đúng 50 điểm, tồn kho quà giảm còn 4, có bản
 đổi lần 2 khi chỉ còn 50 điểm (không đủ 100) → bị từ chối đúng với thông báo rõ ràng. Đã xóa sạch
 dữ liệu test.
 
-Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: nút "Tất cả thao tác" của Sapo chỉ là bảng
-liệt kê đầy đủ hơn — thanh thao tác nhanh hiện tại đã hiển thị đủ các mục quan trọng nên không cần
-thêm màn hình riêng; đơn giữ trên tab vẫn là trạng thái tạm trên trình duyệt, không phải đơn nháp
-lưu server.
+**Vòng bổ sung "Xem thêm thao tác"** (theo ảnh danh sách đầy đủ + panel "Thiết lập chung" của Sapo):
+- **Tạo phiếu thu/chi**: thêm liên kết nhanh tới Sổ quỹ ngay trong thanh thao tác POS.
+- **In đơn gần nhất (Alt+1)**: sau khi thanh toán, nút này (và phím tắt Alt+1) mở lại hóa đơn in
+  của đơn vừa tạo mà không cần vào Danh sách đơn hàng tìm lại.
+- **Thêm tags**: ô nhập tag cho đơn hàng ngay trong POS (lưu vào `orders.tags`, hiển thị trong
+  `order_view.php` như tag của đơn tạo qua đường khác).
+- **Gợi ý tiền thanh toán** (cấu hình bật/tắt trong `sales_settings.php`): khi bật, ô "Tiền khách
+  đưa" hiện thêm các nút gợi ý nhanh (làm tròn nghìn, chục nghìn, trăm nghìn... của tổng tiền) để
+  bấm chọn thay vì gõ tay.
+- **Đơn vị chiết khấu mặc định** (cấu hình trong `sales_settings.php`): chọn VNĐ hoặc % làm mặc
+  định cho ô "Chiết khấu đơn (F6)" mỗi khi mở tab đơn mới trong POS.
+
+Đã test trên app.kt-soft.vn: bật "Gợi ý tiền thanh toán" + đặt mặc định "%" → tạo đơn 37.000đ, xác
+nhận đúng 4 nút gợi ý (37.000/50.000/100.000/200.000) và ô chiết khấu mặc định hiện "%"; bấm gợi ý
+50.000đ tính đúng tiền thối 13.000đ; nhập tag "test tag" và thanh toán, xác nhận tag lưu đúng vào
+đơn hàng trong CSDL. Đã xóa sạch dữ liệu test và đặt lại cấu hình về mặc định ban đầu.
+
+Giới hạn còn lại so với giao diện POS đầy đủ của Sapo (các mục còn thiếu chủ yếu cần phần cứng/tích
+hợp ngoài hoặc là tùy biến giao diện nâng cao, không thuộc phạm vi khung dữ liệu nghiệp vụ): Kết nối
+màn hình phụ, Kết nối cân điện tử, Đơn thuốc điện tử, Màn hình hiển thị QR cho khách thanh toán,
+Bán hàng Offline (đồng bộ lại khi có mạng), Đổi chi nhánh ngay trong phiên POS, Tùy chỉnh nút chức
+năng/màu sắc giao diện, Chọn lô tự động, Tách dòng khi in, Sắp xếp thứ tự hiển thị sản phẩm, Điều
+chỉnh cột hiển thị thông tin sản phẩm. Đơn giữ trên tab vẫn là trạng thái tạm trên trình duyệt,
+không phải đơn nháp lưu server.
