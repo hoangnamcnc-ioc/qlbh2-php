@@ -10,13 +10,16 @@ $status = $_GET['status'] ?? '';
 $fromDate = $_GET['from'] ?? '';
 $toDate = $_GET['to'] ?? '';
 $staffId = (int) ($_GET['staff_id'] ?? 0);
+$channelId = (int) ($_GET['channel_id'] ?? 0);
 
 $pdo = db();
 $staffList = $pdo->query('SELECT id, name FROM users ORDER BY name')->fetchAll();
+$channelList = $pdo->query('SELECT id, name FROM sales_channels ORDER BY name')->fetchAll();
 
-$sql = 'SELECT o.*, c.name AS customer_name, u.name AS staff_name FROM orders o
+$sql = 'SELECT o.*, c.name AS customer_name, u.name AS staff_name, sc.name AS channel_name FROM orders o
         LEFT JOIN customers c ON c.id = o.customer_id
-        JOIN users u ON u.id = o.sold_by_id';
+        JOIN users u ON u.id = o.sold_by_id
+        LEFT JOIN sales_channels sc ON sc.id = o.channel_id';
 $where = [];
 $params = [];
 
@@ -35,6 +38,10 @@ if ($toDate !== '') {
 if ($staffId) {
     $where[] = 'o.sold_by_id = ?';
     $params[] = $staffId;
+}
+if ($channelId) {
+    $where[] = 'o.channel_id = ?';
+    $params[] = $channelId;
 }
 if ($where) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
@@ -64,6 +71,12 @@ $orders = $stmt->fetchAll();
       <option value="<?= (int) $s['id'] ?>" <?= $staffId === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option>
     <?php endforeach; ?>
   </select>
+  <select name="channel_id" class="input" style="max-width:180px;">
+    <option value="">Tất cả kênh bán</option>
+    <?php foreach ($channelList as $ch): ?>
+      <option value="<?= (int) $ch['id'] ?>" <?= $channelId === (int) $ch['id'] ? 'selected' : '' ?>><?= e($ch['name']) ?></option>
+    <?php endforeach; ?>
+  </select>
   <input type="date" name="from" class="input" style="max-width:160px;" value="<?= e($fromDate) ?>">
   <input type="date" name="to" class="input" style="max-width:160px;" value="<?= e($toDate) ?>">
   <button type="submit" class="btn btn-secondary">Lọc</button>
@@ -73,11 +86,11 @@ $orders = $stmt->fetchAll();
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
-      <tr><th style="width:32px;"></th><th>Mã đơn hàng</th><th>Ngày tạo</th><th>Khách hàng</th><th>Nhân viên</th><th>Trạng thái</th><th class="text-right">Tổng tiền</th></tr>
+      <tr><th style="width:32px;"></th><th>Mã đơn hàng</th><th>Ngày tạo</th><th>Khách hàng</th><th>Nhân viên</th><th>Kênh bán</th><th>Trạng thái</th><th class="text-right">Tổng tiền</th></tr>
     </thead>
     <tbody>
       <?php if (!$orders): ?>
-        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Không có đơn hàng nào khớp bộ lọc.</td></tr>
+        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Không có đơn hàng nào khớp bộ lọc.</td></tr>
       <?php endif; ?>
       <?php foreach ($orders as $o): ?>
         <tr>
@@ -86,12 +99,13 @@ $orders = $stmt->fetchAll();
           <td class="muted"><?= date('d/m/Y H:i', strtotime($o['created_at'])) ?></td>
           <td><?= e($o['customer_name'] ?: 'Khách lẻ') ?></td>
           <td class="muted"><?= e($o['staff_name']) ?></td>
+          <td class="muted"><?= e($o['channel_name'] ?: 'Trực tiếp') ?></td>
           <td><span class="badge badge-gray"><?= e($statusLabels[$o['status']] ?? $o['status']) ?></span></td>
           <td class="text-right" style="font-weight:600;"><?= money($o['total_amount']) ?></td>
         </tr>
         <tr class="quick-row" data-row-for="<?= (int) $o['id'] ?>" style="display:none;">
           <td></td>
-          <td colspan="6" class="muted" style="font-size:13px;padding:8px 12px;background:#f8fafc;">Đang tải...</td>
+          <td colspan="7" class="muted" style="font-size:13px;padding:8px 12px;background:#f8fafc;">Đang tải...</td>
         </tr>
       <?php endforeach; ?>
     </tbody>

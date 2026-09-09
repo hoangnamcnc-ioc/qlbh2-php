@@ -85,21 +85,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $refundTotal += $lineTotal;
                     $lineData[] = [$item['id'], $item['product_id'], $item['variant_id'], $qty, $item['unit_price'], $lineTotal];
 
-                    // Hoàn lại tồn kho tại chi nhánh đã bán (đúng biến thể nếu có)
-                    if ($item['variant_id']) {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
-                        $inv->execute([$orderRow['branch_id'], $item['variant_id']]);
+                    // Hoàn lại tồn kho tại chi nhánh đã bán (đúng biến thể nếu có).
+                    // Dịch vụ không quản lý tồn kho nên bỏ qua; Combo hoàn ngược lại tồn kho
+                    // của từng sản phẩm thành phần thay vì chính sản phẩm combo.
+                    $typeStmt = $pdo->prepare('SELECT product_type FROM products WHERE id = ?');
+                    $typeStmt->execute([$item['product_id']]);
+                    $productType = $typeStmt->fetchColumn() ?: 'PRODUCT';
+
+                    if ($productType === 'SERVICE') {
+                        // không hoàn tồn kho
+                    } elseif ($productType === 'COMBO') {
+                        $comboStmt = $pdo->prepare('SELECT component_product_id, quantity AS comp_qty FROM combo_items WHERE combo_product_id = ?');
+                        $comboStmt->execute([$item['product_id']]);
+                        foreach ($comboStmt->fetchAll() as $comp) {
+                            $restoreQty = (int) $comp['comp_qty'] * $qty;
+                            $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                            $inv->execute([$orderRow['branch_id'], $comp['component_product_id']]);
+                            $invRow = $inv->fetch();
+                            if ($invRow) {
+                                $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')
+                                    ->execute([$restoreQty, $invRow['id']]);
+                            } else {
+                                $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,NULL,?)')
+                                    ->execute([$orderRow['branch_id'], $comp['component_product_id'], $restoreQty]);
+                            }
+                        }
                     } else {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
-                        $inv->execute([$orderRow['branch_id'], $item['product_id']]);
-                    }
-                    $invRow = $inv->fetch();
-                    if ($invRow) {
-                        $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')
-                            ->execute([$qty, $invRow['id']]);
-                    } else {
-                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
-                            ->execute([$orderRow['branch_id'], $item['product_id'], $item['variant_id'], $qty]);
+                        if ($item['variant_id']) {
+                            $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
+                            $inv->execute([$orderRow['branch_id'], $item['variant_id']]);
+                        } else {
+                            $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                            $inv->execute([$orderRow['branch_id'], $item['product_id']]);
+                        }
+                        $invRow = $inv->fetch();
+                        if ($invRow) {
+                            $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')
+                                ->execute([$qty, $invRow['id']]);
+                        } else {
+                            $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
+                                ->execute([$orderRow['branch_id'], $item['product_id'], $item['variant_id'], $qty]);
+                        }
                     }
                 }
 

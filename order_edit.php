@@ -10,19 +10,23 @@ $stmt->execute([$id]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
 
+$channels = $pdo->query('SELECT * FROM sales_channels WHERE is_active = 1 ORDER BY name')->fetchAll();
+
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $note = post('note') ?: null;
     $discount = postFloat('discount');
     $tags = post('tags') ?: null;
+    $channelId = (int) ($_POST['channel_id'] ?? 0) ?: null;
+    $externalCode = post('external_order_code') ?: null;
 
     if ($discount > (float) $order['sub_total']) {
         $error = 'Chiết khấu không được lớn hơn tổng tiền hàng';
     } else {
         $newTotal = (float) $order['sub_total'] - $discount + (float) $order['shipping_fee'];
-        $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, tags = ? WHERE id = ?')
-            ->execute([$note, $discount, $newTotal, $tags, $id]);
+        $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, tags = ?, channel_id = ?, external_order_code = ? WHERE id = ?')
+            ->execute([$note, $discount, $newTotal, $tags, $channelId, $externalCode, $id]);
 
         $currentUser = currentUser();
         $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?, ?, ?, ?, ?)')
@@ -54,6 +58,21 @@ require_once __DIR__ . '/inc_header.php';
       <input class="input" type="number" min="0" max="<?= (float) $order['sub_total'] ?>" name="discount" value="<?= e((string) $order['discount']) ?>">
     </div>
     <div class="field"><label>Tags (cách nhau bằng dấu phẩy)</label><input class="input" name="tags" value="<?= e($order['tags'] ?? '') ?>"></div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Kênh bán hàng (<a href="channels.php" class="muted">quản lý</a>)</label>
+        <select class="input" name="channel_id">
+          <option value="">— Không chọn (bán trực tiếp) —</option>
+          <?php foreach ($channels as $ch): ?>
+            <option value="<?= (int) $ch['id'] ?>" <?= (int) ($order['channel_id'] ?? 0) === (int) $ch['id'] ? 'selected' : '' ?>><?= e($ch['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="field">
+        <label>Mã đơn trên kênh (nếu có)</label>
+        <input class="input" name="external_order_code" value="<?= e($order['external_order_code'] ?? '') ?>" placeholder="vd: mã đơn Shopee">
+      </div>
+    </div>
     <button type="submit" class="btn">Lưu thay đổi</button>
   </form>
 </div>

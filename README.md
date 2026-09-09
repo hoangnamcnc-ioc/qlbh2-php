@@ -172,6 +172,25 @@ Combo số lượng 3 (combo gồm 2 sản phẩm A) → xác nhận tồn kho s
 ghi đúng dòng và tổng tiền. Toàn bộ dữ liệu test (khách hàng, sản phẩm, đơn hàng, bảng giá) đã được
 xóa sạch khỏi server sau khi kiểm tra.
 
-Giới hạn còn lại: đổi trả hàng chưa xử lý riêng cho Combo/Dịch vụ (hoàn tồn kho theo `product_id`
-gốc, chưa hoàn ngược lại tồn kho thành phần combo) — cần bổ sung nếu phát sinh nhu cầu đổi trả thực
-tế với các loại sản phẩm này. Kênh bán hàng TMĐT (Shopee/Facebook) vẫn chưa có khung dữ liệu.
+**Vòng hoàn thiện thứ 5 (hoàn tất các hạng mục còn thiếu)**:
+- **Đổi trả hàng cho Combo/Dịch vụ** (`order_return_form.php`): Dịch vụ trả hàng không hoàn tồn
+  kho (vì không quản lý tồn kho); Combo trả hàng tự hoàn tồn kho đúng cho từng sản phẩm thành phần
+  theo số lượng cấu hình trong combo (không còn tạo nhầm dòng tồn kho cho chính sản phẩm combo).
+- **Kênh bán hàng** (`channels.php`, khung dữ liệu nội bộ — chưa gọi API Shopee/Facebook thật):
+  khai báo kênh (Shopee/Lazada/TikTok Shop/Facebook/Website/Khác), gán vào đơn hàng kèm mã đơn bên
+  kênh (`order_edit.php`), lọc + hiển thị cột kênh trong danh sách đơn (`orders.php`), xem chi tiết
+  trong `order_view.php`, và báo cáo doanh thu theo từng kênh trong `reports.php`.
+- **Sidebar gọn hơn**: các nhóm menu có từ 2 mục con trở lên (Đơn hàng, Sản phẩm, Khách hàng, Bảo
+  hành, Khuyến mại...) giờ thu gọn mặc định, chỉ hiện danh sách mục con khi bấm vào tên nhóm; nhóm
+  chứa trang đang xem tự động mở sẵn. Nhóm chỉ có 1 mục (Tổng quan, Bán hàng, Vận chuyển...) vẫn
+  hiển thị trực tiếp như cũ, không cần bấm thêm.
+
+Đã test trên app.kt-soft.vn: trả 1 đơn vị Combo (gồm 3 sản phẩm thành phần/combo) → tồn kho thành
+phần tăng đúng +3, không phát sinh dòng tồn kho thừa cho sản phẩm combo; tạo kênh bán hàng, gán vào
+đơn hàng kèm mã đơn ngoài, xác nhận hiển thị đúng ở danh sách/chi tiết đơn và báo cáo doanh thu theo
+kênh; bấm mở/đóng từng nhóm menu hoạt động đúng, nhóm đang chứa trang hiện tại tự mở sẵn. Toàn bộ
+dữ liệu test đã xóa sạch khỏi server sau khi kiểm tra.
+
+Đến đây phần mềm đã hoàn thiện đầy đủ các hạng mục nghiệp vụ đối chiếu với Sapo POS trong phạm vi
+đã khảo sát, chỉ còn phụ thuộc các tích hợp API thật bên thứ 3 (thanh toán, hóa đơn điện tử, SMS/
+Email, vận chuyển, sàn TMĐT) mà dự án chủ động chưa gọi thật theo quyết định ban đầu.

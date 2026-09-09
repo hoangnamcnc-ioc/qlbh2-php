@@ -47,6 +47,7 @@ if ($isManagerUp) {
         'coupons.php' => 'Mã giảm giá',
     ];
     $navGroups['Kế toán và Thuế'] = ['accounting.php' => 'Kế toán và Thuế'];
+    $navGroups['Kênh bán hàng'] = ['channels.php' => 'Kênh bán hàng'];
 }
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = ['branches.php' => 'Chi nhánh'];
@@ -69,6 +70,12 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
   .sidebar { width: 240px; flex-shrink: 0; background: #0f172a; color: #cbd5e1; min-height: 100vh; }
   .sidebar .brand { padding: 16px; font-size: 20px; font-weight: 700; color: #fff; border-bottom: 1px solid #1e293b; }
   .sidebar .group-label { padding: 12px 16px 4px; font-size: 11px; text-transform: uppercase; color: #64748b; }
+  .sidebar .group-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #e2e8f0; cursor: pointer; user-select: none; }
+  .sidebar .group-toggle:hover { background: #1e293b; }
+  .sidebar .group-toggle .chevron { font-size: 10px; color: #64748b; transition: transform .15s; }
+  .sidebar .group-toggle.open .chevron { transform: rotate(90deg); }
+  .sidebar .submenu { display: none; }
+  .sidebar .submenu.open { display: block; }
   .sidebar a { display: block; padding: 8px 24px; font-size: 14px; color: #cbd5e1; }
   .sidebar a:hover { background: #1e293b; color: #fff; text-decoration: none; }
   .sidebar a.active { background: #2563eb; color: #fff; }
@@ -107,12 +114,30 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
   <aside class="sidebar">
     <div class="brand">QLBH2</div>
     <?php foreach ($navGroups as $label => $links): ?>
-      <div class="group-label"><?= e($label) ?></div>
-      <?php foreach ($links as $file => $text): ?>
-        <a href="<?= e($file) ?>" class="<?= $currentFile === $file ? 'active' : '' ?>"><?= e($text) ?></a>
-      <?php endforeach; ?>
+      <?php $hasActive = array_key_exists($currentFile, $links); ?>
+      <?php if (count($links) > 1): ?>
+        <div class="group-toggle<?= $hasActive ? ' open' : '' ?>" onclick="toggleGroup(this)">
+          <span><?= e($label) ?></span>
+          <span class="chevron">▸</span>
+        </div>
+        <div class="submenu<?= $hasActive ? ' open' : '' ?>">
+          <?php foreach ($links as $file => $text): ?>
+            <a href="<?= e($file) ?>" class="<?= $currentFile === $file ? 'active' : '' ?>"><?= e($text) ?></a>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <?php foreach ($links as $file => $text): ?>
+          <a href="<?= e($file) ?>" class="<?= $currentFile === $file ? 'active' : '' ?>" style="padding-top:10px;padding-bottom:10px;font-weight:600;color:#e2e8f0;"><?= e($text) ?></a>
+        <?php endforeach; ?>
+      <?php endif; ?>
     <?php endforeach; ?>
   </aside>
+  <script>
+    function toggleGroup(el) {
+      el.classList.toggle('open');
+      el.nextElementSibling.classList.toggle('open');
+    }
+  </script>
   <div class="main">
     <div class="topbar">
       <span><?= e($currentUser['name']) ?> · <span class="muted"><?= e($currentUser['role']) ?></span></span>

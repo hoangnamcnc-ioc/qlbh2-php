@@ -73,6 +73,16 @@ $stock = $pdo->query(
      LEFT JOIN product_variants v ON v.id = i.variant_id"
 )->fetch();
 
+// --- Doanh thu theo kênh bán hàng ---
+$stmt = $pdo->prepare(
+    "SELECT COALESCE(sc.name, 'Trực tiếp') AS channel_name, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
+     FROM orders o LEFT JOIN sales_channels sc ON sc.id = o.channel_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     GROUP BY o.channel_id ORDER BY total DESC"
+);
+$stmt->execute([$fromDt, $toDt]);
+$byChannel = $stmt->fetchAll();
+
 // --- Sổ quỹ trong kỳ ---
 $stmt = $pdo->prepare(
     "SELECT COALESCE(SUM(CASE WHEN type='RECEIPT' THEN amount ELSE 0 END),0) AS total_receipt,
@@ -161,6 +171,25 @@ $cashSummary = $stmt->fetch();
       </table>
     </div>
   </div>
+</div>
+
+<h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Doanh thu theo kênh bán hàng</h2>
+<div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
+  <table>
+    <thead><tr><th>Kênh bán</th><th class="text-right">Số đơn</th><th class="text-right">Doanh thu</th></tr></thead>
+    <tbody>
+      <?php if (!$byChannel): ?>
+        <tr><td colspan="3" class="text-center muted" style="padding:20px;">Không có dữ liệu</td></tr>
+      <?php endif; ?>
+      <?php foreach ($byChannel as $c): ?>
+        <tr>
+          <td><?= e($c['channel_name']) ?></td>
+          <td class="text-right"><?= (int) $c['order_count'] ?></td>
+          <td class="text-right" style="font-weight:600;"><?= money($c['total']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
 </div>
 
 <h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Doanh thu theo ngày</h2>
