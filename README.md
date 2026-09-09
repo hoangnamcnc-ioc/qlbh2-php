@@ -153,5 +153,25 @@ thành phần (hiện đúng số lượng), tạo bảng giá + gán vào nhóm
 (lưu và hiển thị lại đúng), tra cứu theo SKU trả về đúng 1 kết quả xác nhận logic tự thêm vào giỏ
 khi quét mã hoạt động đúng. Toàn bộ dữ liệu test đã được xóa sạch khỏi server sau khi kiểm tra.
 
-Giới hạn: giá theo bảng giá hiện chỉ áp cho sản phẩm gốc (chưa hỗ trợ giá riêng theo biến thể); POS
-chưa tự động chọn bảng giá theo khách hàng khi nhập SĐT (cần bổ sung nếu có nhu cầu sử dụng ngay).
+Giới hạn: giá theo bảng giá hiện chỉ áp cho sản phẩm gốc (chưa hỗ trợ giá riêng theo biến thể).
+
+**Vòng hoàn thiện thứ 4**:
+- **POS tự động áp bảng giá theo khách hàng**: nhập SĐT trong POS (`customer_lookup.php`) → nếu
+  khách thuộc nhóm có gán bảng giá riêng, mọi sản phẩm tìm/quét sau đó tự lấy đúng giá trong bảng
+  giá đó (`pos_search.php` nhận thêm tham số `price_list_id`), hiển thị rõ tên khách + nhóm +
+  thông báo "Áp dụng bảng giá riêng" ngay dưới ô nhập SĐT.
+- **Bán Combo trong POS**: sản phẩm loại Combo giờ tìm được trong POS như 1 dòng hàng bình thường;
+  khi thanh toán (`pos_checkout.php`), hệ thống tự trừ tồn kho của từng sản phẩm thành phần theo
+  đúng số lượng cấu hình trong combo (kiểm tra đủ tồn kho từng thành phần trước khi trừ, dùng
+  transaction + `FOR UPDATE` như luồng bán hàng thường).
+- **Bán Dịch vụ trong POS**: sản phẩm loại Dịch vụ khi thanh toán không kiểm tra/trừ tồn kho.
+
+Đã test trên app.kt-soft.vn: tạo khách hàng gán nhóm có bảng giá riêng, xác nhận `pos_search.php`
+trả đúng giá ưu đãi khi có `price_list_id` và giá mặc định khi không có; thanh toán 1 đơn có dòng
+Combo số lượng 3 (combo gồm 2 sản phẩm A) → xác nhận tồn kho sản phẩm A giảm đúng 6 đơn vị, đơn hàng
+ghi đúng dòng và tổng tiền. Toàn bộ dữ liệu test (khách hàng, sản phẩm, đơn hàng, bảng giá) đã được
+xóa sạch khỏi server sau khi kiểm tra.
+
+Giới hạn còn lại: đổi trả hàng chưa xử lý riêng cho Combo/Dịch vụ (hoàn tồn kho theo `product_id`
+gốc, chưa hoàn ngược lại tồn kho thành phần combo) — cần bổ sung nếu phát sinh nhu cầu đổi trả thực
+tế với các loại sản phẩm này. Kênh bán hàng TMĐT (Shopee/Facebook) vẫn chưa có khung dữ liệu.

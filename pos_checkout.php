@@ -61,33 +61,64 @@ try {
             throw new RuntimeException('Dữ liệu sản phẩm không hợp lệ');
         }
 
-        if ($variantId) {
-            $stmt = $pdo->prepare('SELECT * FROM inventory WHERE variant_id = ? AND branch_id = ? FOR UPDATE');
-            $stmt->execute([$variantId, $branchId]);
-        } else {
-            $stmt = $pdo->prepare(
-                'SELECT * FROM inventory WHERE product_id = ? AND branch_id = ? AND variant_id IS NULL FOR UPDATE'
-            );
-            $stmt->execute([$productId, $branchId]);
-        }
-        $inv = $stmt->fetch();
+        $typeStmt = $pdo->prepare('SELECT product_type FROM products WHERE id = ?');
+        $typeStmt->execute([$productId]);
+        $productType = $typeStmt->fetchColumn() ?: 'PRODUCT';
 
-        if (!$inv || (int) $inv['quantity'] < $quantity) {
-            if ($variantId) {
-                $prod = $pdo->prepare(
-                    "SELECT CONCAT(p.name, ' - ', v.name) AS name FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = ?"
-                );
-                $prod->execute([$variantId]);
-            } else {
-                $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
-                $prod->execute([$productId]);
+        if ($productType === 'SERVICE') {
+            // Dịch vụ không quản lý tồn kho, không cần trừ kho.
+        } elseif ($productType === 'COMBO') {
+            $comboStmt = $pdo->prepare('SELECT component_product_id, quantity AS comp_qty FROM combo_items WHERE combo_product_id = ?');
+            $comboStmt->execute([$productId]);
+            $components = $comboStmt->fetchAll();
+            if (!$components) {
+                throw new RuntimeException('Combo này chưa có sản phẩm thành phần, không thể bán');
             }
-            $pname = $prod->fetchColumn() ?: ('#' . $productId);
-            throw new RuntimeException("Sản phẩm \"$pname\" không đủ tồn kho");
-        }
+            foreach ($components as $comp) {
+                $needQty = (int) $comp['comp_qty'] * $quantity;
+                $stmt = $pdo->prepare(
+                    'SELECT * FROM inventory WHERE product_id = ? AND branch_id = ? AND variant_id IS NULL FOR UPDATE'
+                );
+                $stmt->execute([$comp['component_product_id'], $branchId]);
+                $compInv = $stmt->fetch();
+                if (!$compInv || (int) $compInv['quantity'] < $needQty) {
+                    $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
+                    $prod->execute([$comp['component_product_id']]);
+                    $pname = $prod->fetchColumn() ?: ('#' . $comp['component_product_id']);
+                    throw new RuntimeException("Sản phẩm thành phần \"$pname\" trong combo không đủ tồn kho");
+                }
+                $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
+                    ->execute([$needQty, $compInv['id']]);
+            }
+        } else {
+            if ($variantId) {
+                $stmt = $pdo->prepare('SELECT * FROM inventory WHERE variant_id = ? AND branch_id = ? FOR UPDATE');
+                $stmt->execute([$variantId, $branchId]);
+            } else {
+                $stmt = $pdo->prepare(
+                    'SELECT * FROM inventory WHERE product_id = ? AND branch_id = ? AND variant_id IS NULL FOR UPDATE'
+                );
+                $stmt->execute([$productId, $branchId]);
+            }
+            $inv = $stmt->fetch();
 
-        $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
-            ->execute([$quantity, $inv['id']]);
+            if (!$inv || (int) $inv['quantity'] < $quantity) {
+                if ($variantId) {
+                    $prod = $pdo->prepare(
+                        "SELECT CONCAT(p.name, ' - ', v.name) AS name FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = ?"
+                    );
+                    $prod->execute([$variantId]);
+                } else {
+                    $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
+                    $prod->execute([$productId]);
+                }
+                $pname = $prod->fetchColumn() ?: ('#' . $productId);
+                throw new RuntimeException("Sản phẩm \"$pname\" không đủ tồn kho");
+            }
+
+            $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
+                ->execute([$quantity, $inv['id']]);
+        }
 
         $lineTotal = $unitPrice * $quantity;
         $subTotal += $lineTotal;

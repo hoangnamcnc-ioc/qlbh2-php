@@ -36,6 +36,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
     <div class="field">
       <label>SĐT khách hàng (không bắt buộc)</label>
       <input type="text" id="customer-phone" class="input" placeholder="09xxxxxxxx">
+      <div id="customer-info" class="muted" style="font-size:12px;margin-top:4px;"></div>
     </div>
 
     <div class="field">
@@ -93,6 +94,30 @@ let cart = [];
 const searchInput = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 let searchTimer = null;
+let currentPriceListId = null;
+
+const customerPhoneInput = document.getElementById('customer-phone');
+let phoneTimer = null;
+customerPhoneInput.addEventListener('input', () => {
+  clearTimeout(phoneTimer);
+  const phone = customerPhoneInput.value.trim();
+  currentPriceListId = null;
+  document.getElementById('customer-info').textContent = '';
+  if (phone.length < 6) return;
+  phoneTimer = setTimeout(() => {
+    fetch('customer_lookup.php?phone=' + encodeURIComponent(phone))
+      .then(r => r.json())
+      .then(data => {
+        const infoEl = document.getElementById('customer-info');
+        if (data.found) {
+          currentPriceListId = data.price_list_id;
+          infoEl.textContent = data.name + (data.group_name ? ' · Nhóm: ' + data.group_name : '') + (data.price_list_id ? ' · Áp dụng bảng giá riêng' : '');
+        } else {
+          infoEl.textContent = 'Khách hàng mới';
+        }
+      });
+  }, 400);
+});
 
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
@@ -109,7 +134,7 @@ searchInput.addEventListener('keydown', (e) => {
   clearTimeout(searchTimer);
   const q = searchInput.value.trim();
   if (!q) return;
-  fetch('pos_search.php?q=' + encodeURIComponent(q))
+  fetch(searchUrl(q))
     .then(r => r.json())
     .then(data => {
       if (data.length === 1) {
@@ -130,8 +155,14 @@ searchInput.addEventListener('keydown', (e) => {
     });
 });
 
+function searchUrl(q) {
+  let url = 'pos_search.php?q=' + encodeURIComponent(q);
+  if (currentPriceListId) { url += '&price_list_id=' + currentPriceListId; }
+  return url;
+}
+
 function doSearch(q) {
-  fetch('pos_search.php?q=' + encodeURIComponent(q))
+  fetch(searchUrl(q))
     .then(r => r.json())
     .then(data => {
       if (!data.length) { searchResults.style.display = 'none'; return; }
