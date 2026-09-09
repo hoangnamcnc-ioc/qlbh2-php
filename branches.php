@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $pdo->prepare('INSERT INTO branches (name, address, phone) VALUES (?,?,?)')
             ->execute([$name, $address, $phone]);
+        logActivity('BRANCH_CREATE', $name);
         redirect('branches.php');
     }
 }

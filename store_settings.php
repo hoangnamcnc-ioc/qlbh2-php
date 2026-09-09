@@ -4,21 +4,18 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN');
 
 $pdo = db();
-$fields = ['store_name', 'store_phone', 'store_email', 'store_address', 'print_footer_note', 'allow_negative_stock'];
+$fields = ['store_name', 'store_phone', 'store_email', 'store_address', 'print_footer_note'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $pdo->beginTransaction();
     foreach ($fields as $key) {
-        if ($key === 'allow_negative_stock') {
-            $value = isset($_POST[$key]) ? '1' : '0';
-        } else {
-            $value = post($key);
-        }
+        $value = post($key);
         $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
             ->execute([$key, $value]);
     }
     $pdo->commit();
+    logActivity('STORE_SETTINGS_UPDATE');
     redirect('store_settings.php?saved=1');
 }
 
@@ -47,9 +44,6 @@ require_once __DIR__ . '/inc_header.php';
     <div class="field">
       <label>Lời cảm ơn cuối hóa đơn in</label>
       <input class="input" name="print_footer_note" value="<?= e($values['print_footer_note']) ?>">
-    </div>
-    <div class="field">
-      <label><input type="checkbox" name="allow_negative_stock" <?= $values['allow_negative_stock'] === '1' ? 'checked' : '' ?>> Cho phép bán khi tồn kho không đủ (bán âm kho)</label>
     </div>
     <button type="submit" class="btn">Lưu thông tin</button>
   </form>

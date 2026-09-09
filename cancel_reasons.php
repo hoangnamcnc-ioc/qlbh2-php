@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
         $pdo->prepare('UPDATE cancel_reasons SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        logActivity('CANCEL_REASON_TOGGLE', 'id=' . $id);
         redirect('cancel_reasons.php');
     } else {
         $name = post('name');
@@ -23,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Vui lòng nhập lý do';
         } else {
             $pdo->prepare('INSERT INTO cancel_reasons (name, applies_to) VALUES (?,?)')->execute([$name, $appliesTo]);
+            logActivity('CANCEL_REASON_CREATE', $name);
             redirect('cancel_reasons.php');
         }
     }

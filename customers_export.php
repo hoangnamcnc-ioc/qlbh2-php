@@ -5,6 +5,7 @@ requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $customers = $pdo->query('SELECT code, name, phone, address, debt, loyalty_points FROM customers ORDER BY created_at DESC')->fetchAll();
+logActivity('EXPORT_CUSTOMERS', count($customers) . ' khách hàng');
 
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="khach_hang.csv"');

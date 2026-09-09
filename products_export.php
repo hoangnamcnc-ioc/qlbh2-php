@@ -5,6 +5,7 @@ requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $products = $pdo->query('SELECT sku, barcode, name, unit, cost_price, sell_price, is_active FROM products ORDER BY created_at DESC')->fetchAll();
+logActivity('EXPORT_PRODUCTS', count($products) . ' sản phẩm');
 
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="san_pham.csv"');

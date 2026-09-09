@@ -52,11 +52,18 @@ function attemptLogin(string $email, string $password): ?array
 
     unset($user['password_hash']);
     $_SESSION['user'] = $user;
+    require_once __DIR__ . '/inc_functions.php';
+    logActivity('LOGIN', $user['email']);
     return $user;
 }
 
 function logout(): void
 {
+    $user = currentUser();
+    if ($user) {
+        require_once __DIR__ . '/inc_functions.php';
+        logActivity('LOGOUT', $user['email'] ?? '');
+    }
     $_SESSION = [];
     session_destroy();
 }

@@ -235,8 +235,31 @@ trên hóa đơn in; tạo mức thuế, lý do hủy trả, nguồn bán hàng 
 sách cũng như trong dropdown chọn khi hủy đơn/sửa đơn; hủy 1 đơn kèm lý do và xác nhận lý do được
 ghi đúng vào lịch sử đơn hàng. Toàn bộ dữ liệu test đã xóa sạch khỏi server.
 
+**Vòng rà soát lần 2** (đối chiếu tiếp phần còn lại của ảnh chụp trang Cấu hình Sapo), bổ sung:
+- **Chính sách giá**: thêm thẻ liên kết tới `price_lists.php` (đã có sẵn từ vòng trước nhưng bị
+  thiếu trong hub Cấu hình).
+- **Cấu hình bán hàng** (`sales_settings.php`): 3 tùy chọn ảnh hưởng trực tiếp luồng POS — bắt buộc
+  nhập SĐT khách trước khi thanh toán, tự động mở hóa đơn in ngay sau khi thanh toán, làm tròn tổng
+  tiền đơn hàng đến hàng nghìn đồng (áp dụng ngay trong `pos.php`/`pos_checkout.php`).
+- **Quản lý kho & Sản phẩm** (`inventory_settings.php`): tách riêng tùy chọn "cho phép bán âm kho"
+  khỏi trang Thông tin cửa hàng cho đúng cấu trúc Sapo; áp dụng cho cả sản phẩm thường lẫn thành
+  phần combo trong `pos_checkout.php`.
+- **Nhật ký hoạt động** (`activity_log.php`, ADMIN): ghi lại đăng nhập/đăng xuất và các thao tác
+  cấu hình quan trọng (tạo/khóa/đổi quyền tài khoản, sửa thông tin cửa hàng, tạo chi nhánh/kênh bán
+  hàng/thuế/lý do hủy trả/nguồn bán hàng) qua hàm dùng chung `logActivity()`, lọc theo loại hoạt
+  động, hiển thị 200 dòng gần nhất.
+- **Xuất/nhập file** (`file_logs.php`): dùng lại bảng nhật ký hoạt động, lọc riêng các thao tác
+  xuất/nhập CSV sản phẩm và khách hàng, ghi rõ tên file + số dòng thêm mới/cập nhật/bỏ qua.
+
+Đã test trên app.kt-soft.vn: bật "làm tròn tổng tiền" → thanh toán đơn 12.345đ tự động làm tròn
+thành 12.000đ, xác nhận đúng trong dữ liệu đơn hàng; các trang cấu hình mới lưu và hiển thị đúng
+trạng thái đã lưu; trang Nhật ký hoạt động ghi nhận đúng sự kiện đăng nhập. Đã tắt lại "làm tròn
+tổng tiền" và xóa sạch dữ liệu test (dùng tên file tạm khác nhau mỗi lần do LiteSpeed cache phản hồi
+cũ của cùng 1 tên file — cần lưu ý thao tác kiểm tra dữ liệu thực tế bằng truy vấn mới thay vì tin
+vào output của file đã chạy trước đó nếu tái sử dụng cùng tên file).
+
 Giới hạn còn lại so với Sapo (chủ động không xây dựng theo phạm vi ban đầu — chỉ khung dữ liệu nội
-bộ, không gọi API thật): Chính sách giá/Thanh toán (VNPay/VietQR/MoMo) không kết nối cổng thanh
-toán thật; Mẫu in chưa cho tùy chỉnh layout kéo-thả, chỉ tùy chỉnh nội dung; Cân điện tử không tích
-hợp phần cứng; Nhật ký hoạt động (audit log toàn hệ thống) và trang theo dõi Xuất/nhập file chưa có
-— hiện chỉ có lịch sử theo từng đơn hàng (`order_status_history`) và giá vốn (`price_adjustments`).
+bộ, không gọi API thật): Thanh toán (kết nối cổng VNPay/VietQR/MoMo thật); Mẫu in chưa cho tùy
+chỉnh layout kéo-thả, chỉ tùy chỉnh nội dung; Cân điện tử không tích hợp phần cứng; Hóa đơn điện tử
+chưa kết nối nhà cung cấp thật; Xử lý đơn hàng (tùy chỉnh quy trình pipeline linh hoạt) chưa có vì
+hiện tại đơn từ POS luôn tạo thẳng ở trạng thái Hoàn thành, chưa có luồng tạo đơn nháp riêng.

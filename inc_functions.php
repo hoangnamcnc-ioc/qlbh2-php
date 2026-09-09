@@ -42,6 +42,14 @@ function postInt(string $key, int $default = 0): int
     return $n >= 0 ? $n : $default;
 }
 
+/** Ghi 1 dòng nhật ký hoạt động (Cấu hình > Nhật ký hoạt động). */
+function logActivity(string $action, string $detail = ''): void
+{
+    $user = currentUser();
+    db()->prepare('INSERT INTO activity_logs (user_id, user_name, action, detail) VALUES (?,?,?,?)')
+        ->execute([$user['id'] ?? null, $user['name'] ?? 'Hệ thống', $action, $detail]);
+}
+
 /** Đọc 1 giá trị cấu hình chung của cửa hàng (bảng store_settings, dạng key-value). */
 function getSetting(string $key, string $default = ''): string
 {

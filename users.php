@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int) ($_POST['id'] ?? 0);
         if ($id !== (int) $currentUser['id']) {
             $pdo->prepare('UPDATE users SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+            logActivity('USER_TOGGLE', 'user_id=' . $id);
         }
         redirect('users.php');
     } elseif ($action === 'reset_password') {
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $hash = password_hash($newPassword, PASSWORD_DEFAULT);
             $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $id]);
+            logActivity('USER_RESET_PASSWORD', 'user_id=' . $id);
             redirect('users.php?reset=1');
         }
     } elseif ($action === 'update_role') {
@@ -36,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Không thể tự hạ quyền tài khoản đang đăng nhập';
         } else {
             $pdo->prepare('UPDATE users SET role = ?, branch_id = ? WHERE id = ?')->execute([$role, $branchId, $id]);
+            logActivity('USER_ROLE_CHANGE', "user_id=$id role=$role");
             redirect('users.php');
         }
     } else {
@@ -56,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $pdo->prepare('INSERT INTO users (name, email, password_hash, role, branch_id) VALUES (?,?,?,?,?)')
                     ->execute([$name, $email, $hash, $role, $branchId]);
+                logActivity('USER_CREATE', $email);
                 redirect('users.php?created=1');
             }
         }

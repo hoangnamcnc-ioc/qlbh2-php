@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             fclose($handle);
             $result = "Đã thêm mới $created, cập nhật $updated, bỏ qua $skipped dòng không hợp lệ.";
+            logActivity('IMPORT_CUSTOMERS', "file={$_FILES['file']['name']} created=$created updated=$updated skipped=$skipped");
         }
     }
 }

@@ -180,6 +180,9 @@ try {
     }
 
     $totalAmount = $subTotal - $discount;
+    if (getSetting('round_total', '0') === '1') {
+        $totalAmount = round($totalAmount / 1000) * 1000;
+    }
 
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 

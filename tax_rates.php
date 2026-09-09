@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
         $pdo->prepare('UPDATE tax_rates SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        logActivity('TAX_RATE_TOGGLE', 'id=' . $id);
         redirect('tax_rates.php');
     } else {
         $name = post('name');
@@ -24,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Vui lòng nhập tên mức thuế';
         } else {
             $pdo->prepare('INSERT INTO tax_rates (name, rate_percent, type) VALUES (?,?,?)')->execute([$name, $rate, $type]);
+            logActivity('TAX_RATE_CREATE', $name);
             redirect('tax_rates.php');
         }
     }

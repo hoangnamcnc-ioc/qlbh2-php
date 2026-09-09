@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
         $pdo->prepare('UPDATE sales_channels SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        logActivity('CHANNEL_TOGGLE', 'id=' . $id);
         redirect('channels.php');
     } else {
         $name = post('name');
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $pdo->prepare('INSERT INTO sales_channels (name, type, shop_name, note) VALUES (?,?,?,?)')
                 ->execute([$name, $type, $shopName, $note]);
+            logActivity('CHANNEL_CREATE', $name);
             redirect('channels.php');
         }
     }

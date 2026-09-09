@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
         $pdo->prepare('UPDATE order_sources SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        logActivity('ORDER_SOURCE_TOGGLE', 'id=' . $id);
         redirect('order_sources.php');
     } else {
         $name = post('name');
@@ -20,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Vui lòng nhập tên nguồn bán hàng';
         } else {
             $pdo->prepare('INSERT INTO order_sources (name) VALUES (?)')->execute([$name]);
+            logActivity('ORDER_SOURCE_CREATE', $name);
             redirect('order_sources.php');
         }
     }

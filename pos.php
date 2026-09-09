@@ -89,6 +89,8 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
 <script>
 const csrfToken = <?= json_encode(csrfToken()) ?>;
+const requireCustomerPhone = <?= json_encode(getSetting('require_customer_phone', '0') === '1') ?>;
+const autoPrintReceipt = <?= json_encode(getSetting('auto_print_receipt', '0') === '1') ?>;
 let cart = [];
 
 const searchInput = document.getElementById('search-input');
@@ -271,6 +273,10 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
   const msgBox = document.getElementById('pos-message');
   msgBox.innerHTML = '';
   if (!cart.length) return;
+  if (requireCustomerPhone && !document.getElementById('customer-phone').value.trim()) {
+    msgBox.innerHTML = '<div class="alert alert-error">Vui lòng nhập SĐT khách hàng trước khi thanh toán (bắt buộc theo cấu hình bán hàng).</div>';
+    return;
+  }
 
   const btn = document.getElementById('checkout-btn');
   btn.disabled = true;
@@ -293,6 +299,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
         msgBox.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error)}</div>`;
       } else {
         msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công! <a href="order_print.php?id=${data.order_id}" target="_blank">In hóa đơn</a></div>`;
+        if (autoPrintReceipt) { window.open('order_print.php?id=' + data.order_id, '_blank'); }
         cart = [];
         appliedCoupon = null;
         document.getElementById('coupon-input').value = '';
