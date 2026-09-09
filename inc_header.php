@@ -25,6 +25,8 @@ $navGroups = [
             'stock_receipts.php' => 'Nhập hàng',
             'suppliers.php' => 'Nhà cung cấp',
             'price_adjustments.php' => 'Điều chỉnh giá vốn',
+            'categories.php' => 'Danh mục',
+            'brands.php' => 'Nhãn hiệu',
         ] : []
     ),
     'Khách hàng' => array_merge(

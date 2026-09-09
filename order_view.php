@@ -61,6 +61,7 @@ require_once __DIR__ . '/inc_header.php';
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
     <?php if ($order['status'] !== 'CANCELLED'): ?>
+      <a href="order_print.php?id=<?= (int) $order['id'] ?>" target="_blank" class="btn btn-secondary">In hóa đơn</a>
       <a href="order_return_form.php?q=<?= urlencode($order['code']) ?>" class="btn btn-secondary">Đổi trả hàng</a>
       <a href="shipment_form.php?order_id=<?= (int) $order['id'] ?>" class="btn btn-secondary">Vận chuyển</a>
     <?php endif; ?>

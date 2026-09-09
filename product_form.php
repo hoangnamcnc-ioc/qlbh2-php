@@ -10,6 +10,8 @@ $inventories = [];
 $variants = [];
 $variantInventories = [];
 $branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
+$categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
+$brands = $pdo->query('SELECT * FROM brands ORDER BY name')->fetchAll();
 $error = null;
 
 if ($id) {
@@ -50,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $costPrice = postFloat('cost_price');
     $sellPrice = postFloat('sell_price');
     $isActive = isset($_POST['is_active']) ? 1 : 0;
+    $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
+    $brandId = (int) ($_POST['brand_id'] ?? 0) ?: null;
 
     if ($name === '' || ($id === 0 && $sku === '')) {
         $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
@@ -57,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=? WHERE id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $id]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=? WHERE id=?'
+                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $id]);
             } else {
                 $check = $pdo->prepare('SELECT id FROM products WHERE sku = ?');
                 $check->execute([$sku]);
@@ -66,8 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price) VALUES (?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice]);
+                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id) VALUES (?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId]);
                 $id = (int) $pdo->lastInsertId();
 
                 $initialQty = postInt('initial_qty');
@@ -96,9 +100,18 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="products.php" class="muted" style="font-size:14px;">← Danh sách sản phẩm</a>
-<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">
-  <?= $product ? e($product['name']) : 'Thêm sản phẩm' ?>
-</h1>
+<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 24px;">
+  <h1 style="font-size:24px;font-weight:600;margin:0;">
+    <?= $product ? e($product['name']) : 'Thêm sản phẩm' ?>
+  </h1>
+  <?php if ($product): ?>
+    <form method="post" action="product_copy.php" style="display:inline;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+      <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+      <button type="submit" class="btn btn-secondary">Sao chép sản phẩm</button>
+    </form>
+  <?php endif; ?>
+</div>
 
 <?php if (!empty($success)): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
@@ -133,6 +146,27 @@ require_once __DIR__ . '/inc_header.php';
         <input class="input" name="unit" value="<?= e($product['unit'] ?? '') ?>">
       </div>
       <div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>Danh mục (<a href="categories.php" class="muted">quản lý</a>)</label>
+        <select class="input" name="category_id">
+          <option value="">— Không chọn —</option>
+          <?php foreach ($categories as $c): ?>
+            <option value="<?= (int) $c['id'] ?>" <?= ($product['category_id'] ?? null) == $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="field">
+        <label>Nhãn hiệu (<a href="brands.php" class="muted">quản lý</a>)</label>
+        <select class="input" name="brand_id">
+          <option value="">— Không chọn —</option>
+          <?php foreach ($brands as $b): ?>
+            <option value="<?= (int) $b['id'] ?>" <?= ($product['brand_id'] ?? null) == $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
     </div>
 
     <div class="grid-2">

@@ -210,7 +210,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       if (data.error) {
         msgBox.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error)}</div>`;
       } else {
-        msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công!</div>`;
+        msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công! <a href="order_print.php?id=${data.order_id}" target="_blank">In hóa đơn</a></div>`;
         cart = [];
         appliedCoupon = null;
         document.getElementById('coupon-input').value = '';

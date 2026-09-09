@@ -2,17 +2,25 @@
 require_once __DIR__ . '/inc_header.php';
 
 $q = trim($_GET['q'] ?? '');
+$tab = $_GET['tab'] ?? 'all';
 $pdo = db();
 
 $sql = 'SELECT c.*, g.name AS group_name,
         (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED") AS order_count,
         (SELECT COALESCE(SUM(o.total_amount),0) FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED") AS total_spent
         FROM customers c LEFT JOIN customer_groups g ON g.id = c.group_id';
+$where = [];
 $params = [];
 if ($q !== '') {
-    $sql .= ' WHERE c.name LIKE ? OR c.phone LIKE ? OR c.code LIKE ?';
+    $where[] = '(c.name LIKE ? OR c.phone LIKE ? OR c.code LIKE ?)';
     $like = '%' . $q . '%';
     $params = [$like, $like, $like];
+}
+if ($tab === 'active') {
+    $where[] = 'EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED")';
+}
+if ($where) {
+    $sql .= ' WHERE ' . implode(' AND ', $where);
 }
 $sql .= ' ORDER BY c.created_at DESC LIMIT 100';
 
@@ -21,18 +29,25 @@ $stmt->execute($params);
 $customers = $stmt->fetchAll();
 ?>
 
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
   <h1 style="font-size:24px;font-weight:600;">Danh sách khách hàng</h1>
   <div style="display:flex;gap:8px;">
     <?php if (hasRole('ADMIN', 'MANAGER')): ?>
       <a href="customers_export.php" class="btn btn-secondary">Xuất file</a>
+      <a href="customers_import.php" class="btn btn-secondary">Nhập file</a>
       <a href="groups.php" class="btn btn-secondary">Nhóm khách hàng</a>
     <?php endif; ?>
     <a href="customer_form.php" class="btn">+ Thêm khách hàng</a>
   </div>
 </div>
 
+<div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid #e2e8f0;">
+  <a href="?tab=all<?= $q ? '&q=' . urlencode($q) : '' ?>" style="padding:8px 12px;font-size:14px;<?= $tab !== 'active' ? 'border-bottom:2px solid #2563eb;color:#2563eb;font-weight:600;' : 'color:#64748b;' ?>">Tất cả khách hàng</a>
+  <a href="?tab=active<?= $q ? '&q=' . urlencode($q) : '' ?>" style="padding:8px 12px;font-size:14px;<?= $tab === 'active' ? 'border-bottom:2px solid #2563eb;color:#2563eb;font-weight:600;' : 'color:#64748b;' ?>">Đang giao dịch</a>
+</div>
+
 <form style="margin-bottom:16px;">
+  <input type="hidden" name="tab" value="<?= e($tab) ?>">
   <input type="text" name="q" class="input" style="max-width:320px;" placeholder="Tìm theo tên, SĐT hoặc mã khách hàng..." value="<?= e($q) ?>">
 </form>
 

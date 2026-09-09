@@ -98,6 +98,24 @@ chỉnh giá vốn ghi log đúng, CSV export/import đọc/ghi đúng dữ li�
 Giới hạn còn lại: Kênh bán hàng (tích hợp Shopee/Facebook/sàn TMĐT) chưa có kể cả khung dữ liệu —
 đây là phần phụ thuộc nhiều vào API riêng từng sàn, cần yêu cầu cụ thể mới xây được đúng hướng.
 
+**Chi tiết bổ sung bên trong các module chính**:
+- Danh mục sản phẩm (`categories.php`, hỗ trợ danh mục cha/con) + Nhãn hiệu (`brands.php`), gán vào
+  sản phẩm, lọc danh sách sản phẩm theo danh mục.
+- Sao chép sản phẩm nhanh (`product_copy.php`) — tạo bản sao ở trạng thái ngừng bán để chỉnh sửa
+  trước khi kích hoạt.
+- Đơn hàng: bộ lọc nâng cao (trạng thái, nhân viên, khoảng ngày), xem nhanh sản phẩm trong đơn ngay
+  tại danh sách (không cần vào trang chi tiết) qua `order_quick.php`.
+- Khách hàng: tab "Đang giao dịch" (khách có ít nhất 1 đơn hợp lệ), nhập file CSV
+  (`customers_import.php`, khớp theo SĐT).
+- In hóa đơn (`order_print.php`) — khổ giấy nhiệt 380px, tự mở hộp thoại in, có ở cả trang chi tiết
+  đơn và ngay sau khi thanh toán trong POS.
+- Dashboard: biểu đồ cột doanh thu 7 ngày qua (thuần CSS, không phụ thuộc thư viện ngoài), widget
+  "Sản phẩm dưới định mức" hiển thị trực tiếp thay vì chỉ đếm số lượng.
+
+Đã test trên app.kt-soft.vn: lọc sản phẩm theo danh mục đúng, sao chép sản phẩm giữ nguyên
+danh mục/nhãn hiệu/giá, xem nhanh đơn hàng hiện đúng dòng sản phẩm, nội dung hóa đơn in khớp dữ
+liệu đơn (xác minh qua cURL vì trình duyệt test tự kích hoạt hộp thoại in chặn thao tác tự động).
+
 **Lưu ý kỹ thuật khi migrate DB có dữ liệu cũ**: nếu nâng cấp từ bản trước khi có biến thể, bảng
 `inventory` có unique key cũ `(branch_id, product_id)` được ràng buộc bởi FK — cần thêm index phụ
 trên `product_id` trước khi xóa key cũ để đổi sang `(branch_id, product_id, variant_id)` (xem lịch
