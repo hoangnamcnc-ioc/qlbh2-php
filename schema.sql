@@ -3,6 +3,30 @@
 
 SET NAMES utf8mb4;
 
+CREATE TABLE IF NOT EXISTS gifts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  points_required INT NOT NULL DEFAULT 0,
+  stock_qty INT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  note VARCHAR(500) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS gift_redemptions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  gift_id INT NOT NULL,
+  customer_id INT NOT NULL,
+  branch_id INT NULL,
+  points_used INT NOT NULL,
+  redeemed_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (gift_id) REFERENCES gifts(id),
+  FOREIGN KEY (customer_id) REFERENCES customers(id),
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
+  FOREIGN KEY (redeemed_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS activity_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NULL,

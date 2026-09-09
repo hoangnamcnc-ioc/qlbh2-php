@@ -46,6 +46,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:16px;">
       <button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ (F9)</button>
       <button type="button" id="qa-promotions" class="btn btn-secondary">Khuyến mại (F8)</button>
+      <button type="button" id="qa-gift" class="btn btn-secondary">Đổi quà</button>
       <button type="button" id="qa-clear-cart" class="btn btn-secondary">Xóa toàn bộ sản phẩm</button>
       <a href="customers.php" class="btn btn-secondary" style="text-align:center;">Thông tin khách hàng</a>
       <a href="order_returns.php" class="btn btn-secondary" style="text-align:center;">Đổi trả hàng</a>
@@ -60,6 +61,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       </select>
     </div>
     <div id="promotions-panel" style="display:none;margin-top:8px;" class="card"></div>
+    <div id="gift-panel" style="display:none;margin-top:8px;" class="card"></div>
     </div>
   </div>
 
@@ -154,7 +156,7 @@ const requireCustomerPhone = <?= json_encode(getSetting('require_customer_phone'
 const autoPrintReceipt = <?= json_encode(getSetting('auto_print_receipt', '0') === '1') ?>;
 function makeEmptyOrder() {
   return {
-    cart: [], customerPhone: '', priceListId: null, paymentMethod: 'CASH',
+    cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, paymentMethod: 'CASH',
     manualDiscountType: 'AMOUNT', manualDiscountValue: '', appliedCoupon: null, couponInput: '',
     isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', cashGiven: '',
   };
@@ -168,6 +170,8 @@ function saveCurrentOrderState() {
   const o = orders[currentOrderIndex];
   o.customerPhone = document.getElementById('customer-phone').value;
   o.priceListId = currentPriceListId;
+  o.customerId = currentCustomerId;
+  o.customerPoints = currentCustomerPoints;
   o.paymentMethod = document.getElementById('payment-method').value;
   o.manualDiscountType = document.getElementById('manual-discount-type').value;
   o.manualDiscountValue = document.getElementById('manual-discount-value').value;
@@ -184,6 +188,8 @@ function loadOrderState(idx) {
   const o = orders[idx];
   cart = o.cart;
   currentPriceListId = o.priceListId;
+  currentCustomerId = o.customerId;
+  currentCustomerPoints = o.customerPoints;
   appliedCoupon = o.appliedCoupon;
   document.getElementById('customer-phone').value = o.customerPhone;
   document.getElementById('customer-info').textContent = '';
@@ -245,6 +251,8 @@ const searchInput = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 let searchTimer = null;
 let currentPriceListId = null;
+let currentCustomerId = null;
+let currentCustomerPoints = 0;
 
 const customerPhoneInput = document.getElementById('customer-phone');
 let phoneTimer = null;
@@ -252,6 +260,8 @@ customerPhoneInput.addEventListener('input', () => {
   clearTimeout(phoneTimer);
   const phone = customerPhoneInput.value.trim();
   currentPriceListId = null;
+  currentCustomerId = null;
+  currentCustomerPoints = 0;
   document.getElementById('customer-info').textContent = '';
   if (phone.length < 6) return;
   phoneTimer = setTimeout(() => {
@@ -261,7 +271,9 @@ customerPhoneInput.addEventListener('input', () => {
         const infoEl = document.getElementById('customer-info');
         if (data.found) {
           currentPriceListId = data.price_list_id;
-          infoEl.textContent = data.name + (data.group_name ? ' · Nhóm: ' + data.group_name : '') + (data.price_list_id ? ' · Áp dụng bảng giá riêng' : '');
+          currentCustomerId = data.id;
+          currentCustomerPoints = data.loyalty_points;
+          infoEl.textContent = data.name + (data.group_name ? ' · Nhóm: ' + data.group_name : '') + ' · Điểm: ' + data.loyalty_points + (data.price_list_id ? ' · Áp dụng bảng giá riêng' : '');
         } else {
           infoEl.textContent = 'Khách hàng mới';
         }
@@ -559,6 +571,55 @@ document.getElementById('qa-promotions').addEventListener('click', () => {
       }
       panel.innerHTML = '<b style="font-size:13px;">Khuyến mại tự động đang áp dụng (tự cộng khi đủ điều kiện):</b>' +
         data.map(p => `<div style="margin-top:6px;font-size:13px;">• ${escapeHtml(p.name)}: giảm ${p.discount_percent}% cho đơn từ ${formatMoney(p.min_order_amount)}</div>`).join('');
+    });
+});
+
+document.getElementById('qa-gift').addEventListener('click', () => {
+  const panel = document.getElementById('gift-panel');
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  if (!currentCustomerId) {
+    panel.innerHTML = '<div class="muted">Vui lòng nhập đúng SĐT khách hàng đã có trong hệ thống trước khi đổi quà.</div>';
+    return;
+  }
+  panel.innerHTML = '<div class="muted">Đang tải danh sách quà...</div>';
+  fetch('pos_gifts.php')
+    .then(r => r.json())
+    .then(data => {
+      const affordable = data.filter(g => currentCustomerPoints >= g.points_required);
+      panel.innerHTML = `<b style="font-size:13px;">Khách hàng đang có ${currentCustomerPoints} điểm</b>`;
+      if (!data.length) {
+        panel.innerHTML += '<div class="muted" style="margin-top:6px;">Chưa có quà tặng nào trong danh mục. <a href="gifts.php">Thêm quà tặng</a>.</div>';
+        return;
+      }
+      panel.innerHTML += '<div style="margin-top:8px;">' + data.map(g => {
+        const can = currentCustomerPoints >= g.points_required;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #f1f5f9;">
+          <span style="font-size:13px;${can ? '' : 'color:#94a3b8;'}">${escapeHtml(g.name)} — ${g.points_required} điểm${g.stock_qty !== null ? ' (còn ' + g.stock_qty + ')' : ''}</span>
+          <button type="button" class="btn ${can ? '' : 'btn-secondary'}" data-gift-id="${g.id}" data-gift-name="${escapeHtml(g.name)}" ${can ? '' : 'disabled'} style="padding:4px 10px;font-size:12px;">Đổi ngay</button>
+        </div>`;
+      }).join('') + '</div>';
+      panel.querySelectorAll('button[data-gift-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!confirm(`Đổi ${btn.dataset.giftName} cho khách hàng này?`)) return;
+          fetch('redeem_gift.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ csrf: csrfToken, customer_id: currentCustomerId, gift_id: parseInt(btn.dataset.giftId, 10) }),
+          })
+            .then(r => r.json())
+            .then(res => {
+              if (res.error) {
+                alert(res.error);
+              } else {
+                currentCustomerPoints = res.remaining_points;
+                document.getElementById('customer-info').textContent = 'Đã đổi quà "' + res.gift_name + '" — còn lại ' + res.remaining_points + ' điểm';
+                panel.style.display = 'none';
+              }
+            });
+        });
+      });
     });
 });
 

@@ -313,7 +313,22 @@ vào 1 sản phẩm thêm đúng vào giỏ hàng của tab đơn đang chọn; 
 30.000 xuống 25.000 và xác nhận tổng tiền cập nhật đúng ngay lập tức; bấm Khuyến mại (F8) hiển thị
 đúng thông báo "chưa có chương trình nào" khi không có khuyến mại active. Đã xóa sạch dữ liệu test.
 
-Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: chưa có nút "Đổi quà" (đổi điểm tích lũy lấy
-quà) vì chưa có khung dữ liệu danh mục quà tặng; nút "Tất cả thao tác" của Sapo chỉ là bảng liệt kê
-đầy đủ hơn — thanh thao tác nhanh hiện tại đã hiển thị đủ các mục quan trọng nên không cần thêm màn
-hình riêng; đơn giữ trên tab vẫn là trạng thái tạm trên trình duyệt, không phải đơn nháp lưu server.
+**Vòng bổ sung "Đổi quà"** (khắc phục nốt giới hạn còn lại):
+- **Danh mục quà đổi điểm** (`gifts.php`, ADMIN/MANAGER): khai báo quà tặng — tên, số điểm cần đổi,
+  số lượng tồn kho (để trống = không giới hạn), bật/tắt. Thêm thẻ liên kết trong `settings.php`.
+- **Đổi quà ngay trong POS** (nút "Đổi quà" ở `pos.php`): sau khi nhập đúng SĐT khách hàng đã có
+  trong hệ thống, bấm "Đổi quà" hiện danh sách quà cùng số điểm khách đang có — quà nào đủ điểm mới
+  bấm đổi được, quà chưa đủ điểm hiển thị mờ và khóa nút. Xác nhận qua `redeem_gift.php`: trừ đúng
+  điểm khách hàng, trừ tồn kho quà (nếu có giới hạn), ghi lại lịch sử đổi quà
+  (`gift_redemptions`) — toàn bộ trong 1 transaction, có khóa dòng (`FOR UPDATE`) để tránh đổi trùng
+  khi 2 nhân viên thao tác cùng lúc.
+
+Đã test trên app.kt-soft.vn: tạo quà "cần 100 điểm, tồn kho 5"; khách hàng test có 150 điểm đổi quà
+thành công → còn đúng 50 điểm, tồn kho quà giảm còn 4, có bản ghi lịch sử đổi quà đúng dữ liệu; thử
+đổi lần 2 khi chỉ còn 50 điểm (không đủ 100) → bị từ chối đúng với thông báo rõ ràng. Đã xóa sạch
+dữ liệu test.
+
+Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: nút "Tất cả thao tác" của Sapo chỉ là bảng
+liệt kê đầy đủ hơn — thanh thao tác nhanh hiện tại đã hiển thị đủ các mục quan trọng nên không cần
+thêm màn hình riêng; đơn giữ trên tab vẫn là trạng thái tạm trên trình duyệt, không phải đơn nháp
+lưu server.
