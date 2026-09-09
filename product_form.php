@@ -13,6 +13,10 @@ $variantInventories = [];
 $branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
 $brands = $pdo->query('SELECT * FROM brands ORDER BY name')->fetchAll();
+$priceLists = $pdo->query('SELECT * FROM price_lists ORDER BY name')->fetchAll();
+$comboItems = [];
+$productPrices = [];
+$allProducts = [];
 $error = null;
 
 if ($id) {
@@ -46,6 +50,25 @@ if ($id) {
             $variantInventories[$inv['variant_id']][$inv['branch_id']] = $inv;
         }
     }
+
+    if ($product['product_type'] === 'COMBO') {
+        $stmt = $pdo->prepare(
+            'SELECT ci.*, p.name AS product_name, p.sku AS product_sku
+             FROM combo_items ci JOIN products p ON p.id = ci.component_product_id
+             WHERE ci.combo_product_id = ?'
+        );
+        $stmt->execute([$id]);
+        $comboItems = $stmt->fetchAll();
+        $allProducts = $pdo->prepare("SELECT id, sku, name FROM products WHERE id != ? AND product_type != 'COMBO' ORDER BY name");
+        $allProducts->execute([$id]);
+        $allProducts = $allProducts->fetchAll();
+    }
+
+    $stmt = $pdo->prepare('SELECT * FROM product_prices WHERE product_id = ? AND variant_id IS NULL');
+    $stmt->execute([$id]);
+    foreach ($stmt->fetchAll() as $pp) {
+        $productPrices[$pp['price_list_id']] = $pp;
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -60,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
     $brandId = (int) ($_POST['brand_id'] ?? 0) ?: null;
     $tags = post('tags') ?: null;
+    $productType = in_array($_POST['product_type'] ?? '', ['PRODUCT', 'SERVICE', 'COMBO'], true) ? $_POST['product_type'] : 'PRODUCT';
 
     if ($name === '' || ($id === 0 && $sku === '')) {
         $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
@@ -67,8 +91,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=? WHERE id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $id]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=? WHERE id=?'
+                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $id]);
+
+                foreach ($_POST['price_list_id'] ?? [] as $plId => $price) {
+                    $plId = (int) $plId;
+                    $price = $price === '' ? null : (float) $price;
+                    if ($price === null) {
+                        $pdo->prepare('DELETE FROM product_prices WHERE product_id = ? AND price_list_id = ? AND variant_id IS NULL')->execute([$id, $plId]);
+                    } else {
+                        $check = $pdo->prepare('SELECT id FROM product_prices WHERE product_id = ? AND price_list_id = ? AND variant_id IS NULL');
+                        $check->execute([$id, $plId]);
+                        $existing = $check->fetch();
+                        if ($existing) {
+                            $pdo->prepare('UPDATE product_prices SET price = ? WHERE id = ?')->execute([$price, $existing['id']]);
+                        } else {
+                            $pdo->prepare('INSERT INTO product_prices (product_id, price_list_id, price) VALUES (?,?,?)')->execute([$id, $plId, $price]);
+                        }
+                    }
+                }
             } else {
                 $check = $pdo->prepare('SELECT id FROM products WHERE sku = ?');
                 $check->execute([$sku]);
@@ -76,18 +117,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags) VALUES (?,?,?,?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags]);
+                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type) VALUES (?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType]);
                 $id = (int) $pdo->lastInsertId();
 
-                $initialQty = postInt('initial_qty');
-                $minStock = postInt('min_stock');
-                // Gán tồn kho ban đầu vào chi nhánh của người tạo; nếu tài khoản chưa gán
-                // chi nhánh (vd admin tổng) thì dùng chi nhánh đầu tiên trong hệ thống.
-                $targetBranchId = $currentUser['branch_id'] ?: ($branches[0]['id'] ?? null);
-                if ($targetBranchId) {
-                    $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity, min_stock) VALUES (?,?,?,?)')
-                        ->execute([$targetBranchId, $id, $initialQty, $minStock]);
+                if ($productType === 'PRODUCT') {
+                    $initialQty = postInt('initial_qty');
+                    $minStock = postInt('min_stock');
+                    // Gán tồn kho ban đầu vào chi nhánh của người tạo; nếu tài khoản chưa gán
+                    // chi nhánh (vd admin tổng) thì dùng chi nhánh đầu tiên trong hệ thống.
+                    $targetBranchId = $currentUser['branch_id'] ?: ($branches[0]['id'] ?? null);
+                    if ($targetBranchId) {
+                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity, min_stock) VALUES (?,?,?,?)')
+                            ->execute([$targetBranchId, $id, $initialQty, $minStock]);
+                    }
                 }
             }
             redirect('product_form.php?id=' . $id . '&saved=1');
@@ -182,6 +225,19 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="grid-2">
       <div class="field">
+        <label>Loại sản phẩm</label>
+        <select class="input" name="product_type">
+          <?php $pt = $product['product_type'] ?? 'PRODUCT'; ?>
+          <option value="PRODUCT" <?= $pt === 'PRODUCT' ? 'selected' : '' ?>>Hàng hóa</option>
+          <option value="SERVICE" <?= $pt === 'SERVICE' ? 'selected' : '' ?>>Dịch vụ (không quản lý tồn kho)</option>
+          <option value="COMBO" <?= $pt === 'COMBO' ? 'selected' : '' ?>>Combo (gồm nhiều sản phẩm khác)</option>
+        </select>
+      </div>
+      <div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
         <label>Danh mục (<a href="categories.php" class="muted">quản lý</a>)</label>
         <select class="input" name="category_id">
           <option value="">— Không chọn —</option>
@@ -217,6 +273,20 @@ require_once __DIR__ . '/inc_header.php';
       <input class="input" name="tags" value="<?= e($product['tags'] ?? '') ?>" placeholder="vd: ban chay, moi ve">
     </div>
 
+    <?php if ($product && $priceLists): ?>
+    <div class="field">
+      <label>Giá riêng theo bảng giá (<a href="price_lists.php" class="muted">quản lý</a>)</label>
+      <?php foreach ($priceLists as $pl): ?>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="muted" style="font-size:13px;width:160px;"><?= e($pl['name']) ?></span>
+          <input class="input" type="number" min="0" step="1000" name="price_list_id[<?= (int) $pl['id'] ?>]"
+                 value="<?= e((string) ($productPrices[$pl['id']]['price'] ?? '')) ?>"
+                 placeholder="để trống = dùng giá mặc định" style="max-width:220px;">
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
     <?php if (!$product): ?>
       <div class="grid-2">
         <div class="field">
@@ -238,7 +308,7 @@ require_once __DIR__ . '/inc_header.php';
   </form>
 </div>
 
-<?php if ($product && !$variants): ?>
+<?php if ($product && !$variants && $product['product_type'] === 'PRODUCT'): ?>
 <h2 style="font-size:18px;font-weight:600;margin:32px 0 12px;">Tồn kho theo chi nhánh</h2>
 <div class="card" style="max-width:640px;padding:0;">
   <?php foreach ($branches as $b): ?>
@@ -266,7 +336,7 @@ require_once __DIR__ . '/inc_header.php';
 </div>
 <?php endif; ?>
 
-<?php if ($product): ?>
+<?php if ($product && $product['product_type'] === 'PRODUCT'): ?>
 <h2 style="font-size:18px;font-weight:600;margin:32px 0 12px;">Biến thể sản phẩm (màu/size)</h2>
 <?php if ($variantError): ?><div class="alert alert-error" style="max-width:640px;"><?= e($variantError) ?></div><?php endif; ?>
 
@@ -336,6 +406,48 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <div class="field"><label>Tồn kho ban đầu</label><input class="input" type="number" min="0" name="initial_qty" value="0" style="max-width:200px;"></div>
     <button type="submit" class="btn">Thêm biến thể</button>
+  </form>
+</div>
+<?php endif; ?>
+
+<?php if ($product && $product['product_type'] === 'COMBO'): ?>
+<h2 style="font-size:18px;font-weight:600;margin:32px 0 12px;">Thành phần Combo</h2>
+<div class="card" style="max-width:640px;padding:0;margin-bottom:16px;">
+  <?php if (!$comboItems): ?>
+    <div class="muted" style="padding:16px;font-size:13px;">Chưa có sản phẩm thành phần nào.</div>
+  <?php endif; ?>
+  <?php foreach ($comboItems as $ci): ?>
+    <form method="post" action="combo_item_delete.php" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid #f1f5f9;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+      <input type="hidden" name="combo_item_id" value="<?= (int) $ci['id'] ?>">
+      <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+      <div style="font-size:14px;">
+        <?= e($ci['product_name']) ?>
+        <span class="muted" style="font-family:monospace;font-size:12px;"> (<?= e($ci['product_sku']) ?>)</span>
+        <span class="muted"> × <?= (int) $ci['quantity'] ?></span>
+      </div>
+      <button type="submit" class="btn btn-danger" style="padding:4px 10px;font-size:12px;">Xóa</button>
+    </form>
+  <?php endforeach; ?>
+</div>
+<div class="card" style="max-width:640px;">
+  <h3 style="font-size:14px;font-weight:600;margin:0 0 12px;">Thêm sản phẩm vào combo</h3>
+  <form method="post" action="combo_item_save.php" style="display:flex;gap:8px;align-items:end;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+    <div class="field" style="flex:1;margin:0;">
+      <label>Sản phẩm</label>
+      <select class="input" name="component_product_id" required>
+        <?php foreach ($allProducts as $ap): ?>
+          <option value="<?= (int) $ap['id'] ?>"><?= e($ap['name']) ?> (<?= e($ap['sku']) ?>)</option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label>Số lượng</label>
+      <input class="input" type="number" min="1" name="quantity" value="1" style="width:90px;">
+    </div>
+    <button type="submit" class="btn">Thêm</button>
   </form>
 </div>
 <?php endif; ?>

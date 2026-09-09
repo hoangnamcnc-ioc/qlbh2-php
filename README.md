@@ -137,3 +137,21 @@ liệu đơn (xác minh qua cURL vì trình duyệt test tự kích hoạt hộp
 `inventory` có unique key cũ `(branch_id, product_id)` được ràng buộc bởi FK — cần thêm index phụ
 trên `product_id` trước khi xóa key cũ để đổi sang `(branch_id, product_id, variant_id)` (xem lịch
 sử migration trong quá trình phát triển nếu cần làm lại thao tác này).
+
+**Vòng hoàn thiện thứ 3**:
+- **Phân loại sản phẩm** (`products.product_type`: Hàng hóa/Dịch vụ/Combo) — Dịch vụ không hiện
+  mục tồn kho/biến thể (không trừ kho khi bán); Combo hiện mục "Thành phần Combo"
+  (`combo_item_save.php`/`combo_item_delete.php`) để gộp nhiều sản phẩm khác vào bán chung 1 dòng.
+- **Nhiều bảng giá theo chính sách** (`price_lists.php` quản lý danh sách bảng giá, gán bảng giá
+  cho từng Nhóm khách hàng trong `groups.php`), nhập giá riêng cho từng sản phẩm theo từng bảng giá
+  ngay trong `product_form.php` (để trống = dùng giá bán mặc định).
+- **Quét mã vạch trong POS**: khi gõ/quét mã rồi bấm Enter ở ô tìm kiếm, nếu khớp đúng 1 sản phẩm
+  (hoặc khớp đúng SKU trong nhiều kết quả) thì tự động thêm vào giỏ hàng ngay, không cần bấm chuột.
+
+Đã test trên app.kt-soft.vn: tạo sản phẩm Dịch vụ (ẩn đúng mục tồn kho), tạo sản phẩm Combo + thêm
+thành phần (hiện đúng số lượng), tạo bảng giá + gán vào nhóm khách hàng + đặt giá riêng cho sản phẩm
+(lưu và hiển thị lại đúng), tra cứu theo SKU trả về đúng 1 kết quả xác nhận logic tự thêm vào giỏ
+khi quét mã hoạt động đúng. Toàn bộ dữ liệu test đã được xóa sạch khỏi server sau khi kiểm tra.
+
+Giới hạn: giá theo bảng giá hiện chỉ áp cho sản phẩm gốc (chưa hỗ trợ giá riêng theo biến thể); POS
+chưa tự động chọn bảng giá theo khách hàng khi nhập SĐT (cần bổ sung nếu có nhu cầu sử dụng ngay).

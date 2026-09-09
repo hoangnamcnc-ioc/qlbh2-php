@@ -449,6 +449,40 @@ CREATE TABLE IF NOT EXISTS promotions (
 ALTER TABLE orders ADD COLUMN promotion_id INT NULL,
   ADD CONSTRAINT fk_orders_promotion FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE SET NULL;
 
+-- ===== Phân loại sản phẩm: thường / dịch vụ / combo =====
+ALTER TABLE products ADD COLUMN product_type ENUM('PRODUCT','SERVICE','COMBO') NOT NULL DEFAULT 'PRODUCT';
+
+CREATE TABLE IF NOT EXISTS combo_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  combo_product_id INT NOT NULL,
+  component_product_id INT NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  FOREIGN KEY (combo_product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (component_product_id) REFERENCES products(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Nhiều bảng giá theo chính sách (gắn với nhóm khách hàng) =====
+CREATE TABLE IF NOT EXISTS price_lists (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS product_prices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  price_list_id INT NOT NULL,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  price DECIMAL(14,2) NOT NULL,
+  FOREIGN KEY (price_list_id) REFERENCES price_lists(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_pricelist_product_variant (price_list_id, product_id, variant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE customer_groups ADD COLUMN price_list_id INT NULL,
+  ADD CONSTRAINT fk_customer_groups_price_list FOREIGN KEY (price_list_id) REFERENCES price_lists(id) ON DELETE SET NULL;
+
 -- Dữ liệu khởi tạo
 INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')
   ON DUPLICATE KEY UPDATE name = name;

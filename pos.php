@@ -101,6 +101,35 @@ searchInput.addEventListener('input', () => {
   searchTimer = setTimeout(() => doSearch(q), 250);
 });
 
+// Máy quét mã vạch gõ nhanh mã rồi tự bấm Enter — bắt sự kiện này để tự thêm
+// đúng 1 sản phẩm khớp mã vào giỏ hàng ngay, không cần chọn bằng chuột.
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  clearTimeout(searchTimer);
+  const q = searchInput.value.trim();
+  if (!q) return;
+  fetch('pos_search.php?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(data => {
+      if (data.length === 1) {
+        const p = data[0];
+        addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price));
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+      } else if (data.length > 1) {
+        const exact = data.find(p => p.sku === q);
+        if (exact) {
+          addToCart(exact.id, exact.variant_id, exact.name, parseFloat(exact.sell_price));
+          searchInput.value = '';
+          searchResults.style.display = 'none';
+        } else {
+          doSearch(q);
+        }
+      }
+    });
+});
+
 function doSearch(q) {
   fetch('pos_search.php?q=' + encodeURIComponent(q))
     .then(r => r.json())
