@@ -20,6 +20,18 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
     </div>
 
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <button type="button" id="tab-browse-off" class="btn btn-secondary" style="background:#2563eb;color:#fff;">Giỏ hàng</button>
+      <button type="button" id="tab-browse-on" class="btn btn-secondary">Danh sách sản phẩm</button>
+    </div>
+
+    <div id="product-browse" style="display:none;margin-bottom:16px;">
+      <div class="card" style="max-height:360px;overflow-y:auto;">
+        <div id="browse-list" class="muted" style="padding:16px;text-align:center;">Đang tải danh sách sản phẩm...</div>
+      </div>
+    </div>
+
+    <div id="cart-view">
     <div class="card" style="padding:0;overflow-x:auto;">
       <table>
         <thead>
@@ -33,17 +45,21 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:16px;">
       <button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ (F9)</button>
+      <button type="button" id="qa-promotions" class="btn btn-secondary">Khuyến mại (F8)</button>
       <button type="button" id="qa-clear-cart" class="btn btn-secondary">Xóa toàn bộ sản phẩm</button>
       <a href="customers.php" class="btn btn-secondary" style="text-align:center;">Thông tin khách hàng</a>
       <a href="order_returns.php" class="btn btn-secondary" style="text-align:center;">Đổi trả hàng</a>
       <a href="orders.php" class="btn btn-secondary" style="text-align:center;">Xem danh sách đơn hàng</a>
       <a href="reports.php" class="btn btn-secondary" style="text-align:center;">Xem báo cáo</a>
+      <a href="sales_settings.php" class="btn btn-secondary" style="text-align:center;">Thiết lập chung</a>
     </div>
     <div id="service-picker" style="display:none;margin-top:8px;" class="card">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
       <select id="service-select" class="input">
         <option value="">— Đang tải danh sách dịch vụ —</option>
       </select>
+    </div>
+    <div id="promotions-panel" style="display:none;margin-top:8px;" class="card"></div>
     </div>
   </div>
 
@@ -127,7 +143,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
     <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
     <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
-      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F9 Thêm dịch vụ
+      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F8 Khuyến mại · F9 Thêm dịch vụ
     </p>
   </div>
 </div>
@@ -335,7 +351,7 @@ function renderCart() {
     body.innerHTML = cart.map((c, i) => `
       <tr>
         <td>${escapeHtml(c.name)}</td>
-        <td class="text-right">${formatMoney(c.price)}</td>
+        <td class="text-right"><input type="number" min="0" value="${c.price}" data-idx="${i}" class="price-input" title="Đổi giá bán hàng" style="width:90px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-center"><input type="number" min="1" value="${c.qty}" data-idx="${i}" class="qty-input" style="width:64px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-right" style="font-weight:600;">${formatMoney(c.price * c.qty)}</td>
         <td class="text-right"><a href="#" data-idx="${i}" class="remove-item" style="color:#ef4444;font-size:12px;">Xóa</a></td>
@@ -344,6 +360,13 @@ function renderCart() {
       inp.addEventListener('change', () => {
         const idx = parseInt(inp.dataset.idx, 10);
         cart[idx].qty = Math.max(1, parseInt(inp.value, 10) || 1);
+        renderCart();
+      });
+    });
+    body.querySelectorAll('.price-input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const idx = parseInt(inp.dataset.idx, 10);
+        cart[idx].price = Math.max(0, parseFloat(inp.value) || 0);
         renderCart();
       });
     });
@@ -484,6 +507,61 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
 
 renderTabs();
 
+document.getElementById('tab-browse-off').addEventListener('click', () => setBrowseMode(false));
+document.getElementById('tab-browse-on').addEventListener('click', () => setBrowseMode(true));
+
+let browseLoaded = false;
+function setBrowseMode(on) {
+  document.getElementById('cart-view').style.display = on ? 'none' : 'block';
+  document.getElementById('product-browse').style.display = on ? 'block' : 'none';
+  const offBtn = document.getElementById('tab-browse-off');
+  const onBtn = document.getElementById('tab-browse-on');
+  offBtn.style.background = on ? '' : '#2563eb';
+  offBtn.style.color = on ? '' : '#fff';
+  onBtn.style.background = on ? '#2563eb' : '';
+  onBtn.style.color = on ? '#fff' : '';
+  if (on && !browseLoaded) {
+    browseLoaded = true;
+    fetch('pos_search.php?browse=1')
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('browse-list');
+        if (!data.length) { el.innerHTML = '<div class="muted" style="padding:16px;text-align:center;">Chưa có sản phẩm nào.</div>'; return; }
+        el.innerHTML = data.map((p, i) => `
+          <div class="browse-item" data-i="${i}" style="padding:10px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;">
+            <span>${escapeHtml(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${escapeHtml(p.sku)})</span></span>
+            <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${p.qty}</span>
+          </div>`).join('');
+        el.querySelectorAll('.browse-item').forEach(row => {
+          row.addEventListener('mouseenter', () => row.style.background = '#f8fafc');
+          row.addEventListener('mouseleave', () => row.style.background = '#fff');
+          row.addEventListener('click', () => {
+            const p = data[parseInt(row.dataset.i, 10)];
+            addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price));
+          });
+        });
+      });
+  }
+}
+
+document.getElementById('qa-promotions').addEventListener('click', () => {
+  const panel = document.getElementById('promotions-panel');
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  panel.innerHTML = '<div class="muted">Đang tải...</div>';
+  fetch('pos_promotions.php')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.length) {
+        panel.innerHTML = '<div class="muted">Hiện chưa có chương trình khuyến mại tự động nào đang áp dụng.</div>';
+        return;
+      }
+      panel.innerHTML = '<b style="font-size:13px;">Khuyến mại tự động đang áp dụng (tự cộng khi đủ điều kiện):</b>' +
+        data.map(p => `<div style="margin-top:6px;font-size:13px;">• ${escapeHtml(p.name)}: giảm ${p.discount_percent}% cho đơn từ ${formatMoney(p.min_order_amount)}</div>`).join('');
+    });
+});
+
 document.getElementById('qa-clear-cart').addEventListener('click', () => {
   if (!cart.length) return;
   if (!confirm('Xóa toàn bộ sản phẩm khỏi đơn hàng này?')) return;
@@ -536,7 +614,7 @@ document.addEventListener('click', (e) => {
 // Phím tắt bán hàng kiểu Sapo
 document.addEventListener('keydown', (e) => {
   const key = e.key;
-  if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7', 'F9'].includes(key)) return;
+  if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7', 'F8', 'F9'].includes(key)) return;
   e.preventDefault();
   switch (key) {
     case 'F1':
@@ -559,6 +637,9 @@ document.addEventListener('keydown', (e) => {
       sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
       break;
     }
+    case 'F8':
+      document.getElementById('qa-promotions').click();
+      break;
     case 'F9':
       document.getElementById('qa-add-service').click();
       break;

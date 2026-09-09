@@ -296,6 +296,24 @@ giới hạn vừa nêu ở trên):
 trống (0 sản phẩm) trong khi "Đơn 2 (1)" giữ đúng sản phẩm đã thêm — xác nhận cô lập trạng thái giữa
 các tab hoạt động đúng. Đã xóa sạch dữ liệu test.
 
-Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: chưa có nút "Đổi giá bán hàng" / "Đổi quà"
-nhanh ngay trong POS (đổi giá đã có thể làm qua trang sản phẩm, tặng quà chưa có khung dữ liệu);
-đơn giữ trên tab là trạng thái tạm trên trình duyệt, không phải đơn nháp lưu trên server.
+**Vòng bổ sung "Thao tác nhanh"** (khớp đúng các nút còn thiếu trong ảnh Sapo):
+- **Đổi giá bán hàng**: ô đơn giá trong bảng giỏ hàng giờ có thể sửa trực tiếp ngay tại dòng sản
+  phẩm (trước đây chỉ hiển thị, không sửa được) — nhân viên bán hàng có thể đổi giá bán ngay khi
+  chốt đơn, không cần vào trang sản phẩm.
+- **Khuyến mại (F8)**: xem nhanh danh sách chương trình khuyến mại tự động đang áp dụng
+  (`pos_promotions.php`) — vì khuyến mại đã tự động cộng vào đơn nên đây chỉ là bảng tra cứu, không
+  phải nút bật/tắt thủ công.
+- **Danh sách sản phẩm**: tab chuyển giữa "Giỏ hàng" và duyệt toàn bộ danh mục sản phẩm đang bán
+  (tối đa 60 sản phẩm/dịch vụ/combo, `pos_search.php?browse=1`) để chọn thêm vào đơn mà không cần
+  gõ tìm kiếm — hữu ích khi nhân viên chưa nhớ tên/mã sản phẩm.
+- **Thiết lập chung**: liên kết thẳng tới `sales_settings.php` ngay trong thanh thao tác nhanh.
+
+Đã test trên app.kt-soft.vn: chuyển tab "Danh sách sản phẩm" hiển thị đúng sản phẩm đang bán, bấm
+vào 1 sản phẩm thêm đúng vào giỏ hàng của tab đơn đang chọn; sửa trực tiếp đơn giá trong giỏ hàng từ
+30.000 xuống 25.000 và xác nhận tổng tiền cập nhật đúng ngay lập tức; bấm Khuyến mại (F8) hiển thị
+đúng thông báo "chưa có chương trình nào" khi không có khuyến mại active. Đã xóa sạch dữ liệu test.
+
+Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: chưa có nút "Đổi quà" (đổi điểm tích lũy lấy
+quà) vì chưa có khung dữ liệu danh mục quà tặng; nút "Tất cả thao tác" của Sapo chỉ là bảng liệt kê
+đầy đủ hơn — thanh thao tác nhanh hiện tại đã hiển thị đủ các mục quan trọng nên không cần thêm màn
+hình riêng; đơn giữ trên tab vẫn là trạng thái tạm trên trình duyệt, không phải đơn nháp lưu server.

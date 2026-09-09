@@ -5,7 +5,8 @@ $user = requireLogin();
 header('Content-Type: application/json; charset=utf-8');
 
 $q = trim($_GET['q'] ?? '');
-if ($q === '') {
+$browse = !empty($_GET['browse']);
+if ($q === '' && !$browse) {
     echo '[]';
     exit;
 }
@@ -14,28 +15,29 @@ $branchId = (int) ($user['branch_id'] ?? 0);
 $priceListId = (int) ($_GET['price_list_id'] ?? 0) ?: null;
 $pdo = db();
 $like = '%' . $q . '%';
+$limit = $browse ? 60 : 15;
 
 // Sản phẩm không có biến thể (bán trực tiếp theo product_id)
 $stmt = $pdo->prepare(
-    'SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type,
+    "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type,
             COALESCE(i.quantity, 0) AS qty
      FROM products p
      LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
-     WHERE p.is_active = 1 AND p.product_type != \'COMBO\' AND (p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
+     WHERE p.is_active = 1 AND p.product_type != 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
        AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.is_active = 1)
-     LIMIT 15'
+     ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$branchId, $like, $like, $like]);
+$stmt->execute([$branchId, $browse ? 1 : 0, $like, $like, $like]);
 $products = $stmt->fetchAll();
 
 // Combo (bán như 1 dòng, không kiểm tồn kho riêng)
 $stmt = $pdo->prepare(
     "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type, 999 AS qty
      FROM products p
-     WHERE p.is_active = 1 AND p.product_type = 'COMBO' AND (p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
-     LIMIT 15"
+     WHERE p.is_active = 1 AND p.product_type = 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
+     ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$like, $like, $like]);
+$stmt->execute([$browse ? 1 : 0, $like, $like, $like]);
 $combos = $stmt->fetchAll();
 
 // Biến thể sản phẩm (bán theo variant_id)
@@ -46,10 +48,10 @@ $stmt = $pdo->prepare(
      JOIN products p ON p.id = v.product_id
      LEFT JOIN inventory i ON i.variant_id = v.id AND i.branch_id = ?
      WHERE v.is_active = 1 AND p.is_active = 1
-       AND (p.name LIKE ? OR v.name LIKE ? OR v.sku LIKE ?)
-     LIMIT 15"
+       AND (? = 1 OR p.name LIKE ? OR v.name LIKE ? OR v.sku LIKE ?)
+     ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$branchId, $like, $like, $like]);
+$stmt->execute([$branchId, $browse ? 1 : 0, $like, $like, $like]);
 $variants = $stmt->fetchAll();
 
 $all = array_merge($products, $combos, $variants);
