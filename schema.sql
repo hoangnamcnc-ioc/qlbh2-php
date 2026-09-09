@@ -173,6 +173,8 @@ CREATE TABLE IF NOT EXISTS orders (
   sub_total DECIMAL(14,2) NOT NULL DEFAULT 0,
   discount DECIMAL(14,2) NOT NULL DEFAULT 0,
   shipping_fee DECIMAL(14,2) NOT NULL DEFAULT 0,
+  shipping_address VARCHAR(500) NULL,
+  is_delivery TINYINT(1) NOT NULL DEFAULT 0,
   total_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   paid_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   note TEXT NULL,

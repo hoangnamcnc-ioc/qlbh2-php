@@ -263,3 +263,23 @@ bộ, không gọi API thật): Thanh toán (kết nối cổng VNPay/VietQR/MoM
 chỉnh layout kéo-thả, chỉ tùy chỉnh nội dung; Cân điện tử không tích hợp phần cứng; Hóa đơn điện tử
 chưa kết nối nhà cung cấp thật; Xử lý đơn hàng (tùy chỉnh quy trình pipeline linh hoạt) chưa có vì
 hiện tại đơn từ POS luôn tạo thẳng ở trạng thái Hoàn thành, chưa có luồng tạo đơn nháp riêng.
+
+**Vòng bổ sung trang Bán hàng (POS)** (theo ảnh chụp màn hình POS thực tế của Sapo):
+- **Chiết khấu đơn (F6)**: nhập chiết khấu trực tiếp theo VNĐ hoặc %, tính trước và cộng dồn với mã
+  giảm giá (coupon) + khuyến mại tự động, luôn giới hạn không vượt quá tổng tiền hàng — khác với
+  trước đây chỉ có mã giảm giá, không có ô chiết khấu nhanh.
+- **Giao hàng**: checkbox bật/tắt, hiện thêm ô địa chỉ giao hàng + phí giao hàng; phí giao hàng
+  cộng thẳng vào tổng tiền khách phải trả (không bị trừ chiết khấu), lưu vào đơn hàng và hiển thị
+  trong `order_view.php`/hóa đơn in.
+- **Ghi chú đơn hàng**: nhập ngay trong POS, lưu thẳng vào đơn thay vì phải vào sửa đơn sau đó.
+- **Liên kết nhanh**: thêm 3 link Danh sách đơn hàng / Đổi trả hàng / Xem báo cáo ngay dưới nút
+  Thanh toán, giống các nút thao tác nhanh trong POS của Sapo.
+
+Đã test trên app.kt-soft.vn: thanh toán đơn 2 sản phẩm 100.000đ (tổng 200.000đ), chiết khấu 10% =
+20.000đ, bật giao hàng với phí 20.000đ → tổng tiền cuối đúng 200.000đ (200.000 - 20.000 + 20.000),
+địa chỉ giao hàng và ghi chú hiển thị đúng trong chi tiết đơn. Đã xóa sạch dữ liệu test.
+
+Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: chưa hỗ trợ giữ nhiều đơn hàng cùng lúc dạng
+tab ("Đơn 1", "+") — mỗi lần chỉ thao tác được 1 đơn trên màn hình, phải hoàn tất/hủy trước khi bắt
+đầu đơn mới; chưa có nút "Đổi giá bán hàng" / "Đổi quà" nhanh ngay trong POS (đổi giá đã có thể làm
+qua trang sản phẩm, tặng quà chưa có khung dữ liệu).

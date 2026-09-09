@@ -57,6 +57,10 @@ $items = $items->fetchAll();
   <p style="margin:2px 0;">Ngày: <?= date('d/m/Y H:i', strtotime($order['created_at'])) ?></p>
   <p style="margin:2px 0;">Thu ngân: <?= e($order['sold_by_name']) ?></p>
   <?php if ($order['customer_name']): ?><p style="margin:2px 0;">Khách hàng: <?= e($order['customer_name']) ?> <?= $order['customer_phone'] ? '(' . e($order['customer_phone']) . ')' : '' ?></p><?php endif; ?>
+  <?php if ($order['is_delivery']): ?>
+    <p style="margin:2px 0;">Giao hàng: <?= e($order['shipping_address'] ?: '') ?></p>
+  <?php endif; ?>
+  <?php if ($order['note']): ?><p style="margin:2px 0;">Ghi chú: <?= e($order['note']) ?></p><?php endif; ?>
   <div class="line"></div>
 
   <table>

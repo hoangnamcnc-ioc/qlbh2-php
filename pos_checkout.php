@@ -28,6 +28,12 @@ $paymentMethod = in_array($input['payment_method'] ?? '', ['CASH', 'BANK_TRANSFE
     ? $input['payment_method']
     : 'CASH';
 $customerPhone = trim((string) ($input['customer_phone'] ?? ''));
+$manualDiscountType = ($input['manual_discount_type'] ?? '') === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
+$manualDiscountValue = max(0, (float) ($input['manual_discount_value'] ?? 0));
+$isDelivery = !empty($input['is_delivery']);
+$deliveryAddress = $isDelivery ? trim((string) ($input['delivery_address'] ?? '')) : null;
+$shippingFee = $isDelivery ? max(0, (float) ($input['shipping_fee'] ?? 0)) : 0.0;
+$orderNote = trim((string) ($input['note'] ?? '')) ?: null;
 
 $pdo = db();
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
@@ -136,8 +142,13 @@ try {
         $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal];
     }
 
+    // Chiết khấu đơn nhập tay (F6) tính trước, luôn giới hạn không vượt quá tổng tiền hàng
+    $manualDiscount = $manualDiscountType === 'PERCENT'
+        ? $subTotal * $manualDiscountValue / 100
+        : $manualDiscountValue;
+    $discount = min($subTotal, max(0, $manualDiscount));
+
     // Xác thực mã giảm giá lại phía server (không tin số liệu client gửi lên)
-    $discount = 0.0;
     $couponCode = null;
     $couponId = null;
     $rawCouponCode = strtoupper(trim((string) ($input['coupon_code'] ?? '')));
@@ -153,10 +164,10 @@ try {
             && (!$coupon['max_uses'] || (int) $coupon['used_count'] < (int) $coupon['max_uses'])
             && $subTotal >= (float) $coupon['min_order_amount']
         ) {
-            $discount = $coupon['discount_type'] === 'PERCENT'
+            $couponDiscount = $coupon['discount_type'] === 'PERCENT'
                 ? $subTotal * (float) $coupon['discount_value'] / 100
                 : (float) $coupon['discount_value'];
-            $discount = min($discount, $subTotal);
+            $discount = min($subTotal, $discount + $couponDiscount);
             $couponCode = $coupon['code'];
             $couponId = $coupon['id'];
         }
@@ -183,13 +194,14 @@ try {
     if (getSetting('round_total', '0') === '1') {
         $totalAmount = round($totalAmount / 1000) * 1000;
     }
+    $totalAmount += $shippingFee;
 
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
-        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $promotionId, $totalAmount, $totalAmount]);
+        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, total_amount, paid_amount)
+         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $totalAmount, $totalAmount]);
     $orderId = (int) $pdo->lastInsertId();
 
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, "COMPLETED", ?)')

@@ -138,6 +138,11 @@ require_once __DIR__ . '/inc_header.php';
     <p style="margin:2px 0;"><?= e($order['customer_name'] ?: 'Khách lẻ') ?></p>
     <?php if ($order['customer_phone']): ?><p class="muted" style="margin:2px 0;"><?= e($order['customer_phone']) ?></p><?php endif; ?>
     <?php if ($order['customer_name']): ?><p class="muted" style="margin:2px 0;">Điểm tích lũy: <?= (int) $order['loyalty_points'] ?></p><?php endif; ?>
+    <?php if ($order['is_delivery']): ?>
+      <p style="margin:8px 0 2px;"><span class="badge badge-green">Giao hàng</span></p>
+      <?php if ($order['shipping_address']): ?><p class="muted" style="margin:2px 0;">Địa chỉ: <?= e($order['shipping_address']) ?></p><?php endif; ?>
+    <?php endif; ?>
+    <?php if ($order['note']): ?><p class="muted" style="margin:8px 0 0;">Ghi chú: <?= e($order['note']) ?></p><?php endif; ?>
   </div>
   <div class="card">
     <h2 style="font-size:14px;font-weight:600;margin:0 0 8px;">Thông tin đơn</h2>

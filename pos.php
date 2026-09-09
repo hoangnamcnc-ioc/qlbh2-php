@@ -50,6 +50,17 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
     </div>
 
     <div class="field">
+      <label>Chiết khấu đơn (F6, không bắt buộc)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="number" min="0" id="manual-discount-value" class="input" placeholder="0" style="flex:1;">
+        <select id="manual-discount-type" class="input" style="max-width:90px;">
+          <option value="AMOUNT">VNĐ</option>
+          <option value="PERCENT">%</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
       <label>Mã giảm giá (không bắt buộc)</label>
       <div style="display:flex;gap:8px;">
         <input type="text" id="coupon-input" class="input" placeholder="vd: SALE10" style="text-transform:uppercase;">
@@ -58,13 +69,30 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       <div id="coupon-message" style="font-size:12px;margin-top:4px;"></div>
     </div>
 
+    <div class="field">
+      <label><input type="checkbox" id="delivery-toggle"> Giao hàng</label>
+      <div id="delivery-fields" style="display:none;margin-top:8px;">
+        <input type="text" id="delivery-address" class="input" placeholder="Địa chỉ giao hàng" style="margin-bottom:8px;">
+        <input type="number" min="0" id="shipping-fee" class="input" placeholder="Phí giao hàng (VNĐ)">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ghi chú đơn hàng</label>
+      <input type="text" id="order-note" class="input" placeholder="Ghi chú cho đơn hàng này...">
+    </div>
+
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;">
       <span>Tạm tính</span>
       <span id="cart-subtotal">0</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;color:#dc2626;" id="coupon-discount-row">
-      <span>Giảm giá</span>
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;color:#dc2626;">
+      <span>Chiết khấu</span>
       <span id="coupon-discount">0</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;" id="shipping-fee-row">
+      <span>Phí giao hàng</span>
+      <span id="shipping-fee-display">0</span>
     </div>
     <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:12px;margin-bottom:12px;">
       <span>Tổng tiền</span>
@@ -82,8 +110,13 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
     <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
     <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
-      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Mã giảm giá · F7 Đổi hình thức TT
+      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT
     </p>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;font-size:12px;">
+      <a href="orders.php">Danh sách đơn hàng</a>
+      <a href="order_returns.php">Đổi trả hàng</a>
+      <a href="reports.php">Xem báo cáo</a>
+    </div>
   </div>
 </div>
 
@@ -228,18 +261,44 @@ function renderCart() {
 
 let appliedCoupon = null;
 
+function getManualDiscount(subTotal) {
+  const val = parseFloat(document.getElementById('manual-discount-value').value) || 0;
+  const type = document.getElementById('manual-discount-type').value;
+  const amount = type === 'PERCENT' ? subTotal * val / 100 : val;
+  return Math.max(0, Math.min(amount, subTotal));
+}
+
+function getShippingFee() {
+  if (!document.getElementById('delivery-toggle').checked) return 0;
+  return parseFloat(document.getElementById('shipping-fee').value) || 0;
+}
+
 function updateTotals() {
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const discount = appliedCoupon ? appliedCoupon.discount : 0;
-  const total = Math.max(0, subTotal - discount);
+  const manualDiscount = getManualDiscount(subTotal);
+  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
+  const discount = Math.min(subTotal, manualDiscount + couponDiscount);
+  const shippingFee = getShippingFee();
+  const total = Math.max(0, subTotal - discount) + shippingFee;
   document.getElementById('cart-subtotal').textContent = formatMoney(subTotal);
   document.getElementById('coupon-discount').textContent = formatMoney(discount);
+  document.getElementById('shipping-fee-display').textContent = formatMoney(shippingFee);
   document.getElementById('cart-total').textContent = formatMoney(total);
   updateChange();
 }
 
+document.getElementById('manual-discount-value').addEventListener('input', updateTotals);
+document.getElementById('manual-discount-type').addEventListener('change', updateTotals);
+document.getElementById('shipping-fee').addEventListener('input', updateTotals);
+document.getElementById('delivery-toggle').addEventListener('change', (e) => {
+  document.getElementById('delivery-fields').style.display = e.target.checked ? 'block' : 'none';
+  updateTotals();
+});
+
 function updateChange() {
-  const total = cart.reduce((s, c) => s + c.price * c.qty, 0) - (appliedCoupon ? appliedCoupon.discount : 0);
+  const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const discount = Math.min(subTotal, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0));
+  const total = Math.max(0, subTotal - discount) + getShippingFee();
   const given = parseFloat(document.getElementById('cash-given').value) || 0;
   const change = given - Math.max(0, total);
   document.getElementById('cash-change').textContent = formatMoney(Math.max(0, change));
@@ -291,6 +350,12 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       payment_method: document.getElementById('payment-method').value,
       customer_phone: document.getElementById('customer-phone').value,
       coupon_code: appliedCoupon ? appliedCoupon.code : null,
+      manual_discount_type: document.getElementById('manual-discount-type').value,
+      manual_discount_value: parseFloat(document.getElementById('manual-discount-value').value) || 0,
+      is_delivery: document.getElementById('delivery-toggle').checked,
+      delivery_address: document.getElementById('delivery-address').value,
+      shipping_fee: getShippingFee(),
+      note: document.getElementById('order-note').value,
     }),
   })
     .then(r => r.json())
@@ -307,6 +372,12 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
         renderCart();
         document.getElementById('customer-phone').value = '';
         document.getElementById('cash-given').value = '';
+        document.getElementById('manual-discount-value').value = '';
+        document.getElementById('order-note').value = '';
+        document.getElementById('delivery-toggle').checked = false;
+        document.getElementById('delivery-fields').style.display = 'none';
+        document.getElementById('delivery-address').value = '';
+        document.getElementById('shipping-fee').value = '';
         updateChange();
       }
     })
@@ -346,7 +417,7 @@ document.addEventListener('keydown', (e) => {
       document.getElementById('customer-phone').focus();
       break;
     case 'F6':
-      document.getElementById('coupon-input').focus();
+      document.getElementById('manual-discount-value').focus();
       break;
     case 'F7': {
       const sel = document.getElementById('payment-method');
