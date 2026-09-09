@@ -119,15 +119,36 @@ try {
             $couponId = $coupon['id'];
         }
     }
+
+    // Áp dụng tự động chương trình khuyến mại phù hợp nhất (không cần nhập mã),
+    // cộng dồn với giảm giá từ coupon nếu có.
+    $promotionId = null;
+    $pStmt = $pdo->prepare(
+        "SELECT * FROM promotions WHERE is_active = 1 AND min_order_amount <= ?
+         AND (start_date IS NULL OR start_date <= CURDATE())
+         AND (end_date IS NULL OR end_date >= CURDATE())
+         ORDER BY discount_percent DESC LIMIT 1"
+    );
+    $pStmt->execute([$subTotal]);
+    $promotion = $pStmt->fetch();
+    if ($promotion) {
+        $promoDiscount = $subTotal * (float) $promotion['discount_percent'] / 100;
+        $discount = min($subTotal, $discount + $promoDiscount);
+        $promotionId = $promotion['id'];
+    }
+
     $totalAmount = $subTotal - $discount;
 
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
-        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $totalAmount, $totalAmount]);
+        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, total_amount, paid_amount)
+         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $promotionId, $totalAmount, $totalAmount]);
     $orderId = (int) $pdo->lastInsertId();
+
+    $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, "COMPLETED", ?)')
+        ->execute([$orderId, $user['id']]);
 
     $itemStmt = $pdo->prepare(
         'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)'

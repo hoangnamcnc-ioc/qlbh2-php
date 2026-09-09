@@ -17,11 +17,11 @@ if (!$product) redirect('products.php');
 $newSku = $product['sku'] . '-COPY-' . substr((string) (int) round(microtime(true) * 1000), -5);
 
 $pdo->prepare(
-    'INSERT INTO products (sku, barcode, name, description, unit, cost_price, sell_price, category_id, brand_id, is_active)
-     VALUES (?,?,?,?,?,?,?,?,?,0)'
+    'INSERT INTO products (sku, barcode, name, description, unit, cost_price, sell_price, category_id, brand_id, tags, is_active)
+     VALUES (?,?,?,?,?,?,?,?,?,?,0)'
 )->execute([
     $newSku, null, $product['name'] . ' (Sao chép)', $product['description'], $product['unit'],
-    $product['cost_price'], $product['sell_price'], $product['category_id'], $product['brand_id'],
+    $product['cost_price'], $product['sell_price'], $product['category_id'], $product['brand_id'], $product['tags'],
 ]);
 $newId = (int) $pdo->lastInsertId();
 

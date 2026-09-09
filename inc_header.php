@@ -42,7 +42,10 @@ if ($isManagerUp) {
     ];
     $navGroups['Sổ quỹ'] = ['cashbook.php' => 'Sổ quỹ'];
     $navGroups['Báo cáo'] = ['reports.php' => 'Báo cáo'];
-    $navGroups['Khuyến mại'] = ['coupons.php' => 'Mã giảm giá'];
+    $navGroups['Khuyến mại'] = [
+        'promotions.php' => 'Quản lý khuyến mại',
+        'coupons.php' => 'Mã giảm giá',
+    ];
     $navGroups['Kế toán và Thuế'] = ['accounting.php' => 'Kế toán và Thuế'];
 }
 if (hasRole('ADMIN')) {

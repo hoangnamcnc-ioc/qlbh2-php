@@ -65,12 +65,24 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       <span>Giảm giá</span>
       <span id="coupon-discount">0</span>
     </div>
-    <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:12px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:12px;margin-bottom:12px;">
       <span>Tổng tiền</span>
       <span id="cart-total" style="font-size:20px;font-weight:700;color:#2563eb;">0</span>
     </div>
 
-    <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán</button>
+    <div class="field">
+      <label>Tiền khách đưa (F2)</label>
+      <input type="number" min="0" id="cash-given" class="input" placeholder="0">
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:16px;">
+      <span>Tiền thối lại</span>
+      <span id="cash-change" style="font-weight:600;">0</span>
+    </div>
+
+    <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
+    <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
+      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Mã giảm giá · F7 Đổi hình thức TT
+    </p>
   </div>
 </div>
 
@@ -157,10 +169,20 @@ let appliedCoupon = null;
 function updateTotals() {
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const discount = appliedCoupon ? appliedCoupon.discount : 0;
+  const total = Math.max(0, subTotal - discount);
   document.getElementById('cart-subtotal').textContent = formatMoney(subTotal);
   document.getElementById('coupon-discount').textContent = formatMoney(discount);
-  document.getElementById('cart-total').textContent = formatMoney(Math.max(0, subTotal - discount));
+  document.getElementById('cart-total').textContent = formatMoney(total);
+  updateChange();
 }
+
+function updateChange() {
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0) - (appliedCoupon ? appliedCoupon.discount : 0);
+  const given = parseFloat(document.getElementById('cash-given').value) || 0;
+  const change = given - Math.max(0, total);
+  document.getElementById('cash-change').textContent = formatMoney(Math.max(0, change));
+}
+document.getElementById('cash-given').addEventListener('input', updateChange);
 
 document.getElementById('coupon-apply-btn').addEventListener('click', () => {
   const code = document.getElementById('coupon-input').value.trim();
@@ -217,6 +239,8 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
         document.getElementById('coupon-message').textContent = '';
         renderCart();
         document.getElementById('customer-phone').value = '';
+        document.getElementById('cash-given').value = '';
+        updateChange();
       }
     })
     .catch(() => { msgBox.innerHTML = '<div class="alert alert-error">Có lỗi xảy ra, vui lòng thử lại.</div>'; })
@@ -233,6 +257,35 @@ function escapeHtml(s) {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {
     searchResults.style.display = 'none';
+  }
+});
+
+// Phím tắt bán hàng kiểu Sapo
+document.addEventListener('keydown', (e) => {
+  const key = e.key;
+  if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7'].includes(key)) return;
+  e.preventDefault();
+  switch (key) {
+    case 'F1':
+      document.getElementById('checkout-btn').click();
+      break;
+    case 'F2':
+      document.getElementById('cash-given').focus();
+      break;
+    case 'F3':
+      searchInput.focus();
+      break;
+    case 'F4':
+      document.getElementById('customer-phone').focus();
+      break;
+    case 'F6':
+      document.getElementById('coupon-input').focus();
+      break;
+    case 'F7': {
+      const sel = document.getElementById('payment-method');
+      sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+      break;
+    }
   }
 });
 </script>

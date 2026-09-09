@@ -38,6 +38,8 @@ if ($order && $order['status'] !== 'CANCELLED') {
         }
 
         $pdo->prepare("UPDATE orders SET status = 'CANCELLED' WHERE id = ?")->execute([$orderId]);
+        $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?,?,"CANCELLED",?)')
+            ->execute([$orderId, $order['status'], $currentUser['id']]);
         $pdo->commit();
     } catch (Throwable $ex) {
         $pdo->rollBack();

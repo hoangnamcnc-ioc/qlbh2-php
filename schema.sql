@@ -404,6 +404,51 @@ CREATE TABLE IF NOT EXISTS price_adjustments (
   FOREIGN KEY (created_by_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ===== Tags =====
+ALTER TABLE products ADD COLUMN tags VARCHAR(255) NULL;
+ALTER TABLE orders ADD COLUMN tags VARCHAR(255) NULL;
+
+-- ===== Nhiều ảnh sản phẩm =====
+CREATE TABLE IF NOT EXISTS product_images (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  filename VARCHAR(255) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Lịch sử thay đổi trạng thái đơn hàng (audit log) =====
+CREATE TABLE IF NOT EXISTS order_status_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  from_status VARCHAR(20) NULL,
+  to_status VARCHAR(20) NOT NULL,
+  note VARCHAR(255) NULL,
+  changed_by_id INT NOT NULL,
+  changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (changed_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Đối soát COD =====
+ALTER TABLE shipments ADD COLUMN reconciled_at DATETIME NULL;
+
+-- ===== Quản lý khuyến mại (chương trình tự động, khác mã coupon) =====
+CREATE TABLE IF NOT EXISTS promotions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  min_order_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  start_date DATE NULL,
+  end_date DATE NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE orders ADD COLUMN promotion_id INT NULL,
+  ADD CONSTRAINT fk_orders_promotion FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE SET NULL;
+
 -- Dữ liệu khởi tạo
 INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')
   ON DUPLICATE KEY UPDATE name = name;

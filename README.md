@@ -116,6 +116,23 @@ Giới hạn còn lại: Kênh bán hàng (tích hợp Shopee/Facebook/sàn TMĐ
 danh mục/nhãn hiệu/giá, xem nhanh đơn hàng hiện đúng dòng sản phẩm, nội dung hóa đơn in khớp dữ
 liệu đơn (xác minh qua cURL vì trình duyệt test tự kích hoạt hộp thoại in chặn thao tác tự động).
 
+**Vòng chi tiết thứ 2**:
+- Tags cho sản phẩm và đơn hàng (nhập tự do, cách nhau bằng dấu phẩy).
+- Nhiều ảnh sản phẩm (`product_images`, upload/xóa trong `product_form.php`, giới hạn 3MB,
+  chỉ nhận jpg/png/webp, thư mục `uploads/products/` có `.htaccess` chặn thực thi mã).
+- Lịch sử thay đổi đơn hàng (`order_status_history`) — ghi log khi tạo, hủy, sửa đơn; hiển thị
+  trong trang chi tiết đơn.
+- Đối soát COD: trang Vận chuyển có bộ đếm "COD chưa đối soát", nút Đối soát từng vận đơn, tab
+  lọc Tất cả/Chưa đối soát/Đã đối soát.
+- Phím tắt bán hàng trong POS (F1 Thanh toán, F2 Tiền khách đưa, F3 Tìm sản phẩm, F4 SĐT khách,
+  F6 Mã giảm giá, F7 Đổi hình thức thanh toán) + trường "Tiền khách đưa"/"Tiền thối lại".
+- Quản lý khuyến mại dạng chương trình tự động (`promotions.php`) — khác mã coupon: tự áp dụng
+  trong POS khi đơn đạt giá trị tối thiểu, không cần khách nhập mã; cộng dồn với coupon nếu có.
+
+Đã test: upload ảnh thành công (xác minh file truy cập được qua HTTP 200), khuyến mại tự động
+áp dụng đúng % giảm và cộng dồn đúng vào `discount`, audit log ghi đúng 2 dòng khi tạo rồi hủy đơn,
+đối soát COD chuyển đúng trạng thái và bộ đếm về 0.
+
 **Lưu ý kỹ thuật khi migrate DB có dữ liệu cũ**: nếu nâng cấp từ bản trước khi có biến thể, bảng
 `inventory` có unique key cũ `(branch_id, product_id)` được ràng buộc bởi FK — cần thêm index phụ
 trên `product_id` trước khi xóa key cũ để đổi sang `(branch_id, product_id, variant_id)` (xem lịch

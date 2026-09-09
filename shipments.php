@@ -6,25 +6,44 @@ $statusLabels = [
     'DELIVERED' => 'Đã giao', 'FAILED' => 'Giao thất bại', 'RETURNED' => 'Đã hoàn',
 ];
 
+$filter = $_GET['filter'] ?? 'all';
 $pdo = db();
-$shipments = $pdo->query(
-    'SELECT s.*, o.code AS order_code, c.name AS customer_name
-     FROM shipments s
-     JOIN orders o ON o.id = s.order_id
-     LEFT JOIN customers c ON c.id = o.customer_id
-     ORDER BY s.created_at DESC LIMIT 100'
-)->fetchAll();
+
+$sql = 'SELECT s.*, o.code AS order_code, c.name AS customer_name
+        FROM shipments s
+        JOIN orders o ON o.id = s.order_id
+        LEFT JOIN customers c ON c.id = o.customer_id';
+if ($filter === 'unreconciled') {
+    $sql .= " WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL";
+} elseif ($filter === 'reconciled') {
+    $sql .= ' WHERE s.reconciled_at IS NOT NULL';
+}
+$sql .= ' ORDER BY s.created_at DESC LIMIT 100';
+$shipments = $pdo->query($sql)->fetchAll();
+
+$totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM shipments WHERE cod_amount > 0 AND reconciled_at IS NULL')->fetch()['s'];
 ?>
 
-<h1 style="font-size:24px;font-weight:600;margin-bottom:24px;">Vận chuyển</h1>
+<h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Vận chuyển</h1>
 <p class="muted" style="margin-bottom:16px;">Theo dõi vận đơn nội bộ. Tạo vận đơn từ trang chi tiết đơn hàng.</p>
+
+<div class="card" style="max-width:320px;margin-bottom:16px;">
+  <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">COD chưa đối soát</div>
+  <div style="font-size:20px;font-weight:700;color:#dc2626;"><?= money($totalUnreconciled) ?></div>
+</div>
+
+<div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid #e2e8f0;">
+  <a href="?filter=all" style="padding:8px 12px;font-size:14px;<?= $filter === 'all' ? 'border-bottom:2px solid #2563eb;color:#2563eb;font-weight:600;' : 'color:#64748b;' ?>">Tất cả</a>
+  <a href="?filter=unreconciled" style="padding:8px 12px;font-size:14px;<?= $filter === 'unreconciled' ? 'border-bottom:2px solid #2563eb;color:#2563eb;font-weight:600;' : 'color:#64748b;' ?>">Chưa đối soát</a>
+  <a href="?filter=reconciled" style="padding:8px 12px;font-size:14px;<?= $filter === 'reconciled' ? 'border-bottom:2px solid #2563eb;color:#2563eb;font-weight:600;' : 'color:#64748b;' ?>">Đã đối soát</a>
+</div>
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Đơn hàng</th><th>Khách hàng</th><th>Mã vận đơn</th><th>Đơn vị</th><th>Trạng thái</th><th class="text-right">Phí ship</th><th class="text-right">Thu hộ (COD)</th></tr></thead>
+    <thead><tr><th>Đơn hàng</th><th>Khách hàng</th><th>Mã vận đơn</th><th>Đơn vị</th><th>Trạng thái</th><th class="text-right">Phí ship</th><th class="text-right">Thu hộ (COD)</th><th>Đối soát</th></tr></thead>
     <tbody>
       <?php if (!$shipments): ?>
-        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Chưa có vận đơn nào.</td></tr>
+        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Không có vận đơn nào.</td></tr>
       <?php endif; ?>
       <?php foreach ($shipments as $s): ?>
         <tr>
@@ -35,6 +54,19 @@ $shipments = $pdo->query(
           <td><span class="badge badge-gray"><?= e($statusLabels[$s['status']] ?? $s['status']) ?></span></td>
           <td class="text-right"><?= money($s['shipping_fee']) ?></td>
           <td class="text-right"><?= money($s['cod_amount']) ?></td>
+          <td>
+            <?php if ($s['cod_amount'] <= 0): ?>
+              <span class="muted">—</span>
+            <?php elseif ($s['reconciled_at']): ?>
+              <span class="badge badge-green">Đã đối soát</span>
+            <?php else: ?>
+              <form method="post" action="shipment_reconcile.php" style="display:inline;">
+                <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                <input type="hidden" name="shipment_id" value="<?= (int) $s['id'] ?>">
+                <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">Đối soát</button>
+              </form>
+            <?php endif; ?>
+          </td>
         </tr>
       <?php endforeach; ?>
     </tbody>

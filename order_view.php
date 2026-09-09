@@ -49,6 +49,20 @@ $shipmentStatusLabels = [
     'DELIVERED' => 'Đã giao', 'FAILED' => 'Giao thất bại', 'RETURNED' => 'Đã hoàn',
 ];
 
+$promotionName = null;
+if ($order['promotion_id']) {
+    $pStmt = $pdo->prepare('SELECT name FROM promotions WHERE id = ?');
+    $pStmt->execute([$order['promotion_id']]);
+    $promotionName = $pStmt->fetchColumn();
+}
+
+$historyStmt = $pdo->prepare(
+    'SELECT h.*, u.name AS changed_by_name FROM order_status_history h
+     JOIN users u ON u.id = h.changed_by_id WHERE h.order_id = ? ORDER BY h.changed_at DESC'
+);
+$historyStmt->execute([$id]);
+$history = $historyStmt->fetchAll();
+
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -121,6 +135,8 @@ require_once __DIR__ . '/inc_header.php';
     <p style="margin:2px 0;">Bán bởi: <?= e($order['sold_by_name']) ?></p>
     <p style="margin:2px 0;">Nguồn: <?= e($order['source']) ?></p>
     <?php if ($order['coupon_code']): ?><p style="margin:2px 0;">Mã giảm giá: <span style="font-family:monospace;"><?= e($order['coupon_code']) ?></span></p><?php endif; ?>
+    <?php if ($promotionName): ?><p style="margin:2px 0;">Khuyến mại tự động: <?= e($promotionName) ?></p><?php endif; ?>
+    <?php if ($order['tags']): ?><p style="margin:2px 0;">Tags: <?php foreach (explode(',', $order['tags']) as $t): ?><span class="badge badge-gray" style="margin-right:4px;"><?= e(trim($t)) ?></span><?php endforeach; ?></p><?php endif; ?>
   </div>
   <?php if ($shipment): ?>
   <div class="card">
@@ -162,5 +178,30 @@ require_once __DIR__ . '/inc_header.php';
     </p>
   <?php endforeach; ?>
 </div>
+
+<?php if ($history): ?>
+<h2 style="font-size:16px;font-weight:600;margin:32px 0 12px;">Lịch sử thay đổi</h2>
+<div class="card" style="padding:0;overflow-x:auto;">
+  <table>
+    <thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Thay đổi</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <?php foreach ($history as $h): ?>
+        <tr>
+          <td class="muted"><?= date('d/m/Y H:i', strtotime($h['changed_at'])) ?></td>
+          <td><?= e($h['changed_by_name']) ?></td>
+          <td>
+            <?php if ($h['from_status'] && $h['from_status'] !== $h['to_status']): ?>
+              <?= e($statusLabels[$h['from_status']] ?? $h['from_status']) ?> → <?= e($statusLabels[$h['to_status']] ?? $h['to_status']) ?>
+            <?php else: ?>
+              <?= e($statusLabels[$h['to_status']] ?? $h['to_status']) ?>
+            <?php endif; ?>
+          </td>
+          <td class="muted"><?= e($h['note'] ?: '—') ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

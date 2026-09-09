@@ -6,6 +6,7 @@ $currentUser = requireRole('ADMIN', 'MANAGER');
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
 $product = null;
+$images = [];
 $inventories = [];
 $variants = [];
 $variantInventories = [];
@@ -26,6 +27,10 @@ if ($id) {
     foreach ($stmt->fetchAll() as $inv) {
         $inventories[$inv['branch_id']] = $inv;
     }
+
+    $stmt = $pdo->prepare('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order');
+    $stmt->execute([$id]);
+    $images = $stmt->fetchAll();
 
     $stmt = $pdo->prepare('SELECT * FROM product_variants WHERE product_id = ? ORDER BY id');
     $stmt->execute([$id]);
@@ -54,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isActive = isset($_POST['is_active']) ? 1 : 0;
     $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
     $brandId = (int) ($_POST['brand_id'] ?? 0) ?: null;
+    $tags = post('tags') ?: null;
 
     if ($name === '' || ($id === 0 && $sku === '')) {
         $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
@@ -61,8 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=? WHERE id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $id]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=? WHERE id=?'
+                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $id]);
             } else {
                 $check = $pdo->prepare('SELECT id FROM products WHERE sku = ?');
                 $check->execute([$sku]);
@@ -70,8 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id) VALUES (?,?,?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId]);
+                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags) VALUES (?,?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags]);
                 $id = (int) $pdo->lastInsertId();
 
                 $initialQty = postInt('initial_qty');
@@ -115,6 +121,32 @@ require_once __DIR__ . '/inc_header.php';
 
 <?php if (!empty($success)): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+
+<?php if ($product): ?>
+<div class="card" style="max-width:640px;margin-bottom:16px;">
+  <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Hình ảnh sản phẩm</h2>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+    <?php foreach ($images as $img): ?>
+      <div style="position:relative;width:90px;">
+        <img src="uploads/products/<?= e($img['filename']) ?>" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">
+        <form method="post" action="product_image_delete.php" style="position:absolute;top:2px;right:2px;">
+          <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+          <input type="hidden" name="image_id" value="<?= (int) $img['id'] ?>">
+          <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+          <button type="submit" style="background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:1;">×</button>
+        </form>
+      </div>
+    <?php endforeach; ?>
+    <?php if (!$images): ?><p class="muted" style="font-size:13px;margin:0;">Chưa có ảnh nào.</p><?php endif; ?>
+  </div>
+  <form method="post" action="product_image_upload.php" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:center;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+    <input type="file" name="image" accept="image/jpeg,image/png,image/webp" required>
+    <button type="submit" class="btn btn-secondary">Tải ảnh lên</button>
+  </form>
+</div>
+<?php endif; ?>
 
 <div class="card" style="max-width:640px;">
   <form method="post">
@@ -178,6 +210,11 @@ require_once __DIR__ . '/inc_header.php';
         <label>Giá bán</label>
         <input class="input" type="number" min="0" name="sell_price" value="<?= e((string) ($product['sell_price'] ?? '0')) ?>">
       </div>
+    </div>
+
+    <div class="field">
+      <label>Tags (cách nhau bằng dấu phẩy)</label>
+      <input class="input" name="tags" value="<?= e($product['tags'] ?? '') ?>" placeholder="vd: ban chay, moi ve">
     </div>
 
     <?php if (!$product): ?>
