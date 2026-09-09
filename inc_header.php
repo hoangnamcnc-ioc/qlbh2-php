@@ -7,12 +7,15 @@ $isManagerUp = hasRole('ADMIN', 'MANAGER');
 
 $navGroups = [
     'Tổng quan' => ['index.php' => 'Tổng quan'],
-    'Bán hàng' => ['pos.php' => 'Bán hàng (POS)'],
-    'Đơn hàng' => [
-        'orders.php' => 'Danh sách đơn hàng',
-        'order_returns.php' => 'Đơn trả hàng',
-    ],
-    'Vận chuyển' => ['shipments.php' => 'Vận chuyển'],
+    'Bán hàng' => array_merge(
+        [
+            'pos.php' => 'Bán hàng (POS)',
+            'orders.php' => 'Danh sách đơn hàng',
+            'order_returns.php' => 'Đơn trả hàng',
+            'shipments.php' => 'Vận chuyển',
+        ],
+        $isManagerUp ? ['channels.php' => 'Kênh bán hàng'] : []
+    ),
     'Sản phẩm' => array_merge(
         [
             'products.php' => 'Danh sách sản phẩm',
@@ -35,19 +38,20 @@ $navGroups = [
     ),
 ];
 if ($isManagerUp) {
-    $navGroups['Marketing'] = ['campaigns.php' => 'Chiến dịch'];
+    $navGroups['Marketing & Khuyến mại'] = [
+        'campaigns.php' => 'Chiến dịch',
+        'promotions.php' => 'Quản lý khuyến mại',
+        'coupons.php' => 'Mã giảm giá',
+    ];
     $navGroups['Bảo hành'] = [
         'warranty_cards.php' => 'Phiếu bảo hành',
         'warranty_policies.php' => 'Chính sách bảo hành',
     ];
-    $navGroups['Sổ quỹ'] = ['cashbook.php' => 'Sổ quỹ'];
-    $navGroups['Báo cáo'] = ['reports.php' => 'Báo cáo'];
-    $navGroups['Khuyến mại'] = [
-        'promotions.php' => 'Quản lý khuyến mại',
-        'coupons.php' => 'Mã giảm giá',
+    $navGroups['Tài chính & Báo cáo'] = [
+        'cashbook.php' => 'Sổ quỹ',
+        'reports.php' => 'Báo cáo',
+        'accounting.php' => 'Kế toán và Thuế',
     ];
-    $navGroups['Kế toán và Thuế'] = ['accounting.php' => 'Kế toán và Thuế'];
-    $navGroups['Kênh bán hàng'] = ['channels.php' => 'Kênh bán hàng'];
 }
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = ['branches.php' => 'Chi nhánh'];
