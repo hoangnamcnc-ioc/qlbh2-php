@@ -194,3 +194,21 @@ dữ liệu test đã xóa sạch khỏi server sau khi kiểm tra.
 Đến đây phần mềm đã hoàn thiện đầy đủ các hạng mục nghiệp vụ đối chiếu với Sapo POS trong phạm vi
 đã khảo sát, chỉ còn phụ thuộc các tích hợp API thật bên thứ 3 (thanh toán, hóa đơn điện tử, SMS/
 Email, vận chuyển, sàn TMĐT) mà dự án chủ động chưa gọi thật theo quyết định ban đầu.
+
+**Vòng hoàn thiện thứ 6**:
+- **Sidebar gọn hơn nữa**: gộp các nhóm chỉ có 1 mục vào nhóm liên quan gần nhất — "Bán hàng" giờ
+  gồm POS + Đơn hàng + Đơn trả hàng + Vận chuyển + Kênh bán hàng; "Marketing & Khuyến mại" gồm
+  Chiến dịch + Khuyến mại tự động + Mã giảm giá; "Tài chính & Báo cáo" gồm Sổ quỹ + Báo cáo + Kế
+  toán và Thuế. Sidebar còn 7 nhóm chính thay vì 13 nhóm rời rạc như trước.
+- **Trang Cấu hình dạng hub** (`settings.php`, ADMIN), lấy cảm hứng từ trang Cấu hình của Sapo:
+  các thẻ (card) gom theo 3 nhóm "Thiết lập cửa hàng"/"Thiết lập bán hàng"/"Tài chính & Báo cáo",
+  mỗi thẻ dẫn thẳng tới trang quản lý tương ứng đã có sẵn.
+- **Nhân viên và phân quyền** (`users.php`, ADMIN) — hạng mục còn thiếu so với Sapo: trước đây chỉ
+  tạo được 1 tài khoản admin duy nhất qua `seed.php`, giờ ADMIN có thể tạo thêm tài khoản nhân viên
+  (họ tên/email/mật khẩu/vai trò/chi nhánh), đổi vai trò và chi nhánh ngay trong danh sách, khóa/mở
+  khóa tài khoản, đặt lại mật khẩu cho nhân viên khi họ quên. Tự bảo vệ: không thể tự khóa hoặc tự
+  hạ quyền chính tài khoản đang đăng nhập.
+
+Đã test trên app.kt-soft.vn: tạo tài khoản nhân viên mới với vai trò Thu ngân, xác nhận đăng nhập
+được ngay bằng tài khoản đó; trang Cấu hình hiển thị đúng các thẻ liên kết tới toàn bộ trang quản lý
+hiện có. Đã xóa tài khoản test sau khi kiểm tra.

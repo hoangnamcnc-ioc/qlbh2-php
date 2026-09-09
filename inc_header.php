@@ -54,7 +54,7 @@ if ($isManagerUp) {
     ];
 }
 if (hasRole('ADMIN')) {
-    $navGroups['Cấu hình'] = ['branches.php' => 'Chi nhánh'];
+    $navGroups['Cấu hình'] = ['settings.php' => 'Cấu hình'];
 }
 
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
@@ -90,6 +90,7 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
   .topbar { height: 56px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 24px; }
   .content { padding: 24px; }
   .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+  a.card:hover { border-color: #93c5fd; background: #f8fafc; text-decoration: none; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b; background: #f8fafc; padding: 10px 12px; }
   td { padding: 10px 12px; border-top: 1px solid #f1f5f9; }
