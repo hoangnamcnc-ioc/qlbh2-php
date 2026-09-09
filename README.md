@@ -279,7 +279,23 @@ hiện tại đơn từ POS luôn tạo thẳng ở trạng thái Hoàn thành, 
 20.000đ, bật giao hàng với phí 20.000đ → tổng tiền cuối đúng 200.000đ (200.000 - 20.000 + 20.000),
 địa chỉ giao hàng và ghi chú hiển thị đúng trong chi tiết đơn. Đã xóa sạch dữ liệu test.
 
-Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: chưa hỗ trợ giữ nhiều đơn hàng cùng lúc dạng
-tab ("Đơn 1", "+") — mỗi lần chỉ thao tác được 1 đơn trên màn hình, phải hoàn tất/hủy trước khi bắt
-đầu đơn mới; chưa có nút "Đổi giá bán hàng" / "Đổi quà" nhanh ngay trong POS (đổi giá đã có thể làm
-qua trang sản phẩm, tặng quà chưa có khung dữ liệu).
+**Vòng bổ sung tiếp theo — giữ nhiều đơn cùng lúc + thao tác nhanh** (theo ảnh Sapo, khắc phục đúng
+giới hạn vừa nêu ở trên):
+- **Giữ nhiều đơn hàng cùng lúc (tab)**: thanh tab "Đơn 1", "Đơn 2"... + nút "+" thêm đơn mới ở
+  `pos.php`, mỗi tab giữ trạng thái độc lập (giỏ hàng, SĐT khách, chiết khấu, mã giảm giá, giao
+  hàng, ghi chú, tiền khách đưa...) — chuyển qua lại giữa các tab không mất dữ liệu đơn đang dở, có
+  thể đóng tab (xác nhận nếu còn sản phẩm chưa thanh toán). Thanh toán xong tự đóng tab đó.
+  **Lưu ý kỹ thuật**: đây là trạng thái tạm trong bộ nhớ trình duyệt (JavaScript), mất khi tải lại
+  trang — khác với đơn nháp lưu server-side thật của Sapo; phù hợp cho việc phục vụ xen kẽ nhiều
+  khách tại quầy trong 1 phiên làm việc.
+- **Thanh dịch vụ nhanh** (giống "Thao tác nhanh" của Sapo): Thêm dịch vụ (F9) mở danh sách sản
+  phẩm loại Dịch vụ để thêm nhanh vào đơn (`pos_services.php`), Xóa toàn bộ sản phẩm (xóa nhanh giỏ
+  hàng có xác nhận), cùng các link Thông tin khách hàng/Đổi trả hàng/Danh sách đơn hàng/Báo cáo.
+
+Đã test trên app.kt-soft.vn: tạo "Đơn 2", thêm sản phẩm vào Đơn 2, chuyển về "Đơn 1" xác nhận vẫn
+trống (0 sản phẩm) trong khi "Đơn 2 (1)" giữ đúng sản phẩm đã thêm — xác nhận cô lập trạng thái giữa
+các tab hoạt động đúng. Đã xóa sạch dữ liệu test.
+
+Giới hạn còn lại so với giao diện POS đầy đủ của Sapo: chưa có nút "Đổi giá bán hàng" / "Đổi quà"
+nhanh ngay trong POS (đổi giá đã có thể làm qua trang sản phẩm, tặng quà chưa có khung dữ liệu);
+đơn giữ trên tab là trạng thái tạm trên trình duyệt, không phải đơn nháp lưu trên server.

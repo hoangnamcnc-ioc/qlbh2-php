@@ -13,6 +13,8 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
 <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;" id="pos-app">
   <div>
+    <div id="order-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center;"></div>
+
     <div style="position:relative;margin-bottom:16px;">
       <input type="text" id="search-input" class="input" placeholder="Tìm sản phẩm theo tên, SKU hoặc quét mã vạch..." autocomplete="off">
       <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
@@ -27,6 +29,21 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
           <tr id="cart-empty"><td colspan="5" class="text-center muted" style="padding:40px;">Đơn hàng chưa có sản phẩm</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:16px;">
+      <button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ (F9)</button>
+      <button type="button" id="qa-clear-cart" class="btn btn-secondary">Xóa toàn bộ sản phẩm</button>
+      <a href="customers.php" class="btn btn-secondary" style="text-align:center;">Thông tin khách hàng</a>
+      <a href="order_returns.php" class="btn btn-secondary" style="text-align:center;">Đổi trả hàng</a>
+      <a href="orders.php" class="btn btn-secondary" style="text-align:center;">Xem danh sách đơn hàng</a>
+      <a href="reports.php" class="btn btn-secondary" style="text-align:center;">Xem báo cáo</a>
+    </div>
+    <div id="service-picker" style="display:none;margin-top:8px;" class="card">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
+      <select id="service-select" class="input">
+        <option value="">— Đang tải danh sách dịch vụ —</option>
+      </select>
     </div>
   </div>
 
@@ -110,13 +127,8 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 
     <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
     <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
-      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT
+      F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F9 Thêm dịch vụ
     </p>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;font-size:12px;">
-      <a href="orders.php">Danh sách đơn hàng</a>
-      <a href="order_returns.php">Đổi trả hàng</a>
-      <a href="reports.php">Xem báo cáo</a>
-    </div>
   </div>
 </div>
 
@@ -124,7 +136,94 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
 const csrfToken = <?= json_encode(csrfToken()) ?>;
 const requireCustomerPhone = <?= json_encode(getSetting('require_customer_phone', '0') === '1') ?>;
 const autoPrintReceipt = <?= json_encode(getSetting('auto_print_receipt', '0') === '1') ?>;
-let cart = [];
+function makeEmptyOrder() {
+  return {
+    cart: [], customerPhone: '', priceListId: null, paymentMethod: 'CASH',
+    manualDiscountType: 'AMOUNT', manualDiscountValue: '', appliedCoupon: null, couponInput: '',
+    isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', cashGiven: '',
+  };
+}
+
+let orders = [makeEmptyOrder()];
+let currentOrderIndex = 0;
+let cart = orders[0].cart;
+
+function saveCurrentOrderState() {
+  const o = orders[currentOrderIndex];
+  o.customerPhone = document.getElementById('customer-phone').value;
+  o.priceListId = currentPriceListId;
+  o.paymentMethod = document.getElementById('payment-method').value;
+  o.manualDiscountType = document.getElementById('manual-discount-type').value;
+  o.manualDiscountValue = document.getElementById('manual-discount-value').value;
+  o.appliedCoupon = appliedCoupon;
+  o.couponInput = document.getElementById('coupon-input').value;
+  o.isDelivery = document.getElementById('delivery-toggle').checked;
+  o.deliveryAddress = document.getElementById('delivery-address').value;
+  o.shippingFee = document.getElementById('shipping-fee').value;
+  o.note = document.getElementById('order-note').value;
+  o.cashGiven = document.getElementById('cash-given').value;
+}
+
+function loadOrderState(idx) {
+  const o = orders[idx];
+  cart = o.cart;
+  currentPriceListId = o.priceListId;
+  appliedCoupon = o.appliedCoupon;
+  document.getElementById('customer-phone').value = o.customerPhone;
+  document.getElementById('customer-info').textContent = '';
+  document.getElementById('payment-method').value = o.paymentMethod;
+  document.getElementById('manual-discount-type').value = o.manualDiscountType;
+  document.getElementById('manual-discount-value').value = o.manualDiscountValue;
+  document.getElementById('coupon-input').value = o.couponInput;
+  document.getElementById('coupon-message').textContent = appliedCoupon ? `Đã áp dụng mã ${appliedCoupon.code}, giảm ${formatMoney(appliedCoupon.discount)}` : '';
+  document.getElementById('coupon-message').style.color = '#059669';
+  document.getElementById('delivery-toggle').checked = o.isDelivery;
+  document.getElementById('delivery-fields').style.display = o.isDelivery ? 'block' : 'none';
+  document.getElementById('delivery-address').value = o.deliveryAddress;
+  document.getElementById('shipping-fee').value = o.shippingFee;
+  document.getElementById('order-note').value = o.note;
+  document.getElementById('cash-given').value = o.cashGiven;
+  document.getElementById('pos-message').innerHTML = '';
+  renderCart();
+  renderTabs();
+}
+
+function renderTabs() {
+  const el = document.getElementById('order-tabs');
+  el.innerHTML = orders.map((o, i) => `
+    <span class="order-tab" data-idx="${i}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;
+      background:${i === currentOrderIndex ? '#2563eb' : '#f1f5f9'};color:${i === currentOrderIndex ? '#fff' : '#334155'};">
+      Đơn ${i + 1}${o.cart.length ? ' (' + o.cart.length + ')' : ''}
+      ${orders.length > 1 ? `<span class="order-tab-close" data-idx="${i}" style="opacity:.7;">×</span>` : ''}
+    </span>`).join('') + `<span id="order-tab-add" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:#f1f5f9;cursor:pointer;font-weight:700;">+</span>`;
+
+  el.querySelectorAll('.order-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      if (e.target.classList.contains('order-tab-close')) return;
+      const idx = parseInt(tab.dataset.idx, 10);
+      if (idx === currentOrderIndex) return;
+      saveCurrentOrderState();
+      currentOrderIndex = idx;
+      loadOrderState(idx);
+    });
+  });
+  el.querySelectorAll('.order-tab-close').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx, 10);
+      if (orders[idx].cart.length && !confirm('Đơn này còn sản phẩm chưa thanh toán, đóng và bỏ đơn này?')) return;
+      orders.splice(idx, 1);
+      if (currentOrderIndex >= idx) { currentOrderIndex = Math.max(0, currentOrderIndex - 1); }
+      loadOrderState(currentOrderIndex);
+    });
+  });
+  document.getElementById('order-tab-add').addEventListener('click', () => {
+    saveCurrentOrderState();
+    orders.push(makeEmptyOrder());
+    currentOrderIndex = orders.length - 1;
+    loadOrderState(currentOrderIndex);
+  });
+}
 
 const searchInput = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
@@ -256,6 +355,7 @@ function renderCart() {
       });
     });
   }
+  renderTabs();
   updateTotals();
 }
 
@@ -365,24 +465,59 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       } else {
         msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công! <a href="order_print.php?id=${data.order_id}" target="_blank">In hóa đơn</a></div>`;
         if (autoPrintReceipt) { window.open('order_print.php?id=' + data.order_id, '_blank'); }
-        cart = [];
-        appliedCoupon = null;
-        document.getElementById('coupon-input').value = '';
-        document.getElementById('coupon-message').textContent = '';
-        renderCart();
-        document.getElementById('customer-phone').value = '';
-        document.getElementById('cash-given').value = '';
-        document.getElementById('manual-discount-value').value = '';
-        document.getElementById('order-note').value = '';
-        document.getElementById('delivery-toggle').checked = false;
-        document.getElementById('delivery-fields').style.display = 'none';
-        document.getElementById('delivery-address').value = '';
-        document.getElementById('shipping-fee').value = '';
-        updateChange();
+        // Đơn đã thanh toán xong: đóng tab này (hoặc reset nếu là tab duy nhất) rồi chuyển sang đơn kế tiếp.
+        const successMsg = msgBox.innerHTML;
+        if (orders.length > 1) {
+          orders.splice(currentOrderIndex, 1);
+          currentOrderIndex = Math.min(currentOrderIndex, orders.length - 1);
+        } else {
+          orders[0] = makeEmptyOrder();
+          currentOrderIndex = 0;
+        }
+        loadOrderState(currentOrderIndex);
+        msgBox.innerHTML = successMsg;
       }
     })
     .catch(() => { msgBox.innerHTML = '<div class="alert alert-error">Có lỗi xảy ra, vui lòng thử lại.</div>'; })
     .finally(() => { btn.disabled = false; btn.textContent = 'Thanh toán'; });
+});
+
+renderTabs();
+
+document.getElementById('qa-clear-cart').addEventListener('click', () => {
+  if (!cart.length) return;
+  if (!confirm('Xóa toàn bộ sản phẩm khỏi đơn hàng này?')) return;
+  cart.length = 0;
+  renderCart();
+});
+
+let servicesLoaded = false;
+document.getElementById('qa-add-service').addEventListener('click', () => {
+  const picker = document.getElementById('service-picker');
+  const isOpen = picker.style.display !== 'none';
+  if (isOpen) { picker.style.display = 'none'; return; }
+  picker.style.display = 'block';
+  if (servicesLoaded) return;
+  fetch('pos_services.php')
+    .then(r => r.json())
+    .then(data => {
+      const sel = document.getElementById('service-select');
+      if (!data.length) {
+        sel.innerHTML = '<option value="">Chưa có dịch vụ nào — tạo tại Danh sách sản phẩm (loại Dịch vụ)</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">— Chọn dịch vụ —</option>' + data.map(s =>
+        `<option value="${s.id}" data-name="${escapeHtml(s.name)}" data-price="${s.sell_price}">${escapeHtml(s.name)} (${formatMoney(s.sell_price)})</option>`
+      ).join('');
+      servicesLoaded = true;
+    });
+});
+document.getElementById('service-select').addEventListener('change', (e) => {
+  const opt = e.target.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  addToCart(parseInt(opt.value, 10), null, opt.dataset.name, parseFloat(opt.dataset.price));
+  document.getElementById('service-picker').style.display = 'none';
+  e.target.value = '';
 });
 
 function formatMoney(n) { return Math.round(n).toLocaleString('vi-VN'); }
@@ -401,7 +536,7 @@ document.addEventListener('click', (e) => {
 // Phím tắt bán hàng kiểu Sapo
 document.addEventListener('keydown', (e) => {
   const key = e.key;
-  if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7'].includes(key)) return;
+  if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7', 'F9'].includes(key)) return;
   e.preventDefault();
   switch (key) {
     case 'F1':
@@ -424,6 +559,9 @@ document.addEventListener('keydown', (e) => {
       sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
       break;
     }
+    case 'F9':
+      document.getElementById('qa-add-service').click();
+      break;
   }
 });
 </script>
