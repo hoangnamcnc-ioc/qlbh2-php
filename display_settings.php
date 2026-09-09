@@ -20,6 +20,7 @@ $quickActions = [
     'qa_customer_display' => 'Kết nối màn hình phụ',
     'qa_qr_payment' => 'Hiện mã QR thanh toán',
     'qa_batches' => 'Chọn lô tự động (Alt+5)',
+    'qa_offline' => 'Bán hàng Offline',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

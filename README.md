@@ -404,3 +404,30 @@ hơn). Đã xóa sạch dữ liệu test và đặt lại toàn bộ cấu hình
 được rà soát và triển khai đầy đủ những gì có thể làm bằng phần mềm. Giới hạn thật sự còn lại chỉ
 còn Kết nối cân điện tử, Đơn thuốc điện tử, và Bán hàng Offline thật (kiến trúc offline-first) —
 đúng nghĩa cần phần cứng hoặc khối lượng công việc lớn hơn hẳn, nên tách thành vòng riêng nếu cần.
+
+## Vòng bổ sung: Bán hàng Offline
+
+**Bán hàng Offline** (`pos.php`, hoạt động hoàn toàn phía trình duyệt bằng `localStorage`, không
+cần Service Worker): khi mất mạng thật (sự kiện `online`/`offline` của trình duyệt) hoặc bật tay
+qua nút "Bán hàng Offline" trong thanh thao tác nhanh, đơn hàng khi bấm Thanh toán sẽ được lưu tạm
+vào hàng đợi trên máy (theo từng chi nhánh) thay vì gọi thẳng `pos_checkout.php` — vẫn hiển thị
+thông báo thành công và đóng tab đơn như bán hàng bình thường để không làm gián đoạn luồng bán hàng
+tại quầy. Ngay khi trình duyệt phát hiện có mạng trở lại (hoặc bấm "Đồng bộ ngay" trên banner cảnh
+báo), hệ thống tự động gửi lần lượt từng đơn đang chờ lên `pos_checkout.php` theo đúng thứ tự đã
+tạo; đơn nào lỗi (vd hết hàng lúc đồng bộ) vẫn giữ lại trong hàng đợi kèm thông báo lỗi lần trước,
+không tự xóa để tránh mất đơn. Cũng tự bắt các trường hợp mất mạng đột ngột ngay lúc thanh toán
+(request thất bại) và chuyển sang lưu offline thay vì báo lỗi mất luôn đơn.
+
+Đã test trên app.kt-soft.vn: bật chế độ Offline thủ công → thanh toán 1 đơn 45.000đ → xác nhận đơn
+được lưu vào hàng đợi trình duyệt và **chưa** xuất hiện trong Danh sách đơn hàng trên server; tắt
+chế độ Offline → hệ thống tự động đồng bộ → xác nhận hàng đợi rỗng và đơn hàng đã xuất hiện đúng
+trên server (45.000đ, trạng thái Hoàn thành). Đã xóa sạch dữ liệu test.
+
+Giới hạn: hàng đợi offline lưu theo trình duyệt/thiết bị (không đồng bộ giữa các máy), nếu xóa dữ
+liệu trình duyệt trong lúc đang có đơn chờ đồng bộ thì đơn đó sẽ mất — nên đồng bộ sớm khi có mạng
+thay vì để dồn nhiều đơn qua nhiều ngày. Không dùng Service Worker nên chỉ hoạt động khi trang POS
+đang mở sẵn trong trình duyệt (đúng với cách dùng thực tế: máy bán hàng luôn mở sẵn màn hình POS).
+
+Đến đây cả 3 hạng mục còn lại của trang Bán hàng Sapo (Kết nối cân điện tử, Đơn thuốc điện tử, Bán
+hàng Offline) chỉ còn 2 mục thật sự cần phần cứng/hệ thống quy định ngành riêng — không thể làm
+bằng phần mềm thuần trong phạm vi ứng dụng bán lẻ tổng quát này.

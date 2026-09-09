@@ -29,6 +29,12 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
   <div class="alert alert-warning">Tài khoản của bạn chưa được gán chi nhánh, không thể bán hàng. Liên hệ quản trị viên.</div>
 <?php endif; ?>
 
+<div id="offline-banner" style="display:none;" class="alert alert-warning">
+  ⚠️ Đang bán hàng Offline — đơn hàng được lưu tạm trên máy này, sẽ tự động đồng bộ lên hệ thống
+  khi có mạng trở lại. <span id="offline-queue-count"></span>
+  <a href="#" id="offline-sync-now" style="margin-left:8px;">Đồng bộ ngay</a>
+</div>
+
 <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;" id="pos-app">
   <div>
     <div id="order-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center;"></div>
@@ -80,6 +86,7 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <?php if ($qa('qa_customer_display')): ?><button type="button" id="qa-customer-display" class="btn btn-secondary">Kết nối màn hình phụ</button><?php endif; ?>
       <?php if ($qa('qa_qr_payment')): ?><button type="button" id="qa-qr-payment" class="btn btn-secondary">Hiện mã QR thanh toán</button><?php endif; ?>
       <?php if ($qa('qa_batches')): ?><button type="button" id="qa-batches" class="btn btn-secondary">Chọn lô tự động (Alt+5)</button><?php endif; ?>
+      <?php if ($qa('qa_offline')): ?><button type="button" id="qa-offline" class="btn btn-secondary">Bán hàng Offline</button><?php endif; ?>
     </div>
     <div id="service-picker" style="display:none;margin-top:8px;" class="card">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
@@ -91,6 +98,7 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
     <div id="gift-panel" style="display:none;margin-top:8px;" class="card"></div>
     <div id="qr-panel" style="display:none;margin-top:8px;text-align:center;" class="card"></div>
     <div id="batches-panel" style="display:none;margin-top:8px;" class="card"></div>
+    <div id="offline-panel" style="display:none;margin-top:8px;" class="card"></div>
     </div>
   </div>
 
@@ -200,6 +208,76 @@ let lastOrderId = null;
 function on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
 
 const displayChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('qlbh2_pos_display') : null;
+
+// ===== Bán hàng Offline =====
+// Khi mất mạng (thật sự mất kết nối, hoặc bật tay để test), đơn hàng được lưu tạm vào
+// localStorage thay vì gọi pos_checkout.php ngay. Khi có mạng trở lại, tự động đồng bộ lần lượt
+// từng đơn lên server theo đúng thứ tự đã tạo.
+const OFFLINE_QUEUE_KEY = 'qlbh2_offline_queue_' + <?= json_encode((int) $branchId) ?>;
+let forceOfflineMode = false;
+let isSyncing = false;
+
+function isOfflineMode() { return forceOfflineMode || !navigator.onLine; }
+
+function getOfflineQueue() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveOfflineQueue(queue) {
+  try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue)); } catch (e) {}
+}
+function addToOfflineQueue(payload) {
+  const queue = getOfflineQueue();
+  queue.push({ localId: 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), createdAt: new Date().toISOString(), payload, error: null });
+  saveOfflineQueue(queue);
+}
+function removeFromOfflineQueue(localId) {
+  saveOfflineQueue(getOfflineQueue().filter(q => q.localId !== localId));
+}
+
+function updateOfflineBanner() {
+  const queue = getOfflineQueue();
+  const banner = document.getElementById('offline-banner');
+  const shouldShow = isOfflineMode() || queue.length > 0;
+  banner.style.display = shouldShow ? 'block' : 'none';
+  document.getElementById('offline-queue-count').textContent = queue.length ? `(${queue.length} đơn đang chờ đồng bộ)` : '';
+}
+
+function syncOfflineQueue() {
+  if (isSyncing || isOfflineMode()) return;
+  const queue = getOfflineQueue();
+  if (!queue.length) { updateOfflineBanner(); return; }
+  isSyncing = true;
+
+  const syncNext = (i) => {
+    if (i >= queue.length) {
+      isSyncing = false;
+      updateOfflineBanner();
+      return;
+    }
+    const item = queue[i];
+    fetch('pos_checkout.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item.payload),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          item.error = data.error;
+          const all = getOfflineQueue().map(q => q.localId === item.localId ? item : q);
+          saveOfflineQueue(all);
+        } else {
+          removeFromOfflineQueue(item.localId);
+        }
+        syncNext(i + 1);
+      })
+      .catch(() => { isSyncing = false; updateOfflineBanner(); });
+  };
+  syncNext(0);
+}
+
+window.addEventListener('online', () => { updateOfflineBanner(); syncOfflineQueue(); });
+window.addEventListener('offline', () => { updateOfflineBanner(); });
 function makeEmptyOrder() {
   return {
     cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, paymentMethod: 'CASH',
@@ -535,6 +613,34 @@ document.getElementById('coupon-apply-btn').addEventListener('click', () => {
     });
 });
 
+function buildCheckoutPayload() {
+  return {
+    csrf: csrfToken,
+    items: cart.map(c => ({ product_id: c.id, variant_id: c.variantId, quantity: c.qty, unit_price: c.price })),
+    payment_method: document.getElementById('payment-method').value,
+    customer_phone: document.getElementById('customer-phone').value,
+    coupon_code: appliedCoupon ? appliedCoupon.code : null,
+    manual_discount_type: document.getElementById('manual-discount-type').value,
+    manual_discount_value: parseFloat(document.getElementById('manual-discount-value').value) || 0,
+    is_delivery: document.getElementById('delivery-toggle').checked,
+    delivery_address: document.getElementById('delivery-address').value,
+    shipping_fee: getShippingFee(),
+    note: document.getElementById('order-note').value,
+    tags: document.getElementById('order-tags').value,
+  };
+}
+
+function resetOrderAfterCheckout() {
+  if (orders.length > 1) {
+    orders.splice(currentOrderIndex, 1);
+    currentOrderIndex = Math.min(currentOrderIndex, orders.length - 1);
+  } else {
+    orders[0] = makeEmptyOrder();
+    currentOrderIndex = 0;
+  }
+  loadOrderState(currentOrderIndex);
+}
+
 document.getElementById('checkout-btn').addEventListener('click', () => {
   const msgBox = document.getElementById('pos-message');
   msgBox.innerHTML = '';
@@ -545,26 +651,24 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
   }
 
   const btn = document.getElementById('checkout-btn');
+
+  if (isOfflineMode()) {
+    addToOfflineQueue(buildCheckoutPayload());
+    msgBox.innerHTML = '<div class="alert alert-success">Không có mạng — đã lưu đơn hàng tạm trên máy này, sẽ tự động đồng bộ khi có mạng trở lại.</div>';
+    const successMsg = msgBox.innerHTML;
+    resetOrderAfterCheckout();
+    msgBox.innerHTML = successMsg;
+    updateOfflineBanner();
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Đang xử lý...';
 
   fetch('pos_checkout.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      csrf: csrfToken,
-      items: cart.map(c => ({ product_id: c.id, variant_id: c.variantId, quantity: c.qty, unit_price: c.price })),
-      payment_method: document.getElementById('payment-method').value,
-      customer_phone: document.getElementById('customer-phone').value,
-      coupon_code: appliedCoupon ? appliedCoupon.code : null,
-      manual_discount_type: document.getElementById('manual-discount-type').value,
-      manual_discount_value: parseFloat(document.getElementById('manual-discount-value').value) || 0,
-      is_delivery: document.getElementById('delivery-toggle').checked,
-      delivery_address: document.getElementById('delivery-address').value,
-      shipping_fee: getShippingFee(),
-      note: document.getElementById('order-note').value,
-      tags: document.getElementById('order-tags').value,
-    }),
+    body: JSON.stringify(buildCheckoutPayload()),
   })
     .then(r => r.json())
     .then(data => {
@@ -575,20 +679,20 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
         lastOrderId = data.order_id;
         document.getElementById('qa-print-last') && (document.getElementById('qa-print-last').disabled = false);
         if (autoPrintReceipt) { window.open('order_print.php?id=' + data.order_id, '_blank'); }
-        // Đơn đã thanh toán xong: đóng tab này (hoặc reset nếu là tab duy nhất) rồi chuyển sang đơn kế tiếp.
         const successMsg = msgBox.innerHTML;
-        if (orders.length > 1) {
-          orders.splice(currentOrderIndex, 1);
-          currentOrderIndex = Math.min(currentOrderIndex, orders.length - 1);
-        } else {
-          orders[0] = makeEmptyOrder();
-          currentOrderIndex = 0;
-        }
-        loadOrderState(currentOrderIndex);
+        resetOrderAfterCheckout();
         msgBox.innerHTML = successMsg;
       }
     })
-    .catch(() => { msgBox.innerHTML = '<div class="alert alert-error">Có lỗi xảy ra, vui lòng thử lại.</div>'; })
+    .catch(() => {
+      // Mất mạng ngay lúc thanh toán: chuyển sang lưu offline thay vì báo lỗi mất luôn đơn.
+      addToOfflineQueue(buildCheckoutPayload());
+      msgBox.innerHTML = '<div class="alert alert-success">Không kết nối được máy chủ — đã lưu đơn hàng tạm trên máy này, sẽ tự động đồng bộ khi có mạng trở lại.</div>';
+      const successMsg = msgBox.innerHTML;
+      resetOrderAfterCheckout();
+      msgBox.innerHTML = successMsg;
+      updateOfflineBanner();
+    })
     .finally(() => { btn.disabled = false; btn.textContent = 'Thanh toán'; });
 });
 
@@ -756,6 +860,40 @@ on('qa-batches', 'click', () => {
         }).join('');
     });
 });
+
+on('qa-offline', 'click', () => {
+  forceOfflineMode = !forceOfflineMode;
+  const btn = document.getElementById('qa-offline');
+  if (btn) {
+    btn.textContent = forceOfflineMode ? 'Đang Offline (bấm để tắt)' : 'Bán hàng Offline';
+    btn.style.background = forceOfflineMode ? '#fef2f2' : '';
+    btn.style.color = forceOfflineMode ? '#b91c1c' : '';
+  }
+  updateOfflineBanner();
+  if (!forceOfflineMode) syncOfflineQueue();
+
+  const panel = document.getElementById('offline-panel');
+  panel.style.display = 'block';
+  const queue = getOfflineQueue();
+  if (!queue.length) {
+    panel.innerHTML = `<div class="muted">${forceOfflineMode ? 'Đã bật chế độ Offline — đơn hàng thanh toán từ giờ sẽ lưu tạm trên máy này.' : 'Không có đơn nào đang chờ đồng bộ.'}</div>`;
+  } else {
+    panel.innerHTML = '<b style="font-size:13px;">Đơn hàng đang chờ đồng bộ:</b>' + queue.map(q => `
+      <div style="padding:6px 0;border-top:1px solid #f1f5f9;font-size:13px;">
+        ${new Date(q.createdAt).toLocaleString('vi-VN')} — ${q.payload.items.length} sản phẩm
+        ${q.error ? `<span class="muted" style="color:#dc2626;"> · Lỗi lần trước: ${escapeHtml(q.error)}</span>` : ''}
+      </div>`).join('');
+  }
+});
+
+document.getElementById('offline-sync-now')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (forceOfflineMode) { alert('Đang bật chế độ Offline thủ công — tắt "Bán hàng Offline" trước khi đồng bộ.'); return; }
+  syncOfflineQueue();
+});
+
+updateOfflineBanner();
+syncOfflineQueue();
 
 on('qa-clear-cart', 'click', () => {
   if (!cart.length) return;
