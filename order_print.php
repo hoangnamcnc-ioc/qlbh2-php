@@ -80,7 +80,7 @@ $items = $items->fetchAll();
     <tr class="total-row"><td>KHÁCH PHẢI TRẢ</td><td class="text-right"><?= money($order['total_amount']) ?></td></tr>
   </table>
   <div class="line"></div>
-  <p class="center">Cảm ơn quý khách!</p>
+  <p class="center"><?= e(getSetting('print_footer_note', 'Cảm ơn quý khách!')) ?></p>
 
   <div class="no-print center" style="margin-top:16px;">
     <button onclick="window.print()">In hóa đơn</button>

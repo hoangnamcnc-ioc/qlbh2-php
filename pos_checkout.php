@@ -30,6 +30,7 @@ $paymentMethod = in_array($input['payment_method'] ?? '', ['CASH', 'BANK_TRANSFE
 $customerPhone = trim((string) ($input['customer_phone'] ?? ''));
 
 $pdo = db();
+$allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
 
 try {
     $pdo->beginTransaction();
@@ -81,14 +82,19 @@ try {
                 );
                 $stmt->execute([$comp['component_product_id'], $branchId]);
                 $compInv = $stmt->fetch();
-                if (!$compInv || (int) $compInv['quantity'] < $needQty) {
+                if (!$allowNegativeStock && (!$compInv || (int) $compInv['quantity'] < $needQty)) {
                     $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
                     $prod->execute([$comp['component_product_id']]);
                     $pname = $prod->fetchColumn() ?: ('#' . $comp['component_product_id']);
                     throw new RuntimeException("Sản phẩm thành phần \"$pname\" trong combo không đủ tồn kho");
                 }
-                $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
-                    ->execute([$needQty, $compInv['id']]);
+                if ($compInv) {
+                    $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
+                        ->execute([$needQty, $compInv['id']]);
+                } else {
+                    $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,NULL,?)')
+                        ->execute([$branchId, $comp['component_product_id'], -$needQty]);
+                }
             }
         } else {
             if ($variantId) {
@@ -102,7 +108,7 @@ try {
             }
             $inv = $stmt->fetch();
 
-            if (!$inv || (int) $inv['quantity'] < $quantity) {
+            if (!$allowNegativeStock && (!$inv || (int) $inv['quantity'] < $quantity)) {
                 if ($variantId) {
                     $prod = $pdo->prepare(
                         "SELECT CONCAT(p.name, ' - ', v.name) AS name FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = ?"
@@ -116,8 +122,13 @@ try {
                 throw new RuntimeException("Sản phẩm \"$pname\" không đủ tồn kho");
             }
 
-            $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
-                ->execute([$quantity, $inv['id']]);
+            if ($inv) {
+                $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
+                    ->execute([$quantity, $inv['id']]);
+            } else {
+                $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
+                    ->execute([$branchId, $productId, $variantId, -$quantity]);
+            }
         }
 
         $lineTotal = $unitPrice * $quantity;

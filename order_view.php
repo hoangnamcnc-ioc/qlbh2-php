@@ -84,9 +84,18 @@ require_once __DIR__ . '/inc_header.php';
       <a href="order_edit.php?id=<?= (int) $order['id'] ?>" class="btn btn-secondary">Sửa đơn hàng</a>
     <?php endif; ?>
     <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
-      <form method="post" action="order_cancel.php" onsubmit="return confirm('Hủy đơn hàng này? Tồn kho sẽ được hoàn lại.');">
+      <?php $cancelReasons = $pdo->query("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('CANCEL','BOTH') ORDER BY id")->fetchAll(); ?>
+      <form method="post" action="order_cancel.php" style="display:flex;gap:6px;align-items:center;" onsubmit="return confirm('Hủy đơn hàng này? Tồn kho sẽ được hoàn lại.');">
         <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
         <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+        <?php if ($cancelReasons): ?>
+          <select name="reason" class="input" style="max-width:180px;padding:6px 10px;">
+            <option value="">— Lý do hủy —</option>
+            <?php foreach ($cancelReasons as $r): ?>
+              <option value="<?= e($r['name']) ?>"><?= e($r['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        <?php endif; ?>
         <button type="submit" class="btn btn-danger">Hủy đơn hàng</button>
       </form>
     <?php endif; ?>

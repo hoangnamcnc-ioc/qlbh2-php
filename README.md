@@ -212,3 +212,31 @@ Email, vận chuyển, sàn TMĐT) mà dự án chủ động chưa gọi thật
 Đã test trên app.kt-soft.vn: tạo tài khoản nhân viên mới với vai trò Thu ngân, xác nhận đăng nhập
 được ngay bằng tài khoản đó; trang Cấu hình hiển thị đúng các thẻ liên kết tới toàn bộ trang quản lý
 hiện có. Đã xóa tài khoản test sau khi kiểm tra.
+
+**Vòng rà soát đối chiếu chi tiết trang Cấu hình của Sapo** (theo ảnh chụp thực tế người dùng gửi),
+bổ sung các mục còn thiếu:
+- **Thông tin cửa hàng** (`store_settings.php`): tên/điện thoại/email/địa chỉ cửa hàng, lời cảm ơn
+  cuối hóa đơn in (áp dụng ngay vào `order_print.php`), và tùy chọn **cho phép bán âm kho** — khi
+  bật, `pos_checkout.php` bỏ qua kiểm tra đủ tồn kho (cả sản phẩm thường lẫn thành phần combo) và
+  cho phép số lượng tồn kho xuống âm.
+- **Thuế** (`tax_rates.php`): khai báo các mức thuế suất đầu ra/đầu vào — danh mục tham chiếu nội
+  bộ, chưa tự động tính vào giá bán.
+- **Lý do hủy trả** (`cancel_reasons.php`): danh sách lý do dùng chung cho cả hủy đơn
+  (`order_view.php`/`order_cancel.php`) và trả hàng (`order_return_form.php`), chọn nhanh bằng
+  dropdown thay vì gõ tay, có lựa chọn "Khác" để nhập tự do khi cần.
+- **Nguồn bán hàng** (`order_sources.php`): mô tả cách khách tiếp cận để đặt hàng (gọi điện, nhắn
+  Zalo/Facebook...), gán vào đơn trong `order_edit.php` — khác với "Kênh bán hàng" (nền tảng bán).
+- **Sửa lỗi hủy đơn hàng cho Combo/Dịch vụ**: trước đây `order_cancel.php` hoàn tồn kho sai cách
+  giống lỗi đã sửa ở đổi trả hàng (Dịch vụ bị hoàn nhầm tồn kho, Combo hoàn nhầm vào chính nó thay
+  vì thành phần) — nay xử lý đúng như `order_return_form.php`.
+
+Đã test trên app.kt-soft.vn: lưu thông tin cửa hàng và xác nhận lời cảm ơn tùy chỉnh hiển thị đúng
+trên hóa đơn in; tạo mức thuế, lý do hủy trả, nguồn bán hàng và xác nhận hiển thị đúng trong danh
+sách cũng như trong dropdown chọn khi hủy đơn/sửa đơn; hủy 1 đơn kèm lý do và xác nhận lý do được
+ghi đúng vào lịch sử đơn hàng. Toàn bộ dữ liệu test đã xóa sạch khỏi server.
+
+Giới hạn còn lại so với Sapo (chủ động không xây dựng theo phạm vi ban đầu — chỉ khung dữ liệu nội
+bộ, không gọi API thật): Chính sách giá/Thanh toán (VNPay/VietQR/MoMo) không kết nối cổng thanh
+toán thật; Mẫu in chưa cho tùy chỉnh layout kéo-thả, chỉ tùy chỉnh nội dung; Cân điện tử không tích
+hợp phần cứng; Nhật ký hoạt động (audit log toàn hệ thống) và trang theo dõi Xuất/nhập file chưa có
+— hiện chỉ có lịch sử theo từng đơn hàng (`order_status_history`) và giá vốn (`price_adjustments`).

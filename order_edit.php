@@ -11,6 +11,7 @@ $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
 
 $channels = $pdo->query('SELECT * FROM sales_channels WHERE is_active = 1 ORDER BY name')->fetchAll();
+$sources = $pdo->query('SELECT * FROM order_sources WHERE is_active = 1 ORDER BY name')->fetchAll();
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -19,14 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $discount = postFloat('discount');
     $tags = post('tags') ?: null;
     $channelId = (int) ($_POST['channel_id'] ?? 0) ?: null;
+    $sourceId = (int) ($_POST['source_id'] ?? 0) ?: null;
     $externalCode = post('external_order_code') ?: null;
 
     if ($discount > (float) $order['sub_total']) {
         $error = 'Chiết khấu không được lớn hơn tổng tiền hàng';
     } else {
         $newTotal = (float) $order['sub_total'] - $discount + (float) $order['shipping_fee'];
-        $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, tags = ?, channel_id = ?, external_order_code = ? WHERE id = ?')
-            ->execute([$note, $discount, $newTotal, $tags, $channelId, $externalCode, $id]);
+        $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, tags = ?, channel_id = ?, source_id = ?, external_order_code = ? WHERE id = ?')
+            ->execute([$note, $discount, $newTotal, $tags, $channelId, $sourceId, $externalCode, $id]);
 
         $currentUser = currentUser();
         $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?, ?, ?, ?, ?)')
@@ -72,6 +74,15 @@ require_once __DIR__ . '/inc_header.php';
         <label>Mã đơn trên kênh (nếu có)</label>
         <input class="input" name="external_order_code" value="<?= e($order['external_order_code'] ?? '') ?>" placeholder="vd: mã đơn Shopee">
       </div>
+    </div>
+    <div class="field">
+      <label>Nguồn bán hàng (<a href="order_sources.php" class="muted">quản lý</a>)</label>
+      <select class="input" name="source_id">
+        <option value="">— Không chọn —</option>
+        <?php foreach ($sources as $s): ?>
+          <option value="<?= (int) $s['id'] ?>" <?= (int) ($order['source_id'] ?? 0) === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
     </div>
     <button type="submit" class="btn">Lưu thay đổi</button>
   </form>

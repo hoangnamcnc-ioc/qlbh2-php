@@ -6,15 +6,19 @@ require_once __DIR__ . '/inc_header.php';
 
 $sections = [
     'Thiết lập cửa hàng' => [
+        ['store_settings.php', '🏪', 'Thông tin cửa hàng', 'Quản lý thông tin liên hệ, địa chỉ và mẫu in hóa đơn'],
         ['branches.php', '🏬', 'Quản lý chi nhánh', 'Thêm mới & quản lý thông tin chi nhánh'],
         ['users.php', '👤', 'Nhân viên và phân quyền', 'Quản lý & phân quyền tài khoản nhân viên'],
+        ['tax_rates.php', '📐', 'Thuế', 'Quản lý các mức thuế suất đầu ra, đầu vào'],
         ['categories.php', '🗂️', 'Danh mục sản phẩm', 'Quản lý danh mục cha/con'],
         ['brands.php', '🏷️', 'Nhãn hiệu', 'Quản lý nhãn hiệu sản phẩm'],
         ['price_adjustments.php', '💰', 'Điều chỉnh giá vốn', 'Lịch sử thay đổi giá vốn sản phẩm'],
         ['accounting.php', '🧾', 'Kế toán và Thuế', 'Hướng dẫn hóa đơn điện tử / khai thuế'],
     ],
     'Thiết lập bán hàng' => [
+        ['order_sources.php', '📞', 'Nguồn bán hàng', 'Thêm và quản lý nguồn tạo ra đơn hàng'],
         ['channels.php', '🔗', 'Kênh bán hàng', 'Quản lý các kênh bạn dùng để bán hàng (Shopee, Facebook, Website...)'],
+        ['cancel_reasons.php', '↩️', 'Lý do hủy trả', 'Thêm và điều chỉnh lý do khi hủy/trả đơn hàng'],
         ['promotions.php', '🎉', 'Khuyến mại tự động', 'Chương trình giảm giá tự áp dụng theo giá trị đơn'],
         ['coupons.php', '🎟️', 'Mã giảm giá', 'Tạo và quản lý mã giảm giá'],
         ['warranty_policies.php', '🛡️', 'Chính sách bảo hành', 'Thiết lập thời hạn & điều kiện bảo hành'],

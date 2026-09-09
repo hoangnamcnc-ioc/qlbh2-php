@@ -41,3 +41,17 @@ function postInt(string $key, int $default = 0): int
     $n = (int) $v;
     return $n >= 0 ? $n : $default;
 }
+
+/** Đọc 1 giá trị cấu hình chung của cửa hàng (bảng store_settings, dạng key-value). */
+function getSetting(string $key, string $default = ''): string
+{
+    static $cache = null;
+    if ($cache === null) {
+        $cache = [];
+        $stmt = db()->query('SELECT setting_key, setting_value FROM store_settings');
+        foreach ($stmt->fetchAll() as $row) {
+            $cache[$row['setting_key']] = $row['setting_value'];
+        }
+    }
+    return $cache[$key] ?? $default;
+}
