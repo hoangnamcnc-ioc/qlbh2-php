@@ -12,7 +12,7 @@ if (!hash_equals($_SESSION['csrf'] ?? '', $input['csrf'] ?? '')) {
     exit;
 }
 
-$branchId = (int) ($user['branch_id'] ?? 0);
+$branchId = effectiveBranchId($user);
 if (!$branchId) {
     echo json_encode(['error' => 'Tài khoản chưa được gán chi nhánh, không thể tạo đơn']);
     exit;

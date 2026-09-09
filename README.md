@@ -345,10 +345,34 @@ nhận đúng 4 nút gợi ý (37.000/50.000/100.000/200.000) và ô chiết kh�
 50.000đ tính đúng tiền thối 13.000đ; nhập tag "test tag" và thanh toán, xác nhận tag lưu đúng vào
 đơn hàng trong CSDL. Đã xóa sạch dữ liệu test và đặt lại cấu hình về mặc định ban đầu.
 
-Giới hạn còn lại so với giao diện POS đầy đủ của Sapo (các mục còn thiếu chủ yếu cần phần cứng/tích
-hợp ngoài hoặc là tùy biến giao diện nâng cao, không thuộc phạm vi khung dữ liệu nghiệp vụ): Kết nối
-màn hình phụ, Kết nối cân điện tử, Đơn thuốc điện tử, Màn hình hiển thị QR cho khách thanh toán,
-Bán hàng Offline (đồng bộ lại khi có mạng), Đổi chi nhánh ngay trong phiên POS, Tùy chỉnh nút chức
-năng/màu sắc giao diện, Chọn lô tự động, Tách dòng khi in, Sắp xếp thứ tự hiển thị sản phẩm, Điều
-chỉnh cột hiển thị thông tin sản phẩm. Đơn giữ trên tab vẫn là trạng thái tạm trên trình duyệt,
-không phải đơn nháp lưu server.
+**Đính chính**: sau khi rà soát lại, một số mục trước đây bị xếp nhầm vào nhóm "cần phần cứng/tích
+hợp thật" thực ra làm được hoàn toàn bằng phần mềm — đã bổ sung ngay trong vòng này:
+- **Đổi chi nhánh ngay trong phiên POS** (`pos_switch_branch.php`): ADMIN/MANAGER có thể tạm chuyển
+  sang bán hàng tại chi nhánh khác ngay trong `pos.php` (chọn ở góc trên) mà không cần đổi tài
+  khoản — tồn kho, tìm kiếm sản phẩm, và đơn hàng tạo ra đều áp dụng đúng theo chi nhánh đang chọn
+  (qua hàm dùng chung `effectiveBranchId()`), lựa chọn được nhớ theo phiên đăng nhập.
+- **Kết nối màn hình phụ** (`pos_customer_display.php`): mở một cửa sổ trình duyệt riêng (dùng làm
+  màn hình phụ quay ra phía khách) hiển thị trực tiếp giỏ hàng + tổng tiền đang cập nhật theo thời
+  gian thực bằng `BroadcastChannel` — không cần phần cứng đặc biệt, chỉ cần 1 màn hình/máy tính thứ
+  2 mở cùng trình duyệt.
+- **Màn hình hiển thị mã QR thanh toán** (`payment_settings.php` khai báo tài khoản ngân hàng): nút
+  "Hiện mã QR thanh toán" trong POS tạo ảnh mã VietQR đúng chuẩn qua dịch vụ ảnh công khai của
+  VietQR.io (không cần đăng ký cổng thanh toán) — khách quét bằng app ngân hàng bất kỳ để chuyển
+  khoản đúng số tiền, nhân viên vẫn tự xác nhận đã nhận tiền trước khi hoàn tất đơn thủ công.
+
+Đã test trên app.kt-soft.vn: tạo chi nhánh phụ, chuyển "Đang bán tại" sang chi nhánh đó → xác nhận
+tìm kiếm sản phẩm trả về đúng tồn kho riêng của chi nhánh phụ (khác chi nhánh chính), chuyển lại thì
+tồn kho đổi đúng theo; cấu hình tài khoản ngân hàng test và bấm "Hiện mã QR thanh toán" cho đơn
+88.000đ → ảnh mã QR VietQR hiển thị đúng, số tiền ghi bên dưới khớp chính xác với tổng đơn. Đã xóa
+sạch chi nhánh/sản phẩm/cấu hình test sau khi kiểm tra.
+
+Giới hạn thật sự còn lại (đúng nghĩa cần phần cứng vật lý hoặc hệ thống ngoài chuyên biệt, không thể
+làm bằng phần mềm thuần): **Kết nối cân điện tử** (cần driver giao tiếp thiết bị cân qua cổng
+USB/Bluetooth), **Đơn thuốc điện tử** (hệ thống quản lý nhà thuốc riêng, cần công nhận của cơ quan y
+tế), **Bán hàng Offline thật** (cần kiến trúc offline-first với Service Worker + hàng đợi đồng bộ,
+khối lượng công việc lớn hơn hẳn — có thể làm nếu bạn cần, nhưng nên tách thành một vòng phát triển
+riêng). Tùy chỉnh màu sắc/nút chức năng hiển thị, Chọn lô tự động (theo dõi hạn sử dụng), Tách dòng
+khi in, Sắp xếp thứ tự sản phẩm, Điều chỉnh cột hiển thị — đều làm được bằng phần mềm nhưng thuộc
+nhóm tùy biến giao diện chi tiết, chưa làm trong vòng này để ưu tiên các tính năng nghiệp vụ cốt lõi
+trước; báo lại nếu bạn muốn làm tiếp phần nào. Đơn giữ trên tab vẫn là trạng thái tạm trên trình
+duyệt, không phải đơn nháp lưu server.

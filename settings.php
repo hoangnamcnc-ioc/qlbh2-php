@@ -7,6 +7,7 @@ require_once __DIR__ . '/inc_header.php';
 $sections = [
     'Thiết lập cửa hàng' => [
         ['store_settings.php', '🏪', 'Thông tin cửa hàng', 'Quản lý thông tin liên hệ, địa chỉ và mẫu in hóa đơn'],
+        ['payment_settings.php', '💳', 'Thanh toán', 'Khai báo tài khoản ngân hàng để hiện mã QR chuyển khoản'],
         ['branches.php', '🏬', 'Quản lý chi nhánh', 'Thêm mới & quản lý thông tin chi nhánh'],
         ['users.php', '👤', 'Nhân viên và phân quyền', 'Quản lý & phân quyền tài khoản nhân viên'],
         ['tax_rates.php', '📐', 'Thuế', 'Quản lý các mức thuế suất đầu ra, đầu vào'],

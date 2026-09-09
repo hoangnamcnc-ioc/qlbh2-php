@@ -11,7 +11,7 @@ if ($q === '' && !$browse) {
     exit;
 }
 
-$branchId = (int) ($user['branch_id'] ?? 0);
+$branchId = effectiveBranchId($user);
 $priceListId = (int) ($_GET['price_list_id'] ?? 0) ?: null;
 $pdo = db();
 $like = '%' . $q . '%';

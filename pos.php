@@ -2,10 +2,25 @@
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
-$branchId = (int) ($currentUser['branch_id'] ?? 0);
+$branchId = effectiveBranchId($currentUser);
+$canSwitchBranch = hasRole('ADMIN', 'MANAGER');
+$allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll() : [];
 ?>
 
-<h1 style="font-size:24px;font-weight:600;margin-bottom:24px;">Bán hàng tại quầy</h1>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+  <h1 style="font-size:24px;font-weight:600;margin:0;">Bán hàng tại quầy</h1>
+  <?php if ($canSwitchBranch): ?>
+    <form method="post" action="pos_switch_branch.php" style="display:flex;align-items:center;gap:8px;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+      <label class="muted" style="font-size:13px;margin:0;">Đang bán tại:</label>
+      <select name="branch_id" class="input" style="max-width:200px;" onchange="this.form.submit()">
+        <?php foreach ($allBranches as $b): ?>
+          <option value="<?= (int) $b['id'] ?>" <?= $branchId === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </form>
+  <?php endif; ?>
+</div>
 
 <?php if (!$branchId): ?>
   <div class="alert alert-warning">Tài khoản của bạn chưa được gán chi nhánh, không thể bán hàng. Liên hệ quản trị viên.</div>
@@ -55,6 +70,8 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
       <a href="sales_settings.php" class="btn btn-secondary" style="text-align:center;">Thiết lập chung</a>
       <a href="cashbook.php" class="btn btn-secondary" style="text-align:center;">Tạo phiếu thu/chi</a>
       <button type="button" id="qa-print-last" class="btn btn-secondary" disabled>In đơn gần nhất (Alt+1)</button>
+      <button type="button" id="qa-customer-display" class="btn btn-secondary">Kết nối màn hình phụ</button>
+      <button type="button" id="qa-qr-payment" class="btn btn-secondary">Hiện mã QR thanh toán</button>
     </div>
     <div id="service-picker" style="display:none;margin-top:8px;" class="card">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
@@ -64,6 +81,7 @@ $branchId = (int) ($currentUser['branch_id'] ?? 0);
     </div>
     <div id="promotions-panel" style="display:none;margin-top:8px;" class="card"></div>
     <div id="gift-panel" style="display:none;margin-top:8px;" class="card"></div>
+    <div id="qr-panel" style="display:none;margin-top:8px;text-align:center;" class="card"></div>
     </div>
   </div>
 
@@ -164,7 +182,11 @@ const requireCustomerPhone = <?= json_encode(getSetting('require_customer_phone'
 const autoPrintReceipt = <?= json_encode(getSetting('auto_print_receipt', '0') === '1') ?>;
 const suggestCashAmounts = <?= json_encode(getSetting('suggest_cash_amounts', '0') === '1') ?>;
 const defaultDiscountUnit = <?= json_encode(getSetting('default_discount_unit', 'AMOUNT')) ?>;
+const bankCode = <?= json_encode(getSetting('bank_code', '')) ?>;
+const bankAccount = <?= json_encode(getSetting('bank_account', '')) ?>;
+const bankAccountName = <?= json_encode(getSetting('bank_account_name', '')) ?>;
 let lastOrderId = null;
+const displayChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('qlbh2_pos_display') : null;
 function makeEmptyOrder() {
   return {
     cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, paymentMethod: 'CASH',
@@ -434,6 +456,9 @@ function updateTotals() {
   document.getElementById('cart-total').textContent = formatMoney(total);
   renderCashSuggestions(total);
   updateChange();
+  if (displayChannel) {
+    displayChannel.postMessage({ cart, subTotal, discount, total });
+  }
 }
 
 function renderCashSuggestions(total) {
@@ -656,6 +681,36 @@ document.getElementById('qa-gift').addEventListener('click', () => {
         });
       });
     });
+});
+
+document.getElementById('qa-customer-display').addEventListener('click', () => {
+  if (!displayChannel) { alert('Trình duyệt này không hỗ trợ BroadcastChannel để kết nối màn hình phụ.'); return; }
+  window.open('pos_customer_display.php', 'pos_customer_display', 'width=480,height=720');
+  updateTotals();
+});
+
+document.getElementById('qa-qr-payment').addEventListener('click', () => {
+  const panel = document.getElementById('qr-panel');
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  if (!bankCode || !bankAccount) {
+    panel.style.display = 'block';
+    panel.innerHTML = '<div class="muted">Chưa cấu hình tài khoản ngân hàng. <a href="payment_settings.php">Thiết lập ngay</a>.</div>';
+    return;
+  }
+  const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const discount = Math.min(subTotal, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0));
+  const total = Math.round(Math.max(0, subTotal - discount) + getShippingFee());
+  if (total <= 0) {
+    panel.style.display = 'block';
+    panel.innerHTML = '<div class="muted">Giỏ hàng chưa có sản phẩm để tạo mã QR.</div>';
+    return;
+  }
+  const addInfo = encodeURIComponent('Thanh toan don hang');
+  const acc = encodeURIComponent(bankAccountName);
+  const url = `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact2.png?amount=${total}&addInfo=${addInfo}&accountName=${acc}`;
+  panel.style.display = 'block';
+  panel.innerHTML = `<img src="${url}" alt="Mã QR thanh toán" style="max-width:260px;"><div style="margin-top:8px;font-weight:600;">${formatMoney(total)} đ</div><div class="muted" style="font-size:12px;">Quét bằng app ngân hàng bất kỳ — nhân viên tự xác nhận đã nhận tiền trước khi hoàn tất đơn.</div>`;
 });
 
 document.getElementById('qa-clear-cart').addEventListener('click', () => {

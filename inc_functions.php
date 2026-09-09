@@ -42,6 +42,16 @@ function postInt(string $key, int $default = 0): int
     return $n >= 0 ? $n : $default;
 }
 
+/** Chi nhánh đang bán hàng trong phiên POS hiện tại — mặc định là chi nhánh gán cho tài khoản,
+ * nhưng ADMIN/MANAGER có thể tạm đổi sang chi nhánh khác qua nút "Đổi chi nhánh" trong POS. */
+function effectiveBranchId(array $user): int
+{
+    if (in_array($user['role'], ['ADMIN', 'MANAGER'], true) && !empty($_SESSION['pos_branch_id'])) {
+        return (int) $_SESSION['pos_branch_id'];
+    }
+    return (int) ($user['branch_id'] ?? 0);
+}
+
 /** Ghi 1 dòng nhật ký hoạt động (Cấu hình > Nhật ký hoạt động). */
 function logActivity(string $action, string $detail = ''): void
 {
