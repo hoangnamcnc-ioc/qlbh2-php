@@ -136,6 +136,23 @@ try {
                 $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
                     ->execute([$branchId, $productId, $variantId, -$quantity]);
             }
+
+            // Trừ lô hàng theo FEFO (hết hạn sớm nhất trước) nếu sản phẩm có khai báo lô — sổ
+            // phụ theo dõi hạn sử dụng, không phải nguồn dữ liệu tồn kho chính.
+            if (!$variantId) {
+                $remaining = $quantity;
+                $batchStmt = $pdo->prepare(
+                    'SELECT * FROM product_batches WHERE product_id = ? AND branch_id = ? AND quantity > 0
+                     ORDER BY (expiry_date IS NULL), expiry_date FOR UPDATE'
+                );
+                $batchStmt->execute([$productId, $branchId]);
+                foreach ($batchStmt->fetchAll() as $batch) {
+                    if ($remaining <= 0) break;
+                    $take = min($remaining, (int) $batch['quantity']);
+                    $pdo->prepare('UPDATE product_batches SET quantity = quantity - ? WHERE id = ?')->execute([$take, $batch['id']]);
+                    $remaining -= $take;
+                }
+            }
         }
 
         $lineTotal = $unitPrice * $quantity;

@@ -8,6 +8,8 @@ $sections = [
     'Thiết lập cửa hàng' => [
         ['store_settings.php', '🏪', 'Thông tin cửa hàng', 'Quản lý thông tin liên hệ, địa chỉ và mẫu in hóa đơn'],
         ['payment_settings.php', '💳', 'Thanh toán', 'Khai báo tài khoản ngân hàng để hiện mã QR chuyển khoản'],
+        ['display_settings.php', '🎨', 'Tùy chỉnh giao diện', 'Màu sắc, sắp xếp sản phẩm, nút chức năng hiển thị trong POS'],
+        ['batches.php', '📦', 'Lô hàng & Hạn sử dụng', 'Theo dõi lô hàng theo hạn sử dụng, tự gợi ý lô cần bán trước'],
         ['branches.php', '🏬', 'Quản lý chi nhánh', 'Thêm mới & quản lý thông tin chi nhánh'],
         ['users.php', '👤', 'Nhân viên và phân quyền', 'Quản lý & phân quyền tài khoản nhân viên'],
         ['tax_rates.php', '📐', 'Thuế', 'Quản lý các mức thuế suất đầu ra, đầu vào'],

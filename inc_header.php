@@ -58,6 +58,8 @@ if (hasRole('ADMIN')) {
 }
 
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
+$brandColor = getSetting('brand_color', '#2563eb');
+$brandColorDark = darkenColor($brandColor, 15);
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -66,16 +68,17 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QLBH2 - Quản lý bán hàng</title>
 <style>
+  :root { --brand: <?= e($brandColor) ?>; --brand-dark: <?= e($brandColorDark) ?>; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; color: #1e293b; }
-  a { color: #2563eb; text-decoration: none; }
+  a { color: var(--brand); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .layout { display: flex; min-height: 100vh; }
   .sidebar { width: 250px; flex-shrink: 0; background: #0f172a; color: #cbd5e1; min-height: 100vh; padding: 8px 10px 24px; }
   .sidebar .brand { padding: 12px 10px 16px; font-size: 20px; font-weight: 700; color: #fff; }
   .sidebar .nav-item { display: block; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-weight: 500; color: #cbd5e1; margin-bottom: 2px; }
   .sidebar .nav-item:hover { background: #1e293b; color: #fff; text-decoration: none; }
-  .sidebar .nav-item.active { background: #2563eb; color: #fff; }
+  .sidebar .nav-item.active { background: var(--brand); color: #fff; }
   .sidebar .group-toggle { display: flex; align-items: center; justify-content: space-between; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none; margin-bottom: 2px; }
   .sidebar .group-toggle:hover { background: #1e293b; color: #fff; }
   .sidebar .group-toggle .chevron { font-size: 11px; color: #64748b; transition: transform .15s; }
@@ -85,7 +88,7 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
   .sidebar .submenu.open { display: block; }
   .sidebar .submenu a { display: block; border-radius: 6px; padding: 7px 10px; font-size: 13px; color: #94a3b8; margin-bottom: 1px; }
   .sidebar .submenu a:hover { background: #1e293b; color: #fff; text-decoration: none; }
-  .sidebar .submenu a.active { background: #2563eb; color: #fff; }
+  .sidebar .submenu a.active { background: var(--brand); color: #fff; }
   .main { flex: 1; min-width: 0; }
   .topbar { height: 56px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 24px; }
   .content { padding: 24px; }
@@ -95,8 +98,8 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
   th { text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b; background: #f8fafc; padding: 10px 12px; }
   td { padding: 10px 12px; border-top: 1px solid #f1f5f9; }
   tr:hover td { background: #f8fafc; }
-  .btn { display: inline-block; background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
-  .btn:hover { background: #1d4ed8; text-decoration: none; }
+  .btn { display: inline-block; background: var(--brand); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+  .btn:hover { background: var(--brand-dark); text-decoration: none; }
   .btn-secondary { background: #f1f5f9; color: #334155; }
   .btn-secondary:hover { background: #e2e8f0; }
   .btn-danger { background: #dc2626; }

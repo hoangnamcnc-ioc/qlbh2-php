@@ -376,3 +376,31 @@ khi in, Sắp xếp thứ tự sản phẩm, Điều chỉnh cột hiển thị 
 nhóm tùy biến giao diện chi tiết, chưa làm trong vòng này để ưu tiên các tính năng nghiệp vụ cốt lõi
 trước; báo lại nếu bạn muốn làm tiếp phần nào. Đơn giữ trên tab vẫn là trạng thái tạm trên trình
 duyệt, không phải đơn nháp lưu server.
+
+**Vòng hoàn thiện các tùy chỉnh giao diện còn lại** — đã làm nốt toàn bộ 5 mục còn lại nêu trên:
+- **Tùy chỉnh màu sắc** (`display_settings.php`): chọn màu chủ đạo bằng color-picker, áp dụng ngay
+  qua biến CSS `--brand`/`--brand-dark` (dùng `darkenColor()` tự tính màu hover đậm hơn) cho toàn bộ
+  nút bấm, tab đang chọn, link trong menu.
+- **Tùy chỉnh nút chức năng hiển thị**: 14 nút thao tác nhanh trong POS (Thêm dịch vụ, Khuyến mại,
+  Đổi quà, QR thanh toán...) đều có thể ẩn/hiện riêng lẻ; các đoạn JS gắn sự kiện dùng hàm `on()`
+  tự bỏ qua nếu nút đã bị ẩn, tránh lỗi.
+- **Sắp xếp thứ tự sản phẩm**: 3 kiểu (Tên A→Z, Z→A, Mới thêm trước) áp dụng cho tab "Danh sách sản
+  phẩm" trong POS.
+- **Điều chỉnh cột hiển thị**: bật/tắt cột STT và Mã hàng (SKU) trong bảng giỏ hàng POS.
+- **Tách dòng khi in**: tùy chọn in mỗi đơn vị sản phẩm thành 1 dòng riêng thay vì gộp theo số
+  lượng trên hóa đơn in.
+- **Chọn lô tự động (Alt+5)** (`batches.php` quản lý lô hàng theo hạn sử dụng, thuật toán FEFO —
+  First Expired First Out): khai báo lô hàng (số lô, hạn sử dụng, số lượng) cho từng sản
+  phẩm/chi nhánh; khi bán hàng, `pos_checkout.php` tự động trừ vào lô hết hạn sớm nhất trước — đây
+  là sổ phụ theo dõi hạn sử dụng, không thay thế tồn kho chính nên sản phẩm chưa khai báo lô vẫn
+  bán bình thường như cũ. Nút "Chọn lô tự động" trong POS cho xem trước lô nào sẽ được dùng.
+
+Đã test trên app.kt-soft.vn: đổi màu chủ đạo sang đỏ → áp dụng ngay trên toàn bộ nút/sidebar; bật
+cột STT + Mã hàng → hiện đúng trong bảng giỏ hàng; tạo 2 lô cho 1 sản phẩm (1 lô gần hạn hơn), bán
+7 đơn vị → xác nhận trừ đúng theo FEFO (lô gần hạn hết trước, dư 2 đơn vị mới trừ sang lô xa hạn
+hơn). Đã xóa sạch dữ liệu test và đặt lại toàn bộ cấu hình về mặc định ban đầu.
+
+Đến đây toàn bộ danh sách "Xem thêm thao tác" và panel "Thiết lập chung" của Sapo trong các ảnh đã
+được rà soát và triển khai đầy đủ những gì có thể làm bằng phần mềm. Giới hạn thật sự còn lại chỉ
+còn Kết nối cân điện tử, Đơn thuốc điện tử, và Bán hàng Offline thật (kiến trúc offline-first) —
+đúng nghĩa cần phần cứng hoặc khối lượng công việc lớn hơn hẳn, nên tách thành vòng riêng nếu cần.

@@ -19,7 +19,7 @@ $limit = $browse ? 60 : 15;
 
 // Sản phẩm không có biến thể (bán trực tiếp theo product_id)
 $stmt = $pdo->prepare(
-    "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type,
+    "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type, p.created_at,
             COALESCE(i.quantity, 0) AS qty
      FROM products p
      LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
@@ -32,7 +32,7 @@ $products = $stmt->fetchAll();
 
 // Combo (bán như 1 dòng, không kiểm tồn kho riêng)
 $stmt = $pdo->prepare(
-    "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type, 999 AS qty
+    "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type, p.created_at, 999 AS qty
      FROM products p
      WHERE p.is_active = 1 AND p.product_type = 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
      ORDER BY p.name LIMIT $limit"
@@ -42,7 +42,7 @@ $combos = $stmt->fetchAll();
 
 // Biến thể sản phẩm (bán theo variant_id)
 $stmt = $pdo->prepare(
-    "SELECT p.id, v.id AS variant_id, v.sku, CONCAT(p.name, ' - ', v.name) AS name, v.sell_price, 'PRODUCT' AS product_type,
+    "SELECT p.id, v.id AS variant_id, v.sku, CONCAT(p.name, ' - ', v.name) AS name, v.sell_price, 'PRODUCT' AS product_type, p.created_at,
             COALESCE(i.quantity, 0) AS qty
      FROM product_variants v
      JOIN products p ON p.id = v.product_id
@@ -73,8 +73,17 @@ if ($priceListId) {
     unset($item);
 }
 
+if ($browse) {
+    $sortOrder = getSetting('product_sort_order', 'name_asc');
+    usort($all, function ($a, $b) use ($sortOrder) {
+        if ($sortOrder === 'newest') return strcmp($b['created_at'], $a['created_at']);
+        $cmp = strcmp($a['name'], $b['name']);
+        return $sortOrder === 'name_desc' ? -$cmp : $cmp;
+    });
+}
+
 foreach ($all as &$item) {
-    unset($item['product_type']);
+    unset($item['product_type'], $item['created_at']);
 }
 unset($item);
 

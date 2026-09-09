@@ -52,6 +52,19 @@ function effectiveBranchId(array $user): int
     return (int) ($user['branch_id'] ?? 0);
 }
 
+/** Làm tối 1 màu hex đi $percent% (dùng cho trạng thái hover của màu chủ đạo tùy chỉnh). */
+function darkenColor(string $hex, int $percent = 15): string
+{
+    $hex = ltrim($hex, '#');
+    if (strlen($hex) !== 6) return '#1d4ed8';
+    [$r, $g, $b] = [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+    $factor = 1 - $percent / 100;
+    $r = max(0, (int) round($r * $factor));
+    $g = max(0, (int) round($g * $factor));
+    $b = max(0, (int) round($b * $factor));
+    return sprintf('#%02x%02x%02x', $r, $g, $b);
+}
+
 /** Ghi 1 dòng nhật ký hoạt động (Cấu hình > Nhật ký hoạt động). */
 function logActivity(string $action, string $detail = ''): void
 {

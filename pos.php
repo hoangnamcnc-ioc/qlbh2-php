@@ -5,6 +5,9 @@ $pdo = db();
 $branchId = effectiveBranchId($currentUser);
 $canSwitchBranch = hasRole('ADMIN', 'MANAGER');
 $allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll() : [];
+$showColStt = getSetting('show_column_stt', '1') === '1';
+$showColSku = getSetting('show_column_sku', '0') === '1';
+$qa = fn(string $key) => getSetting($key, '1') === '1';
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
@@ -50,28 +53,33 @@ $allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches ORDER BY n
     <div class="card" style="padding:0;overflow-x:auto;">
       <table>
         <thead>
-          <tr><th>Sản phẩm</th><th class="text-right">Đơn giá</th><th class="text-center">SL</th><th class="text-right">Thành tiền</th><th></th></tr>
+          <tr>
+            <?php if ($showColStt): ?><th style="width:36px;">STT</th><?php endif; ?>
+            <?php if ($showColSku): ?><th>Mã hàng</th><?php endif; ?>
+            <th>Sản phẩm</th><th class="text-right">Đơn giá</th><th class="text-center">SL</th><th class="text-right">Thành tiền</th><th></th>
+          </tr>
         </thead>
         <tbody id="cart-body">
-          <tr id="cart-empty"><td colspan="5" class="text-center muted" style="padding:40px;">Đơn hàng chưa có sản phẩm</td></tr>
+          <tr id="cart-empty"><td colspan="<?= 4 + ($showColStt ? 1 : 0) + ($showColSku ? 1 : 0) ?>" class="text-center muted" style="padding:40px;">Đơn hàng chưa có sản phẩm</td></tr>
         </tbody>
       </table>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:16px;">
-      <button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ (F9)</button>
-      <button type="button" id="qa-promotions" class="btn btn-secondary">Khuyến mại (F8)</button>
-      <button type="button" id="qa-gift" class="btn btn-secondary">Đổi quà</button>
-      <button type="button" id="qa-clear-cart" class="btn btn-secondary">Xóa toàn bộ sản phẩm</button>
-      <a href="customers.php" class="btn btn-secondary" style="text-align:center;">Thông tin khách hàng</a>
-      <a href="order_returns.php" class="btn btn-secondary" style="text-align:center;">Đổi trả hàng</a>
-      <a href="orders.php" class="btn btn-secondary" style="text-align:center;">Xem danh sách đơn hàng</a>
-      <a href="reports.php" class="btn btn-secondary" style="text-align:center;">Xem báo cáo</a>
-      <a href="sales_settings.php" class="btn btn-secondary" style="text-align:center;">Thiết lập chung</a>
-      <a href="cashbook.php" class="btn btn-secondary" style="text-align:center;">Tạo phiếu thu/chi</a>
-      <button type="button" id="qa-print-last" class="btn btn-secondary" disabled>In đơn gần nhất (Alt+1)</button>
-      <button type="button" id="qa-customer-display" class="btn btn-secondary">Kết nối màn hình phụ</button>
-      <button type="button" id="qa-qr-payment" class="btn btn-secondary">Hiện mã QR thanh toán</button>
+      <?php if ($qa('qa_add_service')): ?><button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ (F9)</button><?php endif; ?>
+      <?php if ($qa('qa_promotions')): ?><button type="button" id="qa-promotions" class="btn btn-secondary">Khuyến mại (F8)</button><?php endif; ?>
+      <?php if ($qa('qa_gift')): ?><button type="button" id="qa-gift" class="btn btn-secondary">Đổi quà</button><?php endif; ?>
+      <?php if ($qa('qa_clear_cart')): ?><button type="button" id="qa-clear-cart" class="btn btn-secondary">Xóa toàn bộ sản phẩm</button><?php endif; ?>
+      <?php if ($qa('qa_customers')): ?><a href="customers.php" class="btn btn-secondary" style="text-align:center;">Thông tin khách hàng</a><?php endif; ?>
+      <?php if ($qa('qa_returns')): ?><a href="order_returns.php" class="btn btn-secondary" style="text-align:center;">Đổi trả hàng</a><?php endif; ?>
+      <?php if ($qa('qa_orders')): ?><a href="orders.php" class="btn btn-secondary" style="text-align:center;">Xem danh sách đơn hàng</a><?php endif; ?>
+      <?php if ($qa('qa_reports')): ?><a href="reports.php" class="btn btn-secondary" style="text-align:center;">Xem báo cáo</a><?php endif; ?>
+      <?php if ($qa('qa_sales_settings')): ?><a href="sales_settings.php" class="btn btn-secondary" style="text-align:center;">Thiết lập chung</a><?php endif; ?>
+      <?php if ($qa('qa_cashbook')): ?><a href="cashbook.php" class="btn btn-secondary" style="text-align:center;">Tạo phiếu thu/chi</a><?php endif; ?>
+      <?php if ($qa('qa_print_last')): ?><button type="button" id="qa-print-last" class="btn btn-secondary" disabled>In đơn gần nhất (Alt+1)</button><?php endif; ?>
+      <?php if ($qa('qa_customer_display')): ?><button type="button" id="qa-customer-display" class="btn btn-secondary">Kết nối màn hình phụ</button><?php endif; ?>
+      <?php if ($qa('qa_qr_payment')): ?><button type="button" id="qa-qr-payment" class="btn btn-secondary">Hiện mã QR thanh toán</button><?php endif; ?>
+      <?php if ($qa('qa_batches')): ?><button type="button" id="qa-batches" class="btn btn-secondary">Chọn lô tự động (Alt+5)</button><?php endif; ?>
     </div>
     <div id="service-picker" style="display:none;margin-top:8px;" class="card">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
@@ -82,6 +90,7 @@ $allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches ORDER BY n
     <div id="promotions-panel" style="display:none;margin-top:8px;" class="card"></div>
     <div id="gift-panel" style="display:none;margin-top:8px;" class="card"></div>
     <div id="qr-panel" style="display:none;margin-top:8px;text-align:center;" class="card"></div>
+    <div id="batches-panel" style="display:none;margin-top:8px;" class="card"></div>
     </div>
   </div>
 
@@ -185,7 +194,11 @@ const defaultDiscountUnit = <?= json_encode(getSetting('default_discount_unit', 
 const bankCode = <?= json_encode(getSetting('bank_code', '')) ?>;
 const bankAccount = <?= json_encode(getSetting('bank_account', '')) ?>;
 const bankAccountName = <?= json_encode(getSetting('bank_account_name', '')) ?>;
+const showColStt = <?= json_encode($showColStt) ?>;
+const showColSku = <?= json_encode($showColSku) ?>;
 let lastOrderId = null;
+function on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
+
 const displayChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('qlbh2_pos_display') : null;
 function makeEmptyOrder() {
   return {
@@ -336,13 +349,13 @@ searchInput.addEventListener('keydown', (e) => {
     .then(data => {
       if (data.length === 1) {
         const p = data[0];
-        addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price));
+        addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
         searchInput.value = '';
         searchResults.style.display = 'none';
       } else if (data.length > 1) {
         const exact = data.find(p => p.sku === q);
         if (exact) {
-          addToCart(exact.id, exact.variant_id, exact.name, parseFloat(exact.sell_price));
+          addToCart(exact.id, exact.variant_id, exact.name, parseFloat(exact.sell_price), exact.sku);
           searchInput.value = '';
           searchResults.style.display = 'none';
         } else {
@@ -375,7 +388,7 @@ function doSearch(q) {
         el.addEventListener('mouseleave', () => el.style.background = '#fff');
         el.addEventListener('click', () => {
           const p = data[parseInt(el.dataset.i, 10)];
-          addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price));
+          addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
           searchInput.value = '';
           searchResults.style.display = 'none';
         });
@@ -383,20 +396,23 @@ function doSearch(q) {
     });
 }
 
-function addToCart(id, variantId, name, price) {
+function addToCart(id, variantId, name, price, sku) {
   const key = id + ':' + (variantId ?? '');
   const existing = cart.find(c => c.key === key);
-  if (existing) { existing.qty += 1; } else { cart.push({ key, id, variantId, name, price, qty: 1 }); }
+  if (existing) { existing.qty += 1; } else { cart.push({ key, id, variantId, name, price, sku: sku || '', qty: 1 }); }
   renderCart();
 }
 
 function renderCart() {
   const body = document.getElementById('cart-body');
+  const colspan = 4 + (showColStt ? 1 : 0) + (showColSku ? 1 : 0);
   if (!cart.length) {
-    body.innerHTML = '<tr id="cart-empty"><td colspan="5" class="text-center muted" style="padding:40px;">Đơn hàng chưa có sản phẩm</td></tr>';
+    body.innerHTML = `<tr id="cart-empty"><td colspan="${colspan}" class="text-center muted" style="padding:40px;">Đơn hàng chưa có sản phẩm</td></tr>`;
   } else {
     body.innerHTML = cart.map((c, i) => `
       <tr>
+        ${showColStt ? `<td class="muted">${i + 1}</td>` : ''}
+        ${showColSku ? `<td class="muted" style="font-family:monospace;font-size:12px;">${escapeHtml(c.sku || '')}</td>` : ''}
         <td>${escapeHtml(c.name)}</td>
         <td class="text-right"><input type="number" min="0" value="${c.price}" data-idx="${i}" class="price-input" title="Đổi giá bán hàng" style="width:90px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-center"><input type="number" min="1" value="${c.qty}" data-idx="${i}" class="qty-input" style="width:64px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
@@ -557,7 +573,7 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       } else {
         msgBox.innerHTML = `<div class="alert alert-success">Đã tạo đơn hàng ${escapeHtml(data.code)} thành công! <a href="order_print.php?id=${data.order_id}" target="_blank">In hóa đơn</a></div>`;
         lastOrderId = data.order_id;
-        document.getElementById('qa-print-last').disabled = false;
+        document.getElementById('qa-print-last') && (document.getElementById('qa-print-last').disabled = false);
         if (autoPrintReceipt) { window.open('order_print.php?id=' + data.order_id, '_blank'); }
         // Đơn đã thanh toán xong: đóng tab này (hoặc reset nếu là tab duy nhất) rồi chuyển sang đơn kế tiếp.
         const successMsg = msgBox.innerHTML;
@@ -609,14 +625,14 @@ function setBrowseMode(on) {
           row.addEventListener('mouseleave', () => row.style.background = '#fff');
           row.addEventListener('click', () => {
             const p = data[parseInt(row.dataset.i, 10)];
-            addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price));
+            addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
           });
         });
       });
   }
 }
 
-document.getElementById('qa-promotions').addEventListener('click', () => {
+on('qa-promotions', 'click', () => {
   const panel = document.getElementById('promotions-panel');
   const isOpen = panel.style.display !== 'none';
   if (isOpen) { panel.style.display = 'none'; return; }
@@ -634,7 +650,7 @@ document.getElementById('qa-promotions').addEventListener('click', () => {
     });
 });
 
-document.getElementById('qa-gift').addEventListener('click', () => {
+on('qa-gift', 'click', () => {
   const panel = document.getElementById('gift-panel');
   const isOpen = panel.style.display !== 'none';
   if (isOpen) { panel.style.display = 'none'; return; }
@@ -683,13 +699,13 @@ document.getElementById('qa-gift').addEventListener('click', () => {
     });
 });
 
-document.getElementById('qa-customer-display').addEventListener('click', () => {
+on('qa-customer-display', 'click', () => {
   if (!displayChannel) { alert('Trình duyệt này không hỗ trợ BroadcastChannel để kết nối màn hình phụ.'); return; }
   window.open('pos_customer_display.php', 'pos_customer_display', 'width=480,height=720');
   updateTotals();
 });
 
-document.getElementById('qa-qr-payment').addEventListener('click', () => {
+on('qa-qr-payment', 'click', () => {
   const panel = document.getElementById('qr-panel');
   const isOpen = panel.style.display !== 'none';
   if (isOpen) { panel.style.display = 'none'; return; }
@@ -713,7 +729,35 @@ document.getElementById('qa-qr-payment').addEventListener('click', () => {
   panel.innerHTML = `<img src="${url}" alt="Mã QR thanh toán" style="max-width:260px;"><div style="margin-top:8px;font-weight:600;">${formatMoney(total)} đ</div><div class="muted" style="font-size:12px;">Quét bằng app ngân hàng bất kỳ — nhân viên tự xác nhận đã nhận tiền trước khi hoàn tất đơn.</div>`;
 });
 
-document.getElementById('qa-clear-cart').addEventListener('click', () => {
+on('qa-batches', 'click', () => {
+  const panel = document.getElementById('batches-panel');
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  if (!cart.length) {
+    panel.innerHTML = '<div class="muted">Giỏ hàng chưa có sản phẩm.</div>';
+    return;
+  }
+  const productIds = [...new Set(cart.filter(c => !c.variantId).map(c => c.id))];
+  panel.innerHTML = '<div class="muted">Đang tải thông tin lô hàng...</div>';
+  fetch('pos_batches.php?product_ids=' + productIds.join(','))
+    .then(r => r.json())
+    .then(data => {
+      if (!data.length) {
+        panel.innerHTML = '<div class="muted">Các sản phẩm trong giỏ hàng chưa khai báo lô — sẽ bán theo tồn kho thông thường. <a href="batches.php">Khai báo lô hàng</a>.</div>';
+        return;
+      }
+      const byProduct = {};
+      data.forEach(b => { (byProduct[b.product_id] = byProduct[b.product_id] || []).push(b); });
+      panel.innerHTML = '<b style="font-size:13px;">Lô sẽ tự động được trừ trước (hết hạn sớm nhất trước):</b>' +
+        Object.values(byProduct).map(list => {
+          const first = list[0];
+          return `<div style="margin-top:6px;font-size:13px;">• ${escapeHtml(first.product_name)}: lô <b>${escapeHtml(first.lot_number)}</b>${first.expiry_date ? ' (HSD ' + new Date(first.expiry_date).toLocaleDateString('vi-VN') + ')' : ''} — còn ${first.quantity}</div>`;
+        }).join('');
+    });
+});
+
+on('qa-clear-cart', 'click', () => {
   if (!cart.length) return;
   if (!confirm('Xóa toàn bộ sản phẩm khỏi đơn hàng này?')) return;
   cart.length = 0;
@@ -721,7 +765,7 @@ document.getElementById('qa-clear-cart').addEventListener('click', () => {
 });
 
 let servicesLoaded = false;
-document.getElementById('qa-add-service').addEventListener('click', () => {
+on('qa-add-service', 'click', () => {
   const picker = document.getElementById('service-picker');
   const isOpen = picker.style.display !== 'none';
   if (isOpen) { picker.style.display = 'none'; return; }
@@ -762,7 +806,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-document.getElementById('qa-print-last').addEventListener('click', () => {
+on('qa-print-last', 'click', () => {
   if (lastOrderId) { window.open('order_print.php?id=' + lastOrderId, '_blank'); }
 });
 
@@ -771,7 +815,12 @@ document.addEventListener('keydown', (e) => {
   const key = e.key;
   if (e.altKey && key === '1') {
     e.preventDefault();
-    document.getElementById('qa-print-last').click();
+    document.getElementById('qa-print-last')?.click();
+    return;
+  }
+  if (e.altKey && key === '5') {
+    e.preventDefault();
+    document.getElementById('qa-batches')?.click();
     return;
   }
   if (!['F1', 'F2', 'F3', 'F4', 'F6', 'F7', 'F8', 'F9'].includes(key)) return;
@@ -798,10 +847,10 @@ document.addEventListener('keydown', (e) => {
       break;
     }
     case 'F8':
-      document.getElementById('qa-promotions').click();
+      document.getElementById('qa-promotions')?.click();
       break;
     case 'F9':
-      document.getElementById('qa-add-service').click();
+      document.getElementById('qa-add-service')?.click();
       break;
   }
 });
