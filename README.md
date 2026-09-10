@@ -694,3 +694,37 @@ file tạm trên server.
 **Giới hạn còn lại**: tab "Liên hệ" của Sapo (quản lý nhiều người liên hệ phụ cho một khách hàng,
 ví dụ khách hàng doanh nghiệp có nhiều đầu mối) không có trong QLBH2 — bỏ qua vì cửa hàng mẫu khảo
 sát là bán lẻ dược phẩm, không có nhu cầu multi-contact theo B2B.
+
+## Vòng rà soát module Sản phẩm (đối chiếu trang chi tiết sản phẩm thực tế của Sapo)
+
+Đối chiếu trang "Chi tiết sản phẩm" thật trên Sapo (có bảng "Chi tiết phiên bản" liệt kê SKU, mã
+barcode, đơn vị, các mức giá, tồn kho theo chi nhánh cho từng biến thể), nhận thấy `product_form.php`
+của QLBH2 đã bám khá sát: SKU, barcode (ở cấp sản phẩm), tên, đơn vị, danh mục, nhãn hiệu, giá
+vốn/giá bán, khối lượng, thuế suất, bảo hành, tags, giá riêng theo bảng giá, tồn kho/định mức/vị trí
+kho theo từng chi nhánh, biến thể (màu/size) với tồn kho riêng, combo. Gap cụ thể phát hiện được:
+**biến thể sản phẩm (`product_variants`) không có cột `barcode` riêng** — chỉ sản phẩm gốc có
+barcode, nên khi một sản phẩm bán theo nhiều biến thể (mỗi biến thể có mã vạch in riêng trên bao
+bì thực tế, ví dụ "Bánh gấu Mr Mee - Vị socola" có barcode khác "Gói lớn"), máy quét mã vạch tại
+POS sẽ không tìm ra đúng biến thể — đây là lỗi chức năng ảnh hưởng trực tiếp đến việc bán hàng bằng
+máy quét, không chỉ là thiếu trường hiển thị.
+
+Đã bổ sung:
+- `product_variants`: thêm cột `barcode`.
+- `variant_save.php`: nhận và lưu barcode khi tạo biến thể mới.
+- `variant_update.php` (mới): cho phép sửa barcode của biến thể đã có (trước đây biến thể chỉ tạo
+  được, không sửa được gì sau khi tạo).
+- `product_form.php`: thêm ô nhập barcode khi tạo biến thể mới, và form sửa barcode nhanh ngay
+  trên mỗi biến thể đã có.
+- `pos_search.php`: thêm `v.barcode` vào điều kiện tìm kiếm biến thể, để máy quét/ô tìm kiếm tại
+  POS tìm đúng biến thể theo mã vạch riêng của nó.
+
+Đã test trên app.kt-soft.vn: tạo biến thể mới kèm barcode `8938501234567` → tìm bằng
+`pos_search.php?q=8938501234567` ra đúng biến thể; sửa barcode biến thể đã có qua
+`variant_update.php` → tìm bằng barcode mới cũng ra đúng kết quả. Đã xóa sạch dữ liệu test.
+
+**Giới hạn còn lại**: trang danh sách sản phẩm (`products.php`) chưa hiển thị cột ảnh thu nhỏ như
+Sapo (tính năng tải ảnh đã có sẵn ở `product_form.php`, chỉ chưa hiển thị lại ở danh sách) —
+thuần túy thẩm mỹ, không ảnh hưởng nghiệp vụ nên chưa ưu tiên làm ngay; "Lịch sử kho" (nhật ký thay
+đổi tồn kho theo sản phẩm) của Sapo cũng chưa có bản ghi tổng hợp riêng trong QLBH2, dữ liệu tương
+đương nằm rải rác ở các phiếu nhập/chuyển/kiểm/trả hàng đã có, có thể gộp lại thành 1 trang xem
+sau nếu cần.

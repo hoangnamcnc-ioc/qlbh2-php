@@ -48,10 +48,10 @@ $stmt = $pdo->prepare(
      JOIN products p ON p.id = v.product_id
      LEFT JOIN inventory i ON i.variant_id = v.id AND i.branch_id = ?
      WHERE v.is_active = 1 AND p.is_active = 1
-       AND (? = 1 OR p.name LIKE ? OR v.name LIKE ? OR v.sku LIKE ?)
+       AND (? = 1 OR p.name LIKE ? OR v.name LIKE ? OR v.sku LIKE ? OR v.barcode LIKE ?)
      ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$branchId, $browse ? 1 : 0, $like, $like, $like]);
+$stmt->execute([$branchId, $browse ? 1 : 0, $like, $like, $like, $like]);
 $variants = $stmt->fetchAll();
 
 $all = array_merge($products, $combos, $variants);

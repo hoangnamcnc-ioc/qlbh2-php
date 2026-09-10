@@ -9,6 +9,7 @@ checkCsrf();
 $pdo = db();
 $productId = (int) ($_POST['product_id'] ?? 0);
 $sku = post('sku');
+$barcode = post('barcode') ?: null;
 $name = post('name');
 $costPrice = postFloat('cost_price');
 $sellPrice = postFloat('sell_price');
@@ -29,8 +30,8 @@ if ($check->fetch()) {
 }
 
 $pdo->prepare(
-    'INSERT INTO product_variants (product_id, sku, name, cost_price, sell_price) VALUES (?,?,?,?,?)'
-)->execute([$productId, $sku, $name, $costPrice, $sellPrice]);
+    'INSERT INTO product_variants (product_id, sku, barcode, name, cost_price, sell_price) VALUES (?,?,?,?,?,?)'
+)->execute([$productId, $sku, $barcode, $name, $costPrice, $sellPrice]);
 $variantId = (int) $pdo->lastInsertId();
 
 $targetBranchId = $currentUser['branch_id'];

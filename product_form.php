@@ -394,6 +394,15 @@ require_once __DIR__ . '/inc_header.php';
           <?php endif; ?>
         </div>
       </div>
+      <form method="post" action="variant_update.php" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+        <input type="hidden" name="variant_id" value="<?= (int) $v['id'] ?>">
+        <label class="muted" style="font-size:12px;">Mã barcode:
+          <input type="text" name="barcode" value="<?= e($v['barcode'] ?? '') ?>" placeholder="quét/nhập mã vạch riêng" style="width:160px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+        </label>
+        <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">Lưu barcode</button>
+      </form>
       <?php foreach ($branches as $b): ?>
         <?php $inv = $variantInventories[$v['id']][$b['id']] ?? ['quantity' => 0, 'min_stock' => 0]; ?>
         <form method="post" action="inventory_save.php" style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid #f1f5f9;">
@@ -430,6 +439,7 @@ require_once __DIR__ . '/inc_header.php';
       <div class="field"><label>Mã SKU biến thể *</label><input class="input" name="sku" required placeholder="vd: <?= e($product['sku']) ?>-DO-L"></div>
       <div class="field"><label>Tên biến thể *</label><input class="input" name="name" required placeholder="vd: Đỏ - L"></div>
     </div>
+    <div class="field"><label>Mã barcode riêng (nếu khác SKU)</label><input class="input" name="barcode" placeholder="quét/nhập mã vạch in trên sản phẩm"></div>
     <div class="grid-2">
       <div class="field"><label>Giá vốn</label><input class="input" type="number" min="0" name="cost_price" value="0"></div>
       <div class="field"><label>Giá bán</label><input class="input" type="number" min="0" name="sell_price" value="0"></div>
