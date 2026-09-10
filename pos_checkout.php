@@ -239,8 +239,28 @@ try {
     $itemStmt = $pdo->prepare(
         'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)'
     );
+    $warrantyStmt = $pdo->prepare(
+        'INSERT INTO warranty_cards (code, order_item_id, product_id, customer_id, policy_id, start_date, end_date, created_by_id) VALUES (?,?,?,?,?,?,?,?)'
+    );
     foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal]) {
         $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal]);
+        $orderItemId = (int) $pdo->lastInsertId();
+
+        $prodStmt = $pdo->prepare('SELECT has_warranty, warranty_policy_id FROM products WHERE id = ?');
+        $prodStmt->execute([$productId]);
+        $prodInfo = $prodStmt->fetch();
+        if ($prodInfo && $prodInfo['has_warranty']) {
+            $duration = 12;
+            if ($prodInfo['warranty_policy_id']) {
+                $durStmt = $pdo->prepare('SELECT duration_months FROM warranty_policies WHERE id = ?');
+                $durStmt->execute([$prodInfo['warranty_policy_id']]);
+                $duration = (int) ($durStmt->fetchColumn() ?: 12);
+            }
+            $wCode = 'WR' . strtoupper(base_convert((string) (microtime(true) * 1000 + $orderItemId), 10, 36));
+            $wStart = date('Y-m-d');
+            $wEnd = date('Y-m-d', strtotime("+$duration months"));
+            $warrantyStmt->execute([$wCode, $orderItemId, $productId, $customerId, $prodInfo['warranty_policy_id'], $wStart, $wEnd, $user['id']]);
+        }
     }
 
     if ($couponId) {

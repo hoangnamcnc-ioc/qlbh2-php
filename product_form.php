@@ -15,6 +15,7 @@ $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
 $brands = $pdo->query('SELECT * FROM brands ORDER BY name')->fetchAll();
 $priceLists = $pdo->query('SELECT * FROM price_lists ORDER BY name')->fetchAll();
 $taxRates = $pdo->query("SELECT * FROM tax_rates WHERE is_active = 1 AND type = 'OUTPUT' ORDER BY rate_percent")->fetchAll();
+$warrantyPolicies = $pdo->query('SELECT * FROM warranty_policies ORDER BY name')->fetchAll();
 $comboItems = [];
 $productPrices = [];
 $allProducts = [];
@@ -88,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $weightGrams = postInt('weight_grams');
     $taxRateId = (int) ($_POST['tax_rate_id'] ?? 0) ?: null;
     $hasWarranty = isset($_POST['has_warranty']) ? 1 : 0;
+    $warrantyPolicyId = (int) ($_POST['warranty_policy_id'] ?? 0) ?: null;
 
     if ($name === '' || ($id === 0 && $sku === '')) {
         $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
@@ -95,8 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=? WHERE id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $id]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=?, warranty_policy_id=? WHERE id=?'
+                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $id]);
 
                 foreach ($_POST['price_list_id'] ?? [] as $plId => $price) {
                     $plId = (int) $plId;
@@ -121,8 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty]);
+                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty, warranty_policy_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId]);
                 $id = (int) $pdo->lastInsertId();
 
                 if ($productType === 'PRODUCT') {
@@ -290,6 +292,16 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="field">
       <label style="font-weight:400;"><input type="checkbox" name="has_warranty" <?= !empty($product['has_warranty']) ? 'checked' : '' ?>> Áp dụng bảo hành cho sản phẩm này</label>
+    </div>
+
+    <div class="field">
+      <label>Chính sách bảo hành mặc định (khi bán sẽ tự tạo phiếu bảo hành theo chính sách này)</label>
+      <select class="input" name="warranty_policy_id">
+        <option value="">— Mặc định 12 tháng —</option>
+        <?php foreach ($warrantyPolicies as $wp): ?>
+          <option value="<?= (int) $wp['id'] ?>" <?= ($product['warranty_policy_id'] ?? null) == $wp['id'] ? 'selected' : '' ?>><?= e($wp['name']) ?> (<?= (int) $wp['duration_months'] ?> tháng)</option>
+        <?php endforeach; ?>
+      </select>
     </div>
 
     <div class="field">

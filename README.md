@@ -783,3 +783,29 @@ hàng) mà Sapo lưu chi tiết — QLBH2 chỉ lưu 1 trạng thái hiện tạ
 (`updated_at`), không có lịch sử timestamp theo từng mốc; địa chỉ nhận hàng tách riêng
 phường/quận/tỉnh của Sapo — QLBH2 dùng 1 trường địa chỉ gộp ở cấp đơn hàng. Cả hai đều là tính
 năng phụ, có thể bổ sung sau nếu cần đối soát chi tiết hơn với đối tác vận chuyển thật.
+
+## Vòng rà soát tiếp module Bảo hành (đối chiếu quy trình thực tế của Sapo)
+
+Vòng trước chỉ soát ở mức menu (Phiếu bảo hành/Yêu cầu bảo hành/Chính sách bảo hành đã có đủ cả 3
+trang). Vòng này đối chiếu kỹ hơn *cách phiếu bảo hành được tạo ra* trên Sapo: trang danh sách
+phiếu bảo hành của Sapo ghi rõ "Bạn cần tạo sản phẩm có bảo hành và xuất kho bán sản phẩm, **hệ
+thống sẽ tự động tạo phiếu bảo hành tương ứng**" — tức phiếu bảo hành sinh ra tự động ngay khi bán
+hàng, không cần thao tác thủ công riêng. QLBH2 trước đó tuy có đủ dữ liệu cần thiết (`has_warranty`
+trên sản phẩm, `warranty_cards` liên kết `order_item_id`/`policy_id`) nhưng **chỉ tạo được phiếu
+bảo hành thủ công** qua `warranty_card_form.php` (nhân viên phải nhớ tra mã đơn hàng rồi tạo tay
+sau khi bán) — dễ bị bỏ sót trong thực tế vận hành.
+
+Đã bổ sung:
+- `products`: thêm `warranty_policy_id` (chính sách bảo hành mặc định của sản phẩm, tùy chọn —
+  không chọn thì dùng mặc định 12 tháng như hành vi cũ).
+- `product_form.php`: thêm ô chọn chính sách bảo hành mặc định ngay cạnh checkbox "Áp dụng bảo
+  hành".
+- `pos_checkout.php`: sau khi tạo đơn hàng, với mỗi dòng sản phẩm có `has_warranty = 1`, **tự động
+  tạo 1 phiếu bảo hành** gắn với dòng đơn hàng đó (ngày bắt đầu = ngày bán, ngày kết thúc = ngày
+  bán + số tháng theo chính sách mặc định của sản phẩm), giống đúng hành vi Sapo thật. Form tạo
+  thủ công (`warranty_card_form.php`) vẫn giữ nguyên để xử lý các trường hợp ngoại lệ (đơn hàng cũ
+  trước khi có tính năng này, sản phẩm quên bật `has_warranty` lúc bán...).
+
+Đã test trên app.kt-soft.vn: tạo sản phẩm test có `has_warranty=1` gắn chính sách 6 tháng, bán qua
+POS → phiếu bảo hành tự động xuất hiện đúng trong danh sách, đúng khách hàng, đúng chính sách,
+ngày kết thúc lệch chính xác +6 tháng so với ngày bán. Đã xóa sạch dữ liệu test.
