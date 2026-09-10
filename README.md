@@ -520,3 +520,26 @@ Bổ sung các tính năng còn thiếu so với trang "Sổ quỹ" của Sapo:
 Đã test trên app.kt-soft.vn: tạo phiếu thu 100.000đ bằng Chuyển khoản → Tồn cuối kỳ cập nhật đúng
 từ 0 lên 100.000đ; lọc theo loại "Phiếu chi" → phiếu thu vừa tạo biến mất đúng khỏi danh sách; xuất
 file CSV → nội dung khớp đúng dữ liệu phiếu vừa tạo. Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát module Nhập hàng (đối chiếu trang thực tế của Sapo)
+
+Phát hiện và bổ sung 1 tính năng còn thiếu hoàn toàn: **Quản lý trả hàng NCC** (Sapo có nút riêng
+"Quản lý trả hàng NCC" ngay trên trang Danh sách đơn nhập hàng) — trước đây QLBH2 chưa có bất kỳ
+khung dữ liệu nào để trả lại hàng đã nhập cho nhà cung cấp khi phát hiện hàng lỗi/hết hạn.
+
+- **`supplier_return_form.php`**: nhập mã phiếu nhập gốc, chọn số lượng trả cho từng dòng sản phẩm
+  (giới hạn không vượt quá số đã nhập trừ đi số đã trả trước đó, giống hệt cơ chế `order_return_form.php`
+  cho khách hàng), nhập lý do.
+- **`supplier_returns.php`**: danh sách các lần trả hàng NCC, liên kết ngược tới phiếu nhập gốc.
+- Khi tạo trả hàng: tự động **trừ tồn kho** (hàng đã trả vật lý cho NCC) và **giảm công nợ phải trả**
+  cho đúng nhà cung cấp theo giá trị hàng trả (dùng giá nhập gốc của từng dòng).
+- Thêm nút "Trả hàng NCC" ngay trên trang chi tiết phiếu nhập (`stock_receipt_view.php`) để thao
+  tác nhanh không cần gõ lại mã phiếu.
+
+Đã test trên app.kt-soft.vn: tạo NCC + phiếu nhập 10 sản phẩm (giá nhập 10.000đ, công nợ NCC
+100.000đ) → trả lại 3 sản phẩm lỗi → xác nhận tồn kho giảm đúng còn 7, công nợ NCC giảm đúng còn
+70.000đ, và số lượng còn có thể trả hiển thị đúng 7 khi mở lại phiếu (chặn trả vượt quá số đã nhập).
+Đã xóa sạch dữ liệu test.
+
+Do phiên đăng nhập Sapo hết hạn giữa chừng, chưa kịp đối chiếu sâu thêm "Đặt hàng nhập" và "Kiểm
+hàng/Chuyển hàng" trong vòng này — có thể tiếp tục nếu bạn đăng nhập lại và muốn rà soát tiếp.

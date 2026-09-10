@@ -502,6 +502,35 @@ CREATE TABLE IF NOT EXISTS campaigns (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ===== Đặt hàng nhập (trước khi nhập kho thực tế) =====
+CREATE TABLE IF NOT EXISTS supplier_returns (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  supplier_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  receipt_id INT NULL,
+  reason VARCHAR(255) NULL,
+  refund_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+  FOREIGN KEY (branch_id) REFERENCES branches(id),
+  FOREIGN KEY (receipt_id) REFERENCES stock_receipts(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS supplier_return_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  return_id INT NOT NULL,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(14,2) NOT NULL,
+  line_total DECIMAL(14,2) NOT NULL,
+  FOREIGN KEY (return_id) REFERENCES supplier_returns(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,

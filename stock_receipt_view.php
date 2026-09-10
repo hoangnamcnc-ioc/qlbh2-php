@@ -32,7 +32,12 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="stock_receipts.php" class="muted" style="font-size:14px;">← Danh sách phiếu nhập</a>
-<h1 style="font-size:24px;font-weight:600;font-family:monospace;margin:8px 0 4px;"><?= e($receipt['code']) ?></h1>
+<div style="display:flex;align-items:center;justify-content:space-between;">
+  <h1 style="font-size:24px;font-weight:600;font-family:monospace;margin:8px 0 4px;"><?= e($receipt['code']) ?></h1>
+  <?php if ($receipt['supplier_id'] && hasRole('ADMIN', 'MANAGER')): ?>
+    <a href="supplier_return_form.php?q=<?= urlencode($receipt['code']) ?>" class="btn btn-secondary">Trả hàng NCC</a>
+  <?php endif; ?>
+</div>
 <p class="muted" style="margin:0 0 24px;"><?= date('d/m/Y H:i', strtotime($receipt['created_at'])) ?></p>
 
 <div class="grid-2" style="margin-bottom:24px;">

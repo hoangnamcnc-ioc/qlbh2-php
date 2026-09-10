@@ -27,6 +27,7 @@ $navGroups = [
             'purchase_orders.php' => 'Đặt hàng nhập',
             'stock_receipts.php' => 'Nhập hàng',
             'suppliers.php' => 'Nhà cung cấp',
+            'supplier_returns.php' => 'Trả hàng NCC',
             'price_adjustments.php' => 'Điều chỉnh giá vốn',
             'categories.php' => 'Danh mục',
             'brands.php' => 'Nhãn hiệu',
