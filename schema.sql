@@ -180,8 +180,49 @@ CREATE TABLE IF NOT EXISTS customers (
   group_id INT NULL,
   debt DECIMAL(14,2) NOT NULL DEFAULT 0,
   loyalty_points INT NOT NULL DEFAULT 0,
+  birthday DATE NULL,
+  gender ENUM('MALE','FEMALE','OTHER') NULL,
+  email VARCHAR(255) NULL,
+  tax_code VARCHAR(50) NULL,
+  website VARCHAR(255) NULL,
+  description TEXT NULL,
+  tags VARCHAR(255) NULL,
+  assigned_staff_id INT NULL,
+  default_payment_method ENUM('CASH','BANK_TRANSFER','CARD','QR_CODE') NULL,
+  discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (group_id) REFERENCES customer_groups(id) ON DELETE SET NULL
+  FOREIGN KEY (group_id) REFERENCES customer_groups(id) ON DELETE SET NULL,
+  FOREIGN KEY (assigned_staff_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS customer_addresses (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT NOT NULL,
+  recipient_name VARCHAR(255) NULL,
+  phone VARCHAR(50) NULL,
+  address VARCHAR(500) NOT NULL,
+  is_default TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS customer_notes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT NOT NULL,
+  note TEXT NOT NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS customer_tiers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  min_spend DECIMAL(14,2) NOT NULL DEFAULT 0,
+  discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS sales_channels (

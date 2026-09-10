@@ -431,3 +431,27 @@ thay vì để dồn nhiều đơn qua nhiều ngày. Không dùng Service Worke
 Đến đây cả 3 hạng mục còn lại của trang Bán hàng Sapo (Kết nối cân điện tử, Đơn thuốc điện tử, Bán
 hàng Offline) chỉ còn 2 mục thật sự cần phần cứng/hệ thống quy định ngành riêng — không thể làm
 bằng phần mềm thuần trong phạm vi ứng dụng bán lẻ tổng quát này.
+
+## Vòng rà soát module Khách hàng (đối chiếu trang chi tiết khách hàng thực tế của Sapo)
+
+Bổ sung các trường/tính năng còn thiếu so với trang "Chi tiết khách hàng" của Sapo:
+- **Hồ sơ đầy đủ**: Ngày sinh, Giới tính, Email, Nhân viên phụ trách, Tags, Mã số thuế, Website,
+  Mô tả — thêm vào `customer_form.php`/`customer_view.php`.
+- **Thông tin gợi ý khi bán hàng**: Chiết khấu riêng cho từng khách hàng (%) và Hình thức thanh
+  toán mặc định — hiển thị trong hồ sơ khách hàng (chưa tự động điền vào POS ở vòng này).
+- **Nhiều địa chỉ giao hàng** (`customer_addresses`): thêm/xóa nhiều địa chỉ cho 1 khách hàng, đánh
+  dấu địa chỉ mặc định, ngay trong `customer_view.php`.
+- **Ghi chú khách hàng** (`customer_notes`): nhật ký ghi chú có thời gian + người tạo, thêm/xóa
+  ngay trong trang chi tiết khách hàng — khác với trường Mô tả (chỉ 1 đoạn văn bản tĩnh).
+- **Hạng thẻ khách hàng** (`customer_tiers.php`): khai báo các mốc chi tiêu (vd Bạc/Vàng/Kim
+  cương) kèm % chiết khấu tham chiếu; trang chi tiết khách hàng tự tính hạng hiện tại theo tổng chi
+  tiêu tích lũy và hiển thị "cần chi thêm bao nhiêu để lên hạng tiếp theo".
+
+Đã test trên app.kt-soft.vn: tạo khách hàng đầy đủ hồ sơ (ngày sinh, giới tính, mã số thuế...) →
+hiển thị đúng toàn bộ trong trang chi tiết; thêm địa chỉ + ghi chú → lưu và hiện đúng; tạo 3 hạng
+thẻ (Bạc/Vàng/Kim cương) → khách chưa có đơn hàng nào tự động xếp đúng hạng thấp nhất và hiện đúng
+số tiền cần chi thêm để lên hạng kế tiếp. Đã xóa sạch dữ liệu test.
+
+Giới hạn: chiết khấu riêng khách hàng và hạng thẻ hiện là dữ liệu tham chiếu hiển thị, **chưa tự
+động áp dụng vào tính giá khi bán hàng trong POS** — nếu cần tự động trừ chiết khấu theo khách hàng
+hoặc hạng thẻ ngay khi thanh toán, cần làm thêm một vòng tích hợp riêng vào `pos_checkout.php`.

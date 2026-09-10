@@ -26,6 +26,7 @@ $sections = [
         ['channels.php', '🔗', 'Kênh bán hàng', 'Quản lý các kênh bạn dùng để bán hàng (Shopee, Facebook, Website...)'],
         ['cancel_reasons.php', '↩️', 'Lý do hủy trả', 'Thêm và điều chỉnh lý do khi hủy/trả đơn hàng'],
         ['gifts.php', '🎁', 'Quà đổi điểm', 'Khai báo quà tặng khách hàng đổi bằng điểm tích lũy'],
+        ['customer_tiers.php', '🏆', 'Hạng thẻ khách hàng', 'Khai báo mốc chi tiêu để tự động xếp hạng khách hàng'],
         ['promotions.php', '🎉', 'Khuyến mại tự động', 'Chương trình giảm giá tự áp dụng theo giá trị đơn'],
         ['coupons.php', '🎟️', 'Mã giảm giá', 'Tạo và quản lý mã giảm giá'],
         ['warranty_policies.php', '🛡️', 'Chính sách bảo hành', 'Thiết lập thời hạn & điều kiện bảo hành'],

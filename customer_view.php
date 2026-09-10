@@ -1,12 +1,14 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireLogin();
+$currentUser = requireLogin();
 
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT * FROM customers WHERE id = ?');
+$stmt = $pdo->prepare(
+    'SELECT c.*, u.name AS assigned_staff_name FROM customers c LEFT JOIN users u ON u.id = c.assigned_staff_id WHERE c.id = ?'
+);
 $stmt->execute([$id]);
 $customer = $stmt->fetch();
 if (!$customer) redirect('customers.php');
@@ -32,6 +34,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    checkCsrf();
+    if ($_POST['action'] === 'add_address') {
+        $addr = post('address');
+        if ($addr !== '') {
+            if (isset($_POST['is_default'])) {
+                $pdo->prepare('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?')->execute([$id]);
+            }
+            $pdo->prepare('INSERT INTO customer_addresses (customer_id, recipient_name, phone, address, is_default) VALUES (?,?,?,?,?)')
+                ->execute([$id, post('recipient_name') ?: null, post('addr_phone') ?: null, $addr, isset($_POST['is_default']) ? 1 : 0]);
+        }
+        redirect('customer_view.php?id=' . $id . '#addresses');
+    } elseif ($_POST['action'] === 'delete_address') {
+        $pdo->prepare('DELETE FROM customer_addresses WHERE id = ? AND customer_id = ?')->execute([(int) $_POST['address_id'], $id]);
+        redirect('customer_view.php?id=' . $id . '#addresses');
+    } elseif ($_POST['action'] === 'add_note') {
+        $note = post('note');
+        if ($note !== '') {
+            $pdo->prepare('INSERT INTO customer_notes (customer_id, note, created_by_id) VALUES (?,?,?)')
+                ->execute([$id, $note, $currentUser['id']]);
+        }
+        redirect('customer_view.php?id=' . $id . '#notes');
+    } elseif ($_POST['action'] === 'delete_note') {
+        $pdo->prepare('DELETE FROM customer_notes WHERE id = ? AND customer_id = ?')->execute([(int) $_POST['note_id'], $id]);
+        redirect('customer_view.php?id=' . $id . '#notes');
+    }
+}
+
+$addresses = $pdo->prepare('SELECT * FROM customer_addresses WHERE customer_id = ? ORDER BY is_default DESC, created_at DESC');
+$addresses->execute([$id]);
+$addresses = $addresses->fetchAll();
+
+$notes = $pdo->prepare(
+    'SELECT n.*, u.name AS created_by_name FROM customer_notes n JOIN users u ON u.id = n.created_by_id
+     WHERE n.customer_id = ? ORDER BY n.created_at DESC'
+);
+$notes->execute([$id]);
+$notes = $notes->fetchAll();
+
+$tiers = $pdo->query('SELECT * FROM customer_tiers WHERE is_active = 1 ORDER BY min_spend')->fetchAll();
+$currentTier = null;
+$nextTier = null;
+foreach ($tiers as $t) {
+    if ($totalSpent >= (float) $t['min_spend']) {
+        $currentTier = $t;
+    } elseif ($nextTier === null) {
+        $nextTier = $t;
+    }
+}
+$genderLabels = ['MALE' => 'Nam', 'FEMALE' => 'Nữ', 'OTHER' => 'Khác'];
+$paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản', 'CARD' => 'Quẹt thẻ', 'QR_CODE' => 'Quét mã QR'];
+
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -56,6 +110,15 @@ require_once __DIR__ . '/inc_header.php';
     <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Số đơn hàng</div>
     <div style="font-size:18px;font-weight:700;"><?= count($validOrders) ?></div>
   </div>
+  <div class="card">
+    <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Hạng thẻ</div>
+    <div style="font-size:18px;font-weight:700;">
+      <?= $currentTier ? e($currentTier['name']) : '<span class="muted" style="font-size:14px;">Chưa có hạng</span>' ?>
+    </div>
+    <?php if ($nextTier): ?>
+      <div class="muted" style="font-size:11px;margin-top:2px;">Cần thêm <?= money((float) $nextTier['min_spend'] - $totalSpent) ?> để lên hạng <?= e($nextTier['name']) ?></div>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php if ($customer['debt'] > 0): ?>
@@ -75,9 +138,88 @@ require_once __DIR__ . '/inc_header.php';
 
 <h2 style="font-size:18px;font-weight:600;margin:0 0 12px;">Thông tin khách hàng</h2>
 <div class="card" style="max-width:640px;margin-bottom:24px;">
-  <p style="margin:4px 0;"><b>SĐT:</b> <?= e($customer['phone'] ?: '—') ?></p>
-  <p style="margin:4px 0;"><b>Địa chỉ:</b> <?= e($customer['address'] ?: '—') ?></p>
-  <a href="customer_form.php?id=<?= (int) $customer['id'] ?>" class="btn btn-secondary" style="margin-top:8px;display:inline-block;">Sửa thông tin</a>
+  <div class="grid-2">
+    <div>
+      <p style="margin:4px 0;"><b>SĐT:</b> <?= e($customer['phone'] ?: '—') ?></p>
+      <p style="margin:4px 0;"><b>Email:</b> <?= e($customer['email'] ?: '—') ?></p>
+      <p style="margin:4px 0;"><b>Ngày sinh:</b> <?= $customer['birthday'] ? date('d/m/Y', strtotime($customer['birthday'])) : '—' ?></p>
+      <p style="margin:4px 0;"><b>Giới tính:</b> <?= e($genderLabels[$customer['gender']] ?? '—') ?></p>
+      <p style="margin:4px 0;"><b>Địa chỉ:</b> <?= e($customer['address'] ?: '—') ?></p>
+    </div>
+    <div>
+      <p style="margin:4px 0;"><b>Nhân viên phụ trách:</b> <?= e($customer['assigned_staff_name'] ?? '—') ?></p>
+      <p style="margin:4px 0;"><b>Chiết khấu riêng:</b> <?= (float) $customer['discount_percent'] > 0 ? number_format((float) $customer['discount_percent'], 1) . '%' : '—' ?></p>
+      <p style="margin:4px 0;"><b>Thanh toán mặc định:</b> <?= e($paymentLabels[$customer['default_payment_method']] ?? '—') ?></p>
+      <p style="margin:4px 0;"><b>Mã số thuế:</b> <?= e($customer['tax_code'] ?: '—') ?></p>
+      <?php if ($customer['tags']): ?><p style="margin:4px 0;"><b>Tags:</b> <?php foreach (explode(',', $customer['tags']) as $t): ?><span class="badge badge-gray" style="margin-right:4px;"><?= e(trim($t)) ?></span><?php endforeach; ?></p><?php endif; ?>
+    </div>
+  </div>
+  <?php if ($customer['description']): ?><p style="margin:12px 0 0;" class="muted"><?= e($customer['description']) ?></p><?php endif; ?>
+  <a href="customer_form.php?id=<?= (int) $customer['id'] ?>" class="btn btn-secondary" style="margin-top:12px;display:inline-block;">Sửa thông tin</a>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px;max-width:900px;">
+  <div id="addresses">
+    <h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Địa chỉ</h2>
+    <div class="card">
+      <?php if (!$addresses): ?><p class="muted" style="margin:0 0 12px;">Chưa có địa chỉ nào.</p><?php endif; ?>
+      <?php foreach ($addresses as $a): ?>
+        <div style="padding:8px 0;border-top:1px solid #f1f5f9;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;">
+            <div>
+              <?php if ($a['is_default']): ?><span class="badge badge-green" style="margin-right:4px;">Mặc định</span><?php endif; ?>
+              <b><?= e($a['recipient_name'] ?: $customer['name']) ?></b> <?= $a['phone'] ? '· ' . e($a['phone']) : '' ?>
+            </div>
+            <form method="post" onsubmit="return confirm('Xóa địa chỉ này?');">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="action" value="delete_address">
+              <input type="hidden" name="address_id" value="<?= (int) $a['id'] ?>">
+              <button type="submit" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:12px;">Xóa</button>
+            </form>
+          </div>
+          <div class="muted"><?= e($a['address']) ?></div>
+        </div>
+      <?php endforeach; ?>
+      <form method="post" style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="action" value="add_address">
+        <div class="grid-2">
+          <input class="input" name="recipient_name" placeholder="Tên người nhận" style="margin-bottom:8px;">
+          <input class="input" name="addr_phone" placeholder="SĐT người nhận" style="margin-bottom:8px;">
+        </div>
+        <input class="input" name="address" placeholder="Địa chỉ *" style="margin-bottom:8px;">
+        <label style="font-weight:400;font-size:12px;"><input type="checkbox" name="is_default"> Đặt làm mặc định</label>
+        <button type="submit" class="btn btn-secondary" style="margin-top:8px;">Thêm địa chỉ</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="notes">
+    <h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Ghi chú</h2>
+    <div class="card">
+      <?php if (!$notes): ?><p class="muted" style="margin:0 0 12px;">Chưa có ghi chú nào.</p><?php endif; ?>
+      <?php foreach ($notes as $n): ?>
+        <div style="padding:8px 0;border-top:1px solid #f1f5f9;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span class="muted"><?= e($n['created_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($n['created_at'])) ?></span>
+            <form method="post" onsubmit="return confirm('Xóa ghi chú này?');">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="action" value="delete_note">
+              <input type="hidden" name="note_id" value="<?= (int) $n['id'] ?>">
+              <button type="submit" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:12px;">Xóa</button>
+            </form>
+          </div>
+          <div><?= nl2br(e($n['note'])) ?></div>
+        </div>
+      <?php endforeach; ?>
+      <form method="post" style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="action" value="add_note">
+        <textarea class="input" name="note" rows="2" placeholder="Thêm ghi chú về khách hàng..." style="margin-bottom:8px;"></textarea>
+        <button type="submit" class="btn btn-secondary">Thêm ghi chú</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <h2 style="font-size:18px;font-weight:600;margin:0 0 12px;">Lịch sử đơn hàng</h2>
