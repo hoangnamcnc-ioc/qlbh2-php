@@ -455,3 +455,29 @@ số tiền cần chi thêm để lên hạng kế tiếp. Đã xóa sạch dữ
 Giới hạn: chiết khấu riêng khách hàng và hạng thẻ hiện là dữ liệu tham chiếu hiển thị, **chưa tự
 động áp dụng vào tính giá khi bán hàng trong POS** — nếu cần tự động trừ chiết khấu theo khách hàng
 hoặc hạng thẻ ngay khi thanh toán, cần làm thêm một vòng tích hợp riêng vào `pos_checkout.php`.
+
+## Vòng rà soát module Sản phẩm & Kho, Báo cáo (đối chiếu trang thực tế của Sapo)
+
+**Sản phẩm & Kho** — bổ sung các trường còn thiếu so với trang "Chi tiết sản phẩm" của Sapo:
+- **Khối lượng (gram)**, **Thuế suất** (liên kết tới `tax_rates.php` đã có sẵn từ vòng trước — trước
+  đó chỉ là danh mục tham chiếu độc lập, giờ gán trực tiếp vào từng sản phẩm), **Áp dụng bảo hành**
+  (cờ đánh dấu sản phẩm có hỗ trợ bảo hành) — thêm vào `product_form.php`.
+- **Tồn kho chi tiết hơn theo chi nhánh**: thêm **Tồn tối đa** và **Vị trí lưu kho** (vd "A1-K2")
+  bên cạnh Tồn tối thiểu đã có, khớp đúng các cột "Tồn tối đa"/"Điểm lưu kho" trong tab Tồn kho của
+  Sapo — sửa trong `inventory_save.php` + form tồn kho theo chi nhánh của `product_form.php`.
+
+**Báo cáo** — bổ sung 3 báo cáo còn thiếu so với "Báo cáo bán hàng" của Sapo:
+- **Doanh thu theo phương thức thanh toán** (Tiền mặt/Chuyển khoản/Quẹt thẻ/QR).
+- **Doanh thu theo nhân viên bán hàng**.
+- **Trả hàng trong kỳ**: tổng số đơn trả + tổng tiền hoàn, và top sản phẩm bị trả nhiều nhất.
+
+Đã test trên app.kt-soft.vn: tạo sản phẩm với khối lượng/thuế suất/cờ bảo hành → lưu và hiển thị lại
+đúng; cập nhật tồn tối đa + vị trí kho cho 1 chi nhánh → lưu đúng; thanh toán 1 đơn bằng Chuyển
+khoản rồi trả lại 1 phần → xác nhận cả 3 báo cáo mới (theo phương thức thanh toán, theo nhân viên,
+trả hàng trong kỳ) đều hiện đúng số liệu khớp với giao dịch vừa tạo. Đã xóa sạch dữ liệu test.
+
+Giới hạn: chưa làm "Có thể bán" riêng biệt với "Tồn kho" (Sapo tách 2 số này để trừ đi hàng đang giữ
+chỗ cho đơn nháp/đang xử lý — QLBH2 hiện tại không có khái niệm đơn nháp giữ chỗ tồn kho trước khi
+hoàn thành nên 2 số này luôn bằng nhau, không cần tách); chưa có "Lịch sử kho" dạng sổ cái hợp nhất
+theo từng sản phẩm (các thay đổi tồn kho hiện nằm rải rác trong lịch sử nhập hàng/kiểm hàng/chuyển
+hàng/đổi trả — có thể gộp thành 1 trang riêng nếu cần).

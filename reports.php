@@ -83,6 +83,48 @@ $stmt = $pdo->prepare(
 $stmt->execute([$fromDt, $toDt]);
 $byChannel = $stmt->fetchAll();
 
+// --- Doanh thu theo phương thức thanh toán ---
+$paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản', 'CARD' => 'Quẹt thẻ', 'QR_CODE' => 'Quét mã QR'];
+$stmt = $pdo->prepare(
+    "SELECT p.method, COUNT(*) AS payment_count, SUM(p.amount) AS total
+     FROM payments p JOIN orders o ON o.id = p.order_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     GROUP BY p.method ORDER BY total DESC"
+);
+$stmt->execute([$fromDt, $toDt]);
+$byPaymentMethod = $stmt->fetchAll();
+
+// --- Doanh thu theo nhân viên bán hàng ---
+$stmt = $pdo->prepare(
+    "SELECT u.name AS staff_name, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
+     FROM orders o JOIN users u ON u.id = o.sold_by_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     GROUP BY o.sold_by_id ORDER BY total DESC"
+);
+$stmt->execute([$fromDt, $toDt]);
+$byStaff = $stmt->fetchAll();
+
+// --- Trả hàng trong kỳ ---
+$stmt = $pdo->prepare(
+    "SELECT COUNT(*) AS return_count, COALESCE(SUM(refund_amount),0) AS total_refund
+     FROM order_returns WHERE created_at BETWEEN ? AND ?"
+);
+$stmt->execute([$fromDt, $toDt]);
+$returnSummary = $stmt->fetch();
+
+$stmt = $pdo->prepare(
+    "SELECT CASE WHEN v.name IS NOT NULL THEN CONCAT(p.name, ' - ', v.name) ELSE p.name END AS name,
+            SUM(ori.quantity) AS qty, SUM(ori.line_total) AS total
+     FROM order_return_items ori
+     JOIN order_returns r ON r.id = ori.return_id
+     JOIN products p ON p.id = ori.product_id
+     LEFT JOIN product_variants v ON v.id = ori.variant_id
+     WHERE r.created_at BETWEEN ? AND ?
+     GROUP BY ori.product_id, ori.variant_id ORDER BY qty DESC LIMIT 10"
+);
+$stmt->execute([$fromDt, $toDt]);
+$returnsByProduct = $stmt->fetchAll();
+
 // --- Sổ quỹ trong kỳ ---
 $stmt = $pdo->prepare(
     "SELECT COALESCE(SUM(CASE WHEN type='RECEIPT' THEN amount ELSE 0 END),0) AS total_receipt,
@@ -205,6 +247,79 @@ $cashSummary = $stmt->fetch();
           <td><?= date('d/m/Y', strtotime($d['d'])) ?></td>
           <td class="text-right"><?= (int) $d['order_count'] ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($d['total']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px;">
+  <div>
+    <h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Doanh thu theo phương thức thanh toán</h2>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <table>
+        <thead><tr><th>Phương thức</th><th class="text-right">Số lượt</th><th class="text-right">Số tiền</th></tr></thead>
+        <tbody>
+          <?php if (!$byPaymentMethod): ?>
+            <tr><td colspan="3" class="text-center muted" style="padding:20px;">Không có dữ liệu</td></tr>
+          <?php endif; ?>
+          <?php foreach ($byPaymentMethod as $p): ?>
+            <tr>
+              <td><?= e($paymentLabels[$p['method']] ?? $p['method']) ?></td>
+              <td class="text-right"><?= (int) $p['payment_count'] ?></td>
+              <td class="text-right" style="font-weight:600;"><?= money($p['total']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Doanh thu theo nhân viên</h2>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <table>
+        <thead><tr><th>Nhân viên</th><th class="text-right">Số đơn</th><th class="text-right">Doanh thu</th></tr></thead>
+        <tbody>
+          <?php if (!$byStaff): ?>
+            <tr><td colspan="3" class="text-center muted" style="padding:20px;">Không có dữ liệu</td></tr>
+          <?php endif; ?>
+          <?php foreach ($byStaff as $s): ?>
+            <tr>
+              <td><?= e($s['staff_name']) ?></td>
+              <td class="text-right"><?= (int) $s['order_count'] ?></td>
+              <td class="text-right" style="font-weight:600;"><?= money($s['total']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Trả hàng trong kỳ</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px;">
+  <div class="card">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Số đơn trả hàng</div>
+    <div style="font-size:18px;font-weight:700;"><?= (int) $returnSummary['return_count'] ?></div>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Tổng tiền hoàn trả</div>
+    <div style="font-size:18px;font-weight:700;color:#dc2626;"><?= money($returnSummary['total_refund']) ?></div>
+  </div>
+</div>
+<div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
+  <table>
+    <thead><tr><th>Sản phẩm bị trả nhiều nhất</th><th class="text-right">SL trả</th><th class="text-right">Tiền hoàn</th></tr></thead>
+    <tbody>
+      <?php if (!$returnsByProduct): ?>
+        <tr><td colspan="3" class="text-center muted" style="padding:20px;">Không có dữ liệu trả hàng trong kỳ</td></tr>
+      <?php endif; ?>
+      <?php foreach ($returnsByProduct as $r): ?>
+        <tr>
+          <td><?= e($r['name']) ?></td>
+          <td class="text-right"><?= (int) $r['qty'] ?></td>
+          <td class="text-right" style="font-weight:600;"><?= money($r['total']) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

@@ -13,6 +13,9 @@ $variantId = postInt('variant_id') ?: null;
 $branchId = postInt('branch_id');
 $quantity = postInt('quantity');
 $minStock = postInt('min_stock');
+$maxStockRaw = post('max_stock');
+$maxStock = $maxStockRaw === '' ? null : max(0, (int) $maxStockRaw);
+$storageLocation = post('storage_location') ?: null;
 $redirectTo = post('redirect');
 // Chỉ cho phép chuyển hướng nội bộ (đường dẫn tương đối trong site), chặn open-redirect.
 if ($redirectTo === '' || !preg_match('/^[a-zA-Z0-9_.\\-]+\\.php(\\?[a-zA-Z0-9_=&%.\\-]*)?$/', $redirectTo)) {
@@ -32,11 +35,11 @@ if ($productId && $branchId) {
     $existing = $stmt->fetch();
 
     if ($existing) {
-        $pdo->prepare('UPDATE inventory SET quantity = ?, min_stock = ? WHERE id = ?')
-            ->execute([$quantity, $minStock, $existing['id']]);
+        $pdo->prepare('UPDATE inventory SET quantity = ?, min_stock = ?, max_stock = ?, storage_location = ? WHERE id = ?')
+            ->execute([$quantity, $minStock, $maxStock, $storageLocation, $existing['id']]);
     } else {
-        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity, min_stock) VALUES (?,?,?,?,?)')
-            ->execute([$branchId, $productId, $variantId, $quantity, $minStock]);
+        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity, min_stock, max_stock, storage_location) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$branchId, $productId, $variantId, $quantity, $minStock, $maxStock, $storageLocation]);
     }
 }
 

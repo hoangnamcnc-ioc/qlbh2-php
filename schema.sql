@@ -122,11 +122,15 @@ CREATE TABLE IF NOT EXISTS products (
   sell_price DECIMAL(14,2) NOT NULL DEFAULT 0,
   category_id INT NULL,
   brand_id INT NULL,
+  weight_grams INT NOT NULL DEFAULT 0,
+  tax_rate_id INT NULL,
+  has_warranty TINYINT(1) NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-  FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL
+  FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL,
+  FOREIGN KEY (tax_rate_id) REFERENCES tax_rates(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Biến thể sản phẩm (màu, size...). Sản phẩm không có variant thì bán/nhập/tồn kho
@@ -150,6 +154,8 @@ CREATE TABLE IF NOT EXISTS inventory (
   variant_id INT NULL,
   quantity INT NOT NULL DEFAULT 0,
   min_stock INT NOT NULL DEFAULT 0,
+  max_stock INT NULL,
+  storage_location VARCHAR(100) NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_branch_product_variant (branch_id, product_id, variant_id),
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,

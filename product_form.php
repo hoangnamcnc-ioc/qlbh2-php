@@ -14,6 +14,7 @@ $branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
 $brands = $pdo->query('SELECT * FROM brands ORDER BY name')->fetchAll();
 $priceLists = $pdo->query('SELECT * FROM price_lists ORDER BY name')->fetchAll();
+$taxRates = $pdo->query("SELECT * FROM tax_rates WHERE is_active = 1 AND type = 'OUTPUT' ORDER BY rate_percent")->fetchAll();
 $comboItems = [];
 $productPrices = [];
 $allProducts = [];
@@ -84,6 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $brandId = (int) ($_POST['brand_id'] ?? 0) ?: null;
     $tags = post('tags') ?: null;
     $productType = in_array($_POST['product_type'] ?? '', ['PRODUCT', 'SERVICE', 'COMBO'], true) ? $_POST['product_type'] : 'PRODUCT';
+    $weightGrams = postInt('weight_grams');
+    $taxRateId = (int) ($_POST['tax_rate_id'] ?? 0) ?: null;
+    $hasWarranty = isset($_POST['has_warranty']) ? 1 : 0;
 
     if ($name === '' || ($id === 0 && $sku === '')) {
         $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
@@ -91,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=? WHERE id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $id]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=? WHERE id=?'
+                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $id]);
 
                 foreach ($_POST['price_list_id'] ?? [] as $plId => $price) {
                     $plId = (int) $plId;
@@ -117,8 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type) VALUES (?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType]);
+                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty]);
                 $id = (int) $pdo->lastInsertId();
 
                 if ($productType === 'PRODUCT') {
@@ -268,6 +272,26 @@ require_once __DIR__ . '/inc_header.php';
       </div>
     </div>
 
+    <div class="grid-2">
+      <div class="field">
+        <label>Khối lượng (gram)</label>
+        <input class="input" type="number" min="0" name="weight_grams" value="<?= e((string) ($product['weight_grams'] ?? '0')) ?>">
+      </div>
+      <div class="field">
+        <label>Thuế suất (<a href="tax_rates.php" class="muted">quản lý</a>)</label>
+        <select class="input" name="tax_rate_id">
+          <option value="">— Không áp dụng —</option>
+          <?php foreach ($taxRates as $t): ?>
+            <option value="<?= (int) $t['id'] ?>" <?= ($product['tax_rate_id'] ?? null) == $t['id'] ? 'selected' : '' ?>><?= e($t['name']) ?> (<?= number_format((float) $t['rate_percent'], 1) ?>%)</option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label style="font-weight:400;"><input type="checkbox" name="has_warranty" <?= !empty($product['has_warranty']) ? 'checked' : '' ?>> Áp dụng bảo hành cho sản phẩm này</label>
+    </div>
+
     <div class="field">
       <label>Tags (cách nhau bằng dấu phẩy)</label>
       <input class="input" name="tags" value="<?= e($product['tags'] ?? '') ?>" placeholder="vd: ban chay, moi ve">
@@ -312,23 +336,29 @@ require_once __DIR__ . '/inc_header.php';
 <h2 style="font-size:18px;font-weight:600;margin:32px 0 12px;">Tồn kho theo chi nhánh</h2>
 <div class="card" style="max-width:640px;padding:0;">
   <?php foreach ($branches as $b): ?>
-    <?php $inv = $inventories[$b['id']] ?? ['quantity' => 0, 'min_stock' => 0]; ?>
-    <form method="post" action="inventory_save.php" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #f1f5f9;">
+    <?php $inv = $inventories[$b['id']] ?? ['quantity' => 0, 'min_stock' => 0, 'max_stock' => null, 'storage_location' => '']; ?>
+    <form method="post" action="inventory_save.php" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid #f1f5f9;flex-wrap:wrap;">
       <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
       <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
       <input type="hidden" name="branch_id" value="<?= (int) $b['id'] ?>">
       <input type="hidden" name="redirect" value="product_form.php?id=<?= (int) $product['id'] ?>">
-      <div style="flex:1;font-size:14px;font-weight:500;">
+      <div style="flex:1;font-size:14px;font-weight:500;min-width:120px;">
         <?= e($b['name']) ?>
         <?php if ((int) $inv['quantity'] <= (int) $inv['min_stock']): ?>
           <span class="badge badge-red">Dưới định mức</span>
         <?php endif; ?>
       </div>
       <label class="muted" style="font-size:12px;">SL:
-        <input type="number" min="0" name="quantity" value="<?= (int) $inv['quantity'] ?>" style="width:80px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+        <input type="number" min="0" name="quantity" value="<?= (int) $inv['quantity'] ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
       </label>
-      <label class="muted" style="font-size:12px;">Định mức:
-        <input type="number" min="0" name="min_stock" value="<?= (int) $inv['min_stock'] ?>" style="width:80px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+      <label class="muted" style="font-size:12px;">Tối thiểu:
+        <input type="number" min="0" name="min_stock" value="<?= (int) $inv['min_stock'] ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+      </label>
+      <label class="muted" style="font-size:12px;">Tối đa:
+        <input type="number" min="0" name="max_stock" value="<?= e($inv['max_stock'] !== null ? (string) $inv['max_stock'] : '') ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+      </label>
+      <label class="muted" style="font-size:12px;">Vị trí kho:
+        <input type="text" name="storage_location" value="<?= e($inv['storage_location'] ?? '') ?>" placeholder="vd: A1-K2" style="width:80px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
       </label>
       <button type="submit" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;">Cập nhật</button>
     </form>
