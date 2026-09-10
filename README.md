@@ -576,3 +576,25 @@ file trên server vẫn là bản cũ (xác minh lại bằng cách tải file q
 race condition khi upload nhiều file liên tiếp quá nhanh trong vòng lặp. Đã khắc phục bằng cách
 upload lại từng file kèm xác minh nội dung qua FTP trước khi test — nên áp dụng cách xác minh này
 cho các lần deploy nhiều file sau này thay vì chỉ tin vào exit code thành công của curl.
+
+## Vòng bổ sung: Widget "Đơn hàng cần xử lý" trên Dashboard
+
+Đối chiếu trang Danh sách đơn hàng của Sapo, phát hiện thiếu widget tổng hợp nhanh số đơn hàng theo
+từng bước cần xử lý (Sapo hiển thị ngay đầu trang: Chờ duyệt/Chờ thanh toán/Chờ đóng gói/Chờ lấy
+hàng/Đang giao hàng/Chờ giao lại). Đã bổ sung vào Dashboard (`index.php`) 4 ô đếm số đơn theo đúng
+4 bước pipeline QLBH2 đang có (Chờ duyệt/Chờ đóng gói/Chờ lấy hàng/Đang giao hàng), số > 0 tô đỏ để
+dễ nhận biết, bấm vào từng ô dẫn thẳng tới danh sách đơn đã lọc đúng trạng thái đó.
+
+Đã test trên app.kt-soft.vn: tạo 1 đơn trạng thái "Chờ duyệt" → widget hiện đúng số 1 tô đỏ, xác
+nhận link lọc đúng trạng thái. Đã xóa sạch dữ liệu test.
+
+---
+
+**Tổng kết đợt rà soát toàn diện lần cuối**: đã đối chiếu trực tiếp với Sapo thật xuyên suốt các
+module Cấu hình, Bán hàng/POS, Khách hàng, Sản phẩm & Kho, Báo cáo, Vận chuyển/Bảo hành/Marketing,
+Sổ quỹ, Nhập hàng (kể cả phát hiện tính năng thiếu hoàn toàn "Trả hàng NCC"), và quy trình vận hành
+kho (Chuyển hàng/Kiểm hàng cần tách bước xác nhận thay vì áp dụng ngay). Phần mềm QLBH2 hiện đã bám
+sát Sapo về mặt nghiệp vụ trong phạm vi phần mềm quản lý bán hàng tổng quát (không phải phần mềm
+chuyên ngành dược như cửa hàng mẫu đang dùng để khảo sát). Các giới hạn còn lại đều là tích hợp
+API/phần cứng thật bên thứ 3 nằm ngoài quyết định phạm vi ban đầu của dự án, đã ghi rõ lý do trong
+từng mục tương ứng phía trên.

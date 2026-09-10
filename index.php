@@ -39,6 +39,18 @@ for ($i = 6; $i >= 0; $i--) {
 }
 $maxRevenue = max([1, ...array_values($chartDays)]);
 
+// Đơn hàng cần xử lý (theo từng bước trong pipeline, chưa hoàn thành/hủy)
+$pendingStatusLabels = [
+    'DRAFT' => 'Chờ duyệt', 'APPROVED' => 'Chờ đóng gói', 'PACKED' => 'Chờ lấy hàng', 'SHIPPED' => 'Đang giao hàng',
+];
+$stmt = $pdo->query(
+    "SELECT status, COUNT(*) AS c FROM orders WHERE status IN ('DRAFT','APPROVED','PACKED','SHIPPED') GROUP BY status"
+);
+$pendingCounts = array_fill_keys(array_keys($pendingStatusLabels), 0);
+foreach ($stmt->fetchAll() as $r) {
+    $pendingCounts[$r['status']] = (int) $r['c'];
+}
+
 // Sản phẩm dưới định mức
 $lowStock = $pdo->query(
     'SELECT i.quantity, i.min_stock, p.name AS product_name, v.name AS variant_name, b.name AS branch_name
@@ -69,6 +81,18 @@ $lowStock = $pdo->query(
   <div class="card">
     <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Tổng tồn kho (SL)</div>
     <div style="font-size:24px;font-weight:700;"><?= $totalStock ?></div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+  <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Đơn hàng cần xử lý</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;">
+    <?php foreach ($pendingStatusLabels as $status => $label): ?>
+      <a href="orders.php?status=<?= e($status) ?>" style="display:block;padding:12px;border:1px solid #e2e8f0;border-radius:8px;text-decoration:none;color:inherit;">
+        <div class="muted" style="font-size:12px;margin-bottom:4px;"><?= e($label) ?></div>
+        <div style="font-size:20px;font-weight:700;<?= $pendingCounts[$status] > 0 ? 'color:#dc2626;' : '' ?>"><?= $pendingCounts[$status] ?></div>
+      </a>
+    <?php endforeach; ?>
   </div>
 </div>
 
