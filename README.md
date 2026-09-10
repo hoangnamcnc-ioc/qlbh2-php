@@ -664,3 +664,33 @@ này đã có đủ trên trang `customer_view.php` riêng, chỉ chưa rút g�
 hàng; trường "Hẹn giao hàng" ở cấp đơn hàng (khác với `expected_delivery_date` của đặt hàng nhập)
 và "Đường dẫn"/"Chính sách giá" là các trường phụ ít dùng trong nghiệp vụ thực tế của cửa hàng mẫu
 khảo sát, có thể bổ sung sau nếu cần.
+
+## Vòng rà soát module Khách hàng (đối chiếu trang chi tiết khách hàng thực tế của Sapo)
+
+Đối chiếu trang "Chi tiết khách hàng" thật trên Sapo (có các tab Lịch sử mua hàng/Công nợ/Liên
+hệ/Địa chỉ/Ghi chú/Nhóm khách hàng), phát hiện QLBH2 đã có đủ các trường thông tin cá nhân, thông
+tin mua hàng (tổng chi tiêu/số đơn/hạng thẻ/điểm tích lũy), địa chỉ, ghi chú — chỉ thiếu tab
+**"Công nợ"**: Sapo lưu lại lịch sử từng lần phát sinh/thu nợ (kèm ngày giờ, người thực hiện, đơn
+hàng liên quan), trong khi QLBH2 trước đó chỉ có số dư nợ hiện tại và một form thu nợ chung chung,
+không lưu lại đã thu bao nhiêu lần, khi nào, ai thu, thu cho khoản nào.
+
+Đã bổ sung:
+- Bảng `customer_debt_entries` (mới): ghi lại mọi thay đổi công nợ khách hàng — số dương là phát
+  sinh nợ, số âm là đã thu — kèm `order_id` (nếu có), ghi chú, người thực hiện, thời gian.
+- `pos_checkout.php`: khi bán nợ một phần, ghi thêm 1 dòng vào `customer_debt_entries` (+ phần
+  chưa trả).
+- `order_pay.php`: khi thu nợ cho một đơn hàng cụ thể, ghi thêm 1 dòng (- số tiền đã thu).
+- `customer_view.php`: form "Ghi nhận thu công nợ" chung (không gắn với đơn nào) cũng ghi lại vào
+  ledger; thêm bảng "Lịch sử công nợ" hiển thị tối đa 50 dòng gần nhất (thời gian, nội dung, đơn
+  hàng liên quan nếu có, người thực hiện, số tiền — số dương tô đỏ là phát sinh nợ, số âm tô xanh
+  là đã thu).
+
+Đã test trên app.kt-soft.vn: tạo đơn 80.000 cho khách mới, trả trước 30.000 → công nợ khách tăng
+đúng 50.000, lịch sử công nợ hiện dòng "Bán hàng chưa thanh toán đủ" +50.000; thu nốt 50.000 qua
+`order_pay.php` → công nợ về 0, lịch sử công nợ hiện thêm dòng "Thu nợ đơn hàng" -50.000. Đã xóa
+sạch toàn bộ dữ liệu test (đơn hàng, khách hàng, sản phẩm test, các dòng ledger liên quan) và các
+file tạm trên server.
+
+**Giới hạn còn lại**: tab "Liên hệ" của Sapo (quản lý nhiều người liên hệ phụ cho một khách hàng,
+ví dụ khách hàng doanh nghiệp có nhiều đầu mối) không có trong QLBH2 — bỏ qua vì cửa hàng mẫu khảo
+sát là bán lẻ dược phẩm, không có nhu cầu multi-contact theo B2B.

@@ -28,6 +28,8 @@ if ($order && $order['customer_id'] && $amount > 0) {
             $pdo->prepare('UPDATE customers SET debt = GREATEST(0, debt - ?) WHERE id = ?')->execute([$amount, $order['customer_id']]);
             $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
                 ->execute([$orderId, 'CASH', $amount]);
+            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                ->execute([$order['customer_id'], $orderId, -$amount, 'Thu nợ đơn hàng', $currentUser['id']]);
             $pdo->commit();
             logActivity('ORDER_PAY', "order_id=$orderId amount=$amount");
         } catch (Throwable $ex) {

@@ -259,6 +259,8 @@ try {
         $unpaid = $totalAmount - $paidAmount;
         if ($unpaid > 0) {
             $pdo->prepare('UPDATE customers SET debt = debt + ? WHERE id = ?')->execute([$unpaid, $customerId]);
+            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                ->execute([$customerId, $orderId, $unpaid, 'Bán hàng chưa thanh toán đủ', $user['id']]);
         }
     }
 

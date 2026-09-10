@@ -30,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
         $debtError = 'Số tiền không hợp lệ';
     } else {
         $pdo->prepare('UPDATE customers SET debt = debt - ? WHERE id = ?')->execute([$amount, $id]);
+        $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, amount, note, created_by_id) VALUES (?,?,?,?)')
+            ->execute([$id, -$amount, 'Thu nợ trực tiếp', $currentUser['id']]);
         redirect('customer_view.php?id=' . $id);
     }
 }
@@ -72,6 +74,15 @@ $notes = $pdo->prepare(
 );
 $notes->execute([$id]);
 $notes = $notes->fetchAll();
+
+$debtEntries = $pdo->prepare(
+    'SELECT de.*, o.code AS order_code, u.name AS created_by_name FROM customer_debt_entries de
+     LEFT JOIN orders o ON o.id = de.order_id
+     JOIN users u ON u.id = de.created_by_id
+     WHERE de.customer_id = ? ORDER BY de.created_at DESC LIMIT 50'
+);
+$debtEntries->execute([$id]);
+$debtEntries = $debtEntries->fetchAll();
 
 $tiers = $pdo->query('SELECT * FROM customer_tiers WHERE is_active = 1 ORDER BY min_spend')->fetchAll();
 $currentTier = null;
@@ -133,6 +144,28 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <button type="submit" class="btn" style="background:#059669;">Ghi nhận thu</button>
   </form>
+</div>
+<?php endif; ?>
+
+<?php if ($debtEntries): ?>
+<h2 style="font-size:18px;font-weight:600;margin:0 0 12px;">Lịch sử công nợ</h2>
+<div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
+  <table>
+    <thead><tr><th>Thời gian</th><th>Nội dung</th><th>Đơn hàng</th><th>Người thực hiện</th><th class="text-right">Số tiền</th></tr></thead>
+    <tbody>
+      <?php foreach ($debtEntries as $de): ?>
+        <tr>
+          <td class="muted"><?= date('d/m/Y H:i', strtotime($de['created_at'])) ?></td>
+          <td><?= e($de['note']) ?></td>
+          <td><?php if ($de['order_code']): ?><a href="order_view.php?id=<?= (int) $de['order_id'] ?>" style="font-family:monospace;"><?= e($de['order_code']) ?></a><?php else: ?>—<?php endif; ?></td>
+          <td class="muted"><?= e($de['created_by_name']) ?></td>
+          <td class="text-right" style="font-weight:600;<?= $de['amount'] > 0 ? 'color:#dc2626;' : 'color:#059669;' ?>">
+            <?= $de['amount'] > 0 ? '+' : '' ?><?= money($de['amount']) ?>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
 </div>
 <?php endif; ?>
 
