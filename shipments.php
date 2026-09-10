@@ -40,7 +40,7 @@ $totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM s
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Đơn hàng</th><th>Khách hàng</th><th>Mã vận đơn</th><th>Đơn vị</th><th>Trạng thái</th><th class="text-right">Phí ship</th><th class="text-right">Thu hộ (COD)</th><th>Đối soát</th></tr></thead>
+    <thead><tr><th>Đơn hàng</th><th>Người nhận</th><th>Mã vận đơn</th><th>Đơn vị</th><th>Trạng thái</th><th class="text-right">Phí ship</th><th class="text-right">Thu hộ (COD)</th><th>Đối soát</th></tr></thead>
     <tbody>
       <?php if (!$shipments): ?>
         <tr><td colspan="8" class="text-center muted" style="padding:32px;">Không có vận đơn nào.</td></tr>
@@ -48,7 +48,7 @@ $totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM s
       <?php foreach ($shipments as $s): ?>
         <tr>
           <td><a href="order_view.php?id=<?= (int) $s['order_id'] ?>" style="font-family:monospace;"><?= e($s['order_code']) ?></a></td>
-          <td><?= e($s['customer_name'] ?: 'Khách lẻ') ?></td>
+          <td><?= e($s['recipient_name'] ?: ($s['customer_name'] ?: 'Khách lẻ')) ?><?php if ($s['recipient_phone']): ?><br><span class="muted" style="font-size:12px;"><?= e($s['recipient_phone']) ?></span><?php endif; ?></td>
           <td><?= e($s['tracking_code'] ?: '—') ?></td>
           <td><?= e($s['carrier_name'] ?: '—') ?></td>
           <td><span class="badge badge-gray"><?= e($statusLabels[$s['status']] ?? $s['status']) ?></span></td>

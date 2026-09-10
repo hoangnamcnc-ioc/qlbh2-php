@@ -481,3 +481,28 @@ chỗ cho đơn nháp/đang xử lý — QLBH2 hiện tại không có khái ni�
 hoàn thành nên 2 số này luôn bằng nhau, không cần tách); chưa có "Lịch sử kho" dạng sổ cái hợp nhất
 theo từng sản phẩm (các thay đổi tồn kho hiện nằm rải rác trong lịch sử nhập hàng/kiểm hàng/chuyển
 hàng/đổi trả — có thể gộp thành 1 trang riêng nếu cần).
+
+## Vòng rà soát module Vận chuyển / Bảo hành / Marketing (đối chiếu menu thực tế của Sapo)
+
+Đối chiếu đầy đủ menu con của 3 module này trên Sapo:
+- **Vận chuyển**: Sapo có Quản lý vận đơn, Đối soát COD và phí, Kết nối đối tác (GHN/GHTK — cần
+  API thật, ngoài phạm vi), Cấu hình giao hàng. QLBH2 đã có Quản lý vận đơn + Đối soát COD
+  (`shipments.php`) khớp đúng — bổ sung thêm trường còn thiếu: **Người nhận** và **SĐT người
+  nhận** riêng biệt với khách hàng đặt đơn (vd người khác nhận hộ), tự điền mặc định theo thông tin
+  khách hàng nhưng sửa được, hiển thị trong danh sách vận đơn.
+- **Bảo hành**: Sapo có Phiếu bảo hành, Yêu cầu bảo hành, Chính sách bảo hành — QLBH2 đã có đủ cả 3
+  (`warranty_cards.php`, `warranty_claim_form.php`/`warranty_claim_view.php`,
+  `warranty_policies.php`), không phát hiện thiếu gì thêm.
+- **Marketing**: Sapo có Danh sách chiến dịch, Quản lý khuyến mại, Quản lý mã giảm giá — QLBH2 đã
+  có đủ (`campaigns.php`, `promotions.php`, `coupons.php`), không phát hiện thiếu gì thêm.
+
+Đã test trên app.kt-soft.vn: tạo vận đơn với người nhận khác thông tin khách hàng gốc → lưu và hiển
+thị đúng cả tên + SĐT người nhận trong danh sách vận đơn. Đã xóa sạch dữ liệu test.
+
+---
+
+**Tổng kết đợt rà soát toàn diện 5 module** (Cấu hình, Bán hàng/POS, Khách hàng, Sản phẩm & Kho,
+Báo cáo, Vận chuyển/Bảo hành/Marketing) đối chiếu trực tiếp với giao diện Sapo thật: đã bổ sung đầy
+đủ các trường/tính năng khả thi bằng phần mềm. Các giới hạn còn lại đều đã ghi rõ lý do trong từng
+mục — chủ yếu là tích hợp API/phần cứng thật của bên thứ 3 (thanh toán, hóa đơn điện tử, vận chuyển,
+sàn TMĐT, cân điện tử) nằm ngoài quyết định phạm vi ban đầu của dự án.

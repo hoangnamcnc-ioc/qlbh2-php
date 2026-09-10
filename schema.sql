@@ -473,6 +473,8 @@ CREATE TABLE IF NOT EXISTS shipments (
   order_id INT NOT NULL,
   tracking_code VARCHAR(100) NULL,
   carrier_name VARCHAR(100) NULL,
+  recipient_name VARCHAR(255) NULL,
+  recipient_phone VARCHAR(50) NULL,
   status ENUM('PENDING','PICKED_UP','IN_TRANSIT','DELIVERED','FAILED','RETURNED') NOT NULL DEFAULT 'PENDING',
   shipping_fee DECIMAL(14,2) NOT NULL DEFAULT 0,
   cod_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
