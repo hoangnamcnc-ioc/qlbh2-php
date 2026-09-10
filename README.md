@@ -598,3 +598,30 @@ sát Sapo về mặt nghiệp vụ trong phạm vi phần mềm quản lý bán 
 chuyên ngành dược như cửa hàng mẫu đang dùng để khảo sát). Các giới hạn còn lại đều là tích hợp
 API/phần cứng thật bên thứ 3 nằm ngoài quyết định phạm vi ban đầu của dự án, đã ghi rõ lý do trong
 từng mục tương ứng phía trên.
+
+## Vòng rà soát tiếp module Đặt hàng nhập / Nhập kho (đối chiếu trang chi tiết đơn nhập thực tế của Sapo)
+
+Đối chiếu trang "Chi tiết đơn nhập" (PON...) thật trên Sapo, phát hiện QLBH2 còn thiếu các trường:
+Ngày hẹn giao, Ngày hoá đơn, Tham chiếu, Nhân viên phụ trách (ở cả đặt hàng nhập và phiếu nhập kho),
+Chiết khấu/Chi phí nhập hàng (ảnh hưởng tổng tiền phiếu nhập), và theo dõi thanh toán NCC theo từng
+phiếu nhập riêng biệt (khác với công nợ tổng `suppliers.debt` đã có).
+
+Đã bổ sung:
+- `purchase_orders`: thêm `assigned_staff_id`, `expected_delivery_date`, `reference_no`.
+- `stock_receipts`: thêm `invoice_date`, `reference_no`, `discount_amount`, `extra_cost`, `paid_amount`.
+- `purchase_order_form.php`/`purchase_order_view.php`: chọn/hiển thị nhân viên phụ trách, ngày hẹn
+  giao, số tham chiếu.
+- `stock_receipt_form.php`: nhập ngày hoá đơn, tham chiếu, chiết khấu, chi phí nhập hàng, số tiền
+  trả NCC ngay khi tạo phiếu — tổng tiền tính lại theo công thức `Tạm tính - Chiết khấu + Chi phí`,
+  chỉ phần chưa trả (`total - paid_amount`) mới cộng vào công nợ NCC.
+- `stock_receipt_view.php`: thêm card "Thanh toán NCC" (Tiền cần trả/Đã trả/Còn phải trả) và form
+  ghi nhận trả thêm khi còn nợ.
+- `stock_receipt_pay.php` (mới): xử lý trả thêm cho một phiếu nhập cụ thể, tăng `paid_amount` của
+  phiếu và giảm tương ứng `suppliers.debt` (chặn không cho âm bằng `GREATEST(0, debt - ?)`).
+
+Đã test trên app.kt-soft.vn: tạo phiếu nhập giá trị tạm tính 100.000, chiết khấu 10.000, chi phí
+nhập hàng 20.000 → tổng tiền hiển thị đúng 110.000; trả trước 50.000 khi tạo phiếu → công nợ NCC
+tăng đúng 60.000 (phần chưa trả); ghi nhận trả thêm 60.000 qua `stock_receipt_pay.php` → "Còn phải
+trả" về 0 và công nợ NCC về 0. Tạo đặt hàng nhập với nhân viên phụ trách/ngày hẹn giao/tham chiếu →
+hiển thị đúng trên trang chi tiết. Đã xóa sạch toàn bộ dữ liệu test (nhà cung cấp, sản phẩm, đặt
+hàng nhập, phiếu nhập test) và các file tạm trên server.

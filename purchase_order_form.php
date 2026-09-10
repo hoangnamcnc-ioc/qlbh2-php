@@ -5,6 +5,7 @@ $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $suppliers = $pdo->query('SELECT * FROM suppliers ORDER BY name')->fetchAll();
+$staffList = $pdo->query('SELECT id, name FROM users WHERE is_active = 1 ORDER BY name')->fetchAll();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,6 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $branchId = (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
     $note = post('note') ?: null;
+    $expectedDeliveryDate = post('expected_delivery_date') ?: null;
+    $referenceNo = post('reference_no') ?: null;
+    $assignedStaffId = (int) ($_POST['assigned_staff_id'] ?? 0) ?: null;
     $productIds = $_POST['product_id'] ?? [];
     $variantIds = $_POST['variant_id'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
@@ -33,8 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Vui lòng thêm ít nhất 1 sản phẩm';
         } else {
             $code = 'DHN' . substr((string) (int) round(microtime(true) * 1000), -8);
-            $pdo->prepare('INSERT INTO purchase_orders (code, supplier_id, branch_id, created_by_id, note) VALUES (?,?,?,?,?)')
-                ->execute([$code, $supplierId, $branchId, $currentUser['id'], $note]);
+            $pdo->prepare(
+                'INSERT INTO purchase_orders (code, supplier_id, branch_id, created_by_id, assigned_staff_id, expected_delivery_date, reference_no, note) VALUES (?,?,?,?,?,?,?,?)'
+            )->execute([$code, $supplierId, $branchId, $currentUser['id'], $assignedStaffId, $expectedDeliveryDate, $referenceNo, $note]);
             $poId = (int) $pdo->lastInsertId();
 
             $itemStmt = $pdo->prepare('INSERT INTO purchase_order_items (po_id, product_id, variant_id, quantity, cost_price) VALUES (?,?,?,?,?)');
@@ -66,6 +71,17 @@ require_once __DIR__ . '/inc_header.php';
         <?php foreach ($suppliers as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option><?php endforeach; ?>
       </select>
     </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Nhân viên phụ trách</label>
+        <select class="input" name="assigned_staff_id">
+          <option value="">— Không chọn —</option>
+          <?php foreach ($staffList as $s): ?><option value="<?= (int) $s['id'] ?>" <?= (int) ($currentUser['id'] ?? 0) === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach; ?>
+        </select>
+      </div>
+      <div class="field"><label>Ngày hẹn giao</label><input class="input" type="date" name="expected_delivery_date"></div>
+    </div>
+    <div class="field"><label>Tham chiếu</label><input class="input" name="reference_no"></div>
     <div class="field"><label>Ghi chú</label><input class="input" name="note"></div>
   </div>
 

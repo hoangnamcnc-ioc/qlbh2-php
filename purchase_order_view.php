@@ -9,11 +9,12 @@ $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare(
-    'SELECT po.*, s.name AS supplier_name, b.name AS branch_name, u.name AS created_by_name
+    'SELECT po.*, s.name AS supplier_name, b.name AS branch_name, u.name AS created_by_name, a.name AS assigned_staff_name
      FROM purchase_orders po
      LEFT JOIN suppliers s ON s.id = po.supplier_id
      JOIN branches b ON b.id = po.branch_id
      JOIN users u ON u.id = po.created_by_id
+     LEFT JOIN users a ON a.id = po.assigned_staff_id
      WHERE po.id = ?'
 );
 $stmt->execute([$id]);
@@ -61,6 +62,9 @@ require_once __DIR__ . '/inc_header.php';
   </div>
   <div class="card">
     <p style="margin:2px 0;">Người tạo: <?= e($po['created_by_name']) ?></p>
+    <?php if ($po['assigned_staff_name']): ?><p style="margin:2px 0;">Nhân viên phụ trách: <?= e($po['assigned_staff_name']) ?></p><?php endif; ?>
+    <?php if ($po['expected_delivery_date']): ?><p style="margin:2px 0;">Ngày hẹn giao: <?= date('d/m/Y', strtotime($po['expected_delivery_date'])) ?></p><?php endif; ?>
+    <?php if ($po['reference_no']): ?><p style="margin:2px 0;">Tham chiếu: <?= e($po['reference_no']) ?></p><?php endif; ?>
     <?php if ($po['note']): ?><p style="margin:2px 0;">Ghi chú: <?= e($po['note']) ?></p><?php endif; ?>
   </div>
 </div>

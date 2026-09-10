@@ -50,9 +50,32 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card">
     <p style="margin:2px 0;">Nhập tại: <?= e($receipt['branch_name']) ?></p>
     <p style="margin:2px 0;">Người tạo: <?= e($receipt['created_by_name']) ?></p>
+    <?php if ($receipt['invoice_date']): ?><p style="margin:2px 0;">Ngày hoá đơn: <?= date('d/m/Y', strtotime($receipt['invoice_date'])) ?></p><?php endif; ?>
+    <?php if ($receipt['reference_no']): ?><p style="margin:2px 0;">Tham chiếu: <?= e($receipt['reference_no']) ?></p><?php endif; ?>
     <?php if ($receipt['note']): ?><p style="margin:2px 0;">Ghi chú: <?= e($receipt['note']) ?></p><?php endif; ?>
   </div>
 </div>
+
+<?php $remaining = (float) $receipt['total_amount'] - (float) $receipt['paid_amount']; ?>
+<?php if ($receipt['supplier_id']): ?>
+<div class="card" style="max-width:480px;margin-bottom:24px;">
+  <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Thanh toán NCC</h2>
+  <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;"><span>Tiền cần trả NCC</span><span><?= money($receipt['total_amount']) ?></span></div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;color:#059669;"><span>Đã trả</span><span><?= money($receipt['paid_amount']) ?></span></div>
+  <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px;margin-bottom:12px;font-weight:600;<?= $remaining > 0 ? 'color:#dc2626;' : '' ?>"><span>Còn phải trả</span><span><?= money($remaining) ?></span></div>
+  <?php if ($remaining > 0): ?>
+    <form method="post" action="stock_receipt_pay.php" style="display:flex;gap:8px;align-items:end;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+      <input type="hidden" name="receipt_id" value="<?= (int) $receipt['id'] ?>">
+      <div class="field" style="flex:1;margin:0;">
+        <label>Số tiền trả thêm</label>
+        <input class="input" type="number" min="1" max="<?= (float) $remaining ?>" name="amount" required>
+      </div>
+      <button type="submit" class="btn">Ghi nhận trả</button>
+    </form>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="card" style="padding:0;overflow-x:auto;margin-bottom:16px;">
   <table>
@@ -70,8 +93,12 @@ require_once __DIR__ . '/inc_header.php';
   </table>
 </div>
 
-<div style="max-width:400px;margin-left:auto;font-size:16px;font-weight:700;text-align:right;color:#2563eb;">
-  Tổng tiền: <?= money($receipt['total_amount']) ?>
+<div style="max-width:400px;margin-left:auto;">
+  <?php $subTotal = array_sum(array_map(fn($i) => $i['quantity'] * $i['cost_price'], $items)); ?>
+  <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;"><span>Tạm tính</span><span><?= money($subTotal) ?></span></div>
+  <?php if ($receipt['discount_amount'] > 0): ?><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;color:#dc2626;"><span>Chiết khấu</span><span>-<?= money($receipt['discount_amount']) ?></span></div><?php endif; ?>
+  <?php if ($receipt['extra_cost'] > 0): ?><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;"><span>Chi phí nhập hàng</span><span>+<?= money($receipt['extra_cost']) ?></span></div><?php endif; ?>
+  <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px;font-size:16px;font-weight:700;color:#2563eb;"><span>Tổng tiền</span><span><?= money($receipt['total_amount']) ?></span></div>
 </div>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

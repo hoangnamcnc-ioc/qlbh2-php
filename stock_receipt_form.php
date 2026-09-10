@@ -12,6 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $branchId = (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
     $note = post('note') ?: null;
+    $invoiceDate = post('invoice_date') ?: null;
+    $referenceNo = post('reference_no') ?: null;
+    $discountAmount = postFloat('discount_amount');
+    $extraCost = postFloat('extra_cost');
+    $paidAmount = postFloat('paid_amount');
     $productIds = $_POST['product_id'] ?? [];
     $variantIds = $_POST['variant_id'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
@@ -36,15 +41,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $pdo->beginTransaction();
             try {
-                $total = 0.0;
+                $subTotal = 0.0;
                 foreach ($lines as [$pid, $vid, $qty, $cost]) {
-                    $total += $qty * $cost;
+                    $subTotal += $qty * $cost;
                 }
+                $discountAmount = min($discountAmount, $subTotal);
+                $total = $subTotal - $discountAmount + $extraCost;
+                $paidAmount = min($paidAmount, $total);
 
                 $code = 'PN' . substr((string) (int) round(microtime(true) * 1000), -8);
                 $pdo->prepare(
-                    'INSERT INTO stock_receipts (code, branch_id, supplier_id, created_by_id, total_amount, note) VALUES (?,?,?,?,?,?)'
-                )->execute([$code, $branchId, $supplierId, $currentUser['id'], $total, $note]);
+                    'INSERT INTO stock_receipts (code, branch_id, supplier_id, created_by_id, invoice_date, reference_no, discount_amount, extra_cost, paid_amount, total_amount, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$code, $branchId, $supplierId, $currentUser['id'], $invoiceDate, $referenceNo, $discountAmount, $extraCost, $paidAmount, $total, $note]);
                 $receiptId = (int) $pdo->lastInsertId();
 
                 $itemStmt = $pdo->prepare(
@@ -78,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($supplierId) {
-                    $pdo->prepare('UPDATE suppliers SET debt = debt + ? WHERE id = ?')->execute([$total, $supplierId]);
+                    $pdo->prepare('UPDATE suppliers SET debt = debt + ? WHERE id = ?')->execute([$total - $paidAmount, $supplierId]);
                 }
 
                 $pdo->commit();
@@ -112,6 +120,10 @@ require_once __DIR__ . '/inc_header.php';
         <?php endforeach; ?>
       </select>
     </div>
+    <div class="grid-2">
+      <div class="field"><label>Ngày hoá đơn</label><input class="input" type="date" name="invoice_date"></div>
+      <div class="field"><label>Tham chiếu (số hoá đơn/chứng từ NCC)</label><input class="input" name="reference_no"></div>
+    </div>
     <div class="field">
       <label>Ghi chú</label>
       <input class="input" name="note">
@@ -132,8 +144,17 @@ require_once __DIR__ . '/inc_header.php';
     </table>
   </div>
 
-  <div style="max-width:800px;display:flex;justify-content:flex-end;align-items:center;gap:16px;">
-    <div>Tổng tiền: <b id="grand-total" style="font-size:18px;color:#2563eb;">0</b></div>
+  <div class="card" style="max-width:400px;margin-left:auto;margin-bottom:16px;">
+    <div class="field"><label>Chiết khấu</label><input class="input" type="number" min="0" id="discount-input" name="discount_amount" value="0"></div>
+    <div class="field"><label>Chi phí nhập hàng (vận chuyển...)</label><input class="input" type="number" min="0" id="extra-cost-input" name="extra_cost" value="0"></div>
+    <div class="field"><label>Đã trả NCC ngay</label><input class="input" type="number" min="0" id="paid-input" name="paid_amount" value="0"></div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;"><span>Tạm tính</span><span id="sub-total">0</span></div>
+    <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px;">
+      <span>Tổng tiền</span><b id="grand-total" style="font-size:18px;color:#2563eb;">0</b>
+    </div>
+  </div>
+
+  <div style="max-width:800px;text-align:right;">
     <button type="submit" class="btn">Lưu phiếu nhập</button>
   </div>
 </form>
@@ -201,8 +222,19 @@ function render() {
       a.addEventListener('click', (e) => { e.preventDefault(); lines.splice(parseInt(a.dataset.i, 10), 1); render(); });
     });
   }
-  document.getElementById('grand-total').textContent = fmt(lines.reduce((s, l) => s + l.qty * l.cost, 0));
+  updateTotals();
 }
+
+function updateTotals() {
+  const subTotal = lines.reduce((s, l) => s + l.qty * l.cost, 0);
+  const discount = parseFloat(document.getElementById('discount-input').value) || 0;
+  const extraCost = parseFloat(document.getElementById('extra-cost-input').value) || 0;
+  const total = Math.max(0, subTotal - discount) + extraCost;
+  document.getElementById('sub-total').textContent = fmt(subTotal);
+  document.getElementById('grand-total').textContent = fmt(total);
+}
+document.getElementById('discount-input').addEventListener('input', updateTotals);
+document.getElementById('extra-cost-input').addEventListener('input', updateTotals);
 
 function fmt(n) { return Math.round(n).toLocaleString('vi-VN'); }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

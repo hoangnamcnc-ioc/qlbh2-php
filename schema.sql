@@ -343,6 +343,11 @@ CREATE TABLE IF NOT EXISTS stock_receipts (
   branch_id INT NOT NULL,
   supplier_id INT NULL,
   created_by_id INT NOT NULL,
+  invoice_date DATE NULL,
+  reference_no VARCHAR(100) NULL,
+  discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  extra_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  paid_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   total_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   note VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -547,12 +552,16 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   supplier_id INT NULL,
   branch_id INT NOT NULL,
   created_by_id INT NOT NULL,
+  assigned_staff_id INT NULL,
+  expected_delivery_date DATE NULL,
+  reference_no VARCHAR(100) NULL,
   status ENUM('PENDING','RECEIVED','CANCELLED') NOT NULL DEFAULT 'PENDING',
   note VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
   FOREIGN KEY (branch_id) REFERENCES branches(id),
-  FOREIGN KEY (created_by_id) REFERENCES users(id)
+  FOREIGN KEY (created_by_id) REFERENCES users(id),
+  FOREIGN KEY (assigned_staff_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS purchase_order_items (
