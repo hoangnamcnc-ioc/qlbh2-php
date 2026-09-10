@@ -125,6 +125,46 @@ $stmt = $pdo->prepare(
 $stmt->execute([$fromDt, $toDt]);
 $returnsByProduct = $stmt->fetchAll();
 
+// --- Nhập hàng trong kỳ ---
+$stmt = $pdo->prepare(
+    "SELECT COUNT(*) AS receipt_count, COALESCE(SUM(total_amount),0) AS total_amount, COALESCE(SUM(total_amount - paid_amount),0) AS total_debt
+     FROM stock_receipts WHERE created_at BETWEEN ? AND ?"
+);
+$stmt->execute([$fromDt, $toDt]);
+$purchaseSummary = $stmt->fetch();
+
+$stmt = $pdo->prepare(
+    "SELECT s.name AS supplier_name, COUNT(r.id) AS receipt_count, COALESCE(SUM(r.total_amount),0) AS total
+     FROM stock_receipts r JOIN suppliers s ON s.id = r.supplier_id
+     WHERE r.created_at BETWEEN ? AND ?
+     GROUP BY r.supplier_id ORDER BY total DESC LIMIT 10"
+);
+$stmt->execute([$fromDt, $toDt]);
+$purchaseBySupplier = $stmt->fetchAll();
+
+$stmt = $pdo->prepare(
+    "SELECT CASE WHEN v.name IS NOT NULL THEN CONCAT(p.name, ' - ', v.name) ELSE p.name END AS name,
+            SUM(ri.quantity) AS qty, SUM(ri.quantity * ri.cost_price) AS total
+     FROM stock_receipt_items ri
+     JOIN stock_receipts r ON r.id = ri.receipt_id
+     JOIN products p ON p.id = ri.product_id
+     LEFT JOIN product_variants v ON v.id = ri.variant_id
+     WHERE r.created_at BETWEEN ? AND ?
+     GROUP BY ri.product_id, ri.variant_id ORDER BY qty DESC LIMIT 10"
+);
+$stmt->execute([$fromDt, $toDt]);
+$purchaseByProduct = $stmt->fetchAll();
+
+// --- Tồn kho theo sản phẩm ---
+$stockByProduct = $pdo->query(
+    "SELECT p.name AS product_name, p.sku, SUM(i.quantity) AS qty,
+            SUM(i.quantity * COALESCE(v.cost_price, p.cost_price)) AS value
+     FROM inventory i
+     JOIN products p ON p.id = i.product_id
+     LEFT JOIN product_variants v ON v.id = i.variant_id
+     GROUP BY i.product_id ORDER BY value DESC LIMIT 15"
+)->fetchAll();
+
 // --- Sổ quỹ trong kỳ ---
 $stmt = $pdo->prepare(
     "SELECT COALESCE(SUM(CASE WHEN type='RECEIPT' THEN amount ELSE 0 END),0) AS total_receipt,
@@ -320,6 +360,84 @@ $cashSummary = $stmt->fetch();
           <td><?= e($r['name']) ?></td>
           <td class="text-right"><?= (int) $r['qty'] ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($r['total']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+<h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Nhập hàng trong kỳ</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px;">
+  <div class="card">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Số phiếu nhập</div>
+    <div style="font-size:18px;font-weight:700;"><?= (int) $purchaseSummary['receipt_count'] ?></div>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Tổng tiền nhập</div>
+    <div style="font-size:18px;font-weight:700;"><?= money($purchaseSummary['total_amount']) ?></div>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Còn nợ NCC (phát sinh trong kỳ)</div>
+    <div style="font-size:18px;font-weight:700;<?= $purchaseSummary['total_debt'] > 0 ? 'color:#dc2626;' : '' ?>"><?= money($purchaseSummary['total_debt']) ?></div>
+  </div>
+</div>
+<div class="grid-2" style="margin-bottom:24px;">
+  <div>
+    <h3 style="font-size:14px;font-weight:600;margin:0 0 12px;">Nhập hàng theo nhà cung cấp</h3>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <table>
+        <thead><tr><th>Nhà cung cấp</th><th class="text-right">Số phiếu</th><th class="text-right">Tổng tiền</th></tr></thead>
+        <tbody>
+          <?php if (!$purchaseBySupplier): ?>
+            <tr><td colspan="3" class="text-center muted" style="padding:20px;">Không có dữ liệu</td></tr>
+          <?php endif; ?>
+          <?php foreach ($purchaseBySupplier as $s): ?>
+            <tr>
+              <td><?= e($s['supplier_name']) ?></td>
+              <td class="text-right"><?= (int) $s['receipt_count'] ?></td>
+              <td class="text-right" style="font-weight:600;"><?= money($s['total']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div>
+    <h3 style="font-size:14px;font-weight:600;margin:0 0 12px;">Nhập hàng theo sản phẩm</h3>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <table>
+        <thead><tr><th>Sản phẩm</th><th class="text-right">SL nhập</th><th class="text-right">Tổng tiền</th></tr></thead>
+        <tbody>
+          <?php if (!$purchaseByProduct): ?>
+            <tr><td colspan="3" class="text-center muted" style="padding:20px;">Không có dữ liệu</td></tr>
+          <?php endif; ?>
+          <?php foreach ($purchaseByProduct as $p): ?>
+            <tr>
+              <td><?= e($p['name']) ?></td>
+              <td class="text-right"><?= (int) $p['qty'] ?></td>
+              <td class="text-right" style="font-weight:600;"><?= money($p['total']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<h2 style="font-size:16px;font-weight:600;margin:0 0 12px;">Tồn kho theo sản phẩm (top giá trị cao nhất)</h2>
+<div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
+  <table>
+    <thead><tr><th>SKU</th><th>Sản phẩm</th><th class="text-right">Tồn kho</th><th class="text-right">Giá trị tồn</th></tr></thead>
+    <tbody>
+      <?php if (!$stockByProduct): ?>
+        <tr><td colspan="4" class="text-center muted" style="padding:20px;">Không có dữ liệu</td></tr>
+      <?php endif; ?>
+      <?php foreach ($stockByProduct as $s): ?>
+        <tr>
+          <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($s['sku']) ?></td>
+          <td><?= e($s['product_name']) ?></td>
+          <td class="text-right"><?= (int) $s['qty'] ?></td>
+          <td class="text-right" style="font-weight:600;"><?= money($s['value']) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

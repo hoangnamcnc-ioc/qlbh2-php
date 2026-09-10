@@ -728,3 +728,30 @@ thuần túy thẩm mỹ, không ảnh hưởng nghiệp vụ nên chưa ưu ti�
 đổi tồn kho theo sản phẩm) của Sapo cũng chưa có bản ghi tổng hợp riêng trong QLBH2, dữ liệu tương
 đương nằm rải rác ở các phiếu nhập/chuyển/kiểm/trả hàng đã có, có thể gộp lại thành 1 trang xem
 sau nếu cần.
+
+## Vòng rà soát module Báo cáo (đối chiếu sidebar báo cáo thực tế của Sapo)
+
+Sapo có 5 nhóm báo cáo riêng biệt ở sidebar: Báo cáo bán hàng, Báo cáo nhập hàng, Báo cáo kho, Báo
+cáo tài chính, Báo cáo khách hàng. `reports.php` của QLBH2 (1 trang tổng hợp duy nhất) đã che phủ
+khá tốt "Báo cáo bán hàng" (doanh thu, lãi gộp, top sản phẩm/khách hàng, theo kênh/ngày/thanh
+toán/nhân viên, trả hàng) và một phần "Báo cáo tài chính" (sổ quỹ) — nhưng **hoàn toàn chưa có gì
+cho "Báo cáo nhập hàng"** (dù module Đặt hàng/Nhập kho đã xây khá đầy đủ ở các vòng trước) và phần
+"Báo cáo kho" chỉ có 1 con số tổng giá trị tồn, không có bảng chi tiết theo từng sản phẩm.
+
+Đã bổ sung vào `reports.php` (theo đúng khoảng thời gian lọc sẵn có):
+- "Nhập hàng trong kỳ": số phiếu nhập, tổng tiền nhập, tổng công nợ NCC phát sinh trong kỳ
+  (`total_amount - paid_amount` cộng dồn các phiếu nhập trong kỳ).
+- "Nhập hàng theo nhà cung cấp": top 10 NCC theo tổng tiền nhập.
+- "Nhập hàng theo sản phẩm": top 10 sản phẩm nhập nhiều nhất theo số lượng.
+- "Tồn kho theo sản phẩm": bảng top 15 sản phẩm có giá trị tồn kho cao nhất (SKU, tên, số lượng,
+  giá trị tồn) — trước đây chỉ có 1 số tổng, không biết sản phẩm nào đang chiếm giá trị tồn kho
+  lớn nhất.
+
+Đã test trên app.kt-soft.vn: tạo 1 phiếu nhập test (nhà cung cấp mới, sản phẩm mới) trị giá
+150.000, đã trả 50.000 → báo cáo hiển thị đúng "Số phiếu nhập: 1", "Tổng tiền nhập: 150.000", "Còn
+nợ NCC: 100.000", đúng cả 2 bảng theo nhà cung cấp và theo sản phẩm. Đã xóa sạch dữ liệu test.
+
+**Giới hạn còn lại**: các báo cáo còn lại của Sapo (ví dụ báo cáo giao hàng theo tình trạng, báo
+cáo tùy chỉnh do người dùng tự tạo) là các tính năng phụ, phức tạp hơn nhiều so với nhu cầu thực
+tế của một phần mềm quản lý bán hàng tổng quát — chưa làm, có thể bổ sung sau nếu người dùng có
+nhu cầu cụ thể.
