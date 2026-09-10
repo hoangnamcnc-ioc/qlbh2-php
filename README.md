@@ -625,3 +625,42 @@ tăng đúng 60.000 (phần chưa trả); ghi nhận trả thêm 60.000 qua `sto
 trả" về 0 và công nợ NCC về 0. Tạo đặt hàng nhập với nhân viên phụ trách/ngày hẹn giao/tham chiếu →
 hiển thị đúng trên trang chi tiết. Đã xóa sạch toàn bộ dữ liệu test (nhà cung cấp, sản phẩm, đặt
 hàng nhập, phiếu nhập test) và các file tạm trên server.
+
+## Vòng rà soát module Bán hàng (đối chiếu trang chi tiết đơn hàng thực tế của Sapo)
+
+Đối chiếu trang "Chi tiết đơn hàng" thật trên Sapo (SON...), phát hiện gap lớn nhất: các cột
+`orders.payment_status`/`paid_amount` và `customers.debt` đã có sẵn trong schema từ trước nhưng
+**hoàn toàn không được dùng ở luồng bán hàng** — `pos_checkout.php` luôn tạo đơn với
+`payment_status = PAID` và `paid_amount = total_amount` bất kể khách trả bao nhiêu, nên không thể
+"bán nợ" (cho khách trả trước một phần, phần còn lại ghi vào công nợ khách hàng) như Sapo thật vẫn
+làm — trong khi form thu công nợ ở `customer_view.php` đã có sẵn nhưng chưa từng có gì tạo ra nợ để
+thu cả.
+
+Đã bổ sung:
+- `pos.php`: thêm checkbox "Cho khách nợ một phần" + ô "Khách trả trước" (chỉ áp dụng khi đã có
+  khách hàng — nhập SĐT); trạng thái bật/tắt và giá trị được lưu riêng theo từng tab đơn hàng POS
+  giống các trường khác.
+- `pos_checkout.php`: nhận thêm `paid_amount` — nếu bỏ trống hoặc ≥ tổng tiền thì coi như thanh
+  toán đủ (hành vi cũ không đổi); nếu nhỏ hơn thì bắt buộc phải có khách hàng, tính
+  `payment_status` (PAID/PARTIAL/UNPAID) theo đúng số đã trả, chỉ ghi `payments` với số tiền thực
+  trả, và cộng phần còn thiếu (`total - paid`) vào `customers.debt`.
+- `order_view.php`: thêm card "Thanh toán" (Đã thanh toán/Còn phải trả) và form ghi nhận thu thêm
+  khi đơn còn nợ, giống hệt mẫu đã làm cho phiếu nhập kho.
+- `order_pay.php` (mới): xử lý thu nợ cho một đơn hàng cụ thể — tăng `paid_amount`/cập nhật
+  `payment_status` của đơn, giảm tương ứng `customers.debt`, và ghi thêm 1 dòng `payments`.
+- `orders.php`: thêm cột "Thanh toán" (Đã thanh toán/Trả một phần/Chưa thanh toán) vào danh sách
+  đơn hàng, giống cột "Trạng thái Thanh toán" trên danh sách đơn hàng thật của Sapo.
+
+Đã test trên app.kt-soft.vn: tạo đơn hàng 50.000 cho khách mới (SĐT test), trả trước 20.000 → đơn
+hiển thị đúng "Còn phải trả 30.000", công nợ khách hàng tăng đúng 30.000; ghi nhận thu nốt 30.000
+qua `order_pay.php` → "Còn phải trả" về 0 và công nợ khách hàng về 0; danh sách đơn hàng hiển thị
+đúng badge trạng thái thanh toán. Đã xóa sạch toàn bộ dữ liệu test (đơn hàng, khách hàng, sản
+phẩm test) và các file tạm trên server.
+
+**Giới hạn còn lại của module Bán hàng so với Sapo thật** (không nằm trong phạm vi bổ sung lần
+này, ghi nhận để tham khảo sau): thẻ thông tin khách hàng trên trang chi tiết đơn chưa hiển thị
+số liệu tổng hợp nhanh (tổng chi tiêu/số đơn trả hàng/số đơn giao thất bại) như Sapo — các số liệu
+này đã có đủ trên trang `customer_view.php` riêng, chỉ chưa rút gọn hiển thị lại trên trang đơn
+hàng; trường "Hẹn giao hàng" ở cấp đơn hàng (khác với `expected_delivery_date` của đặt hàng nhập)
+và "Đường dẫn"/"Chính sách giá" là các trường phụ ít dùng trong nghiệp vụ thực tế của cửa hàng mẫu
+khảo sát, có thể bổ sung sau nếu cần.

@@ -177,6 +177,14 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
     </div>
 
     <div class="field">
+      <label><input type="checkbox" id="partial-payment-toggle"> Cho khách nợ một phần</label>
+      <div id="partial-payment-fields" style="display:none;margin-top:8px;">
+        <input type="number" min="0" id="paid-amount" class="input" placeholder="Khách trả trước (VNĐ)">
+        <p class="muted" style="font-size:11px;margin:4px 0 0;">Chỉ áp dụng khi đã chọn khách hàng (nhập SĐT) — phần còn lại sẽ ghi vào công nợ khách hàng.</p>
+      </div>
+    </div>
+
+    <div class="field">
       <label>Tiền khách đưa (F2)</label>
       <input type="number" min="0" id="cash-given" class="input" placeholder="0">
       <div id="cash-suggestions" style="display:none;gap:6px;margin-top:6px;flex-wrap:wrap;"></div>
@@ -283,6 +291,7 @@ function makeEmptyOrder() {
     cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, paymentMethod: 'CASH',
     manualDiscountType: defaultDiscountUnit, manualDiscountValue: '', appliedCoupon: null, couponInput: '',
     isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', tags: '', cashGiven: '',
+    partialPayment: false, paidAmount: '',
   };
 }
 
@@ -307,6 +316,8 @@ function saveCurrentOrderState() {
   o.note = document.getElementById('order-note').value;
   o.tags = document.getElementById('order-tags').value;
   o.cashGiven = document.getElementById('cash-given').value;
+  o.partialPayment = document.getElementById('partial-payment-toggle').checked;
+  o.paidAmount = document.getElementById('paid-amount').value;
 }
 
 function loadOrderState(idx) {
@@ -331,6 +342,9 @@ function loadOrderState(idx) {
   document.getElementById('order-note').value = o.note;
   document.getElementById('order-tags').value = o.tags;
   document.getElementById('cash-given').value = o.cashGiven;
+  document.getElementById('partial-payment-toggle').checked = o.partialPayment;
+  document.getElementById('paid-amount').value = o.paidAmount;
+  document.getElementById('partial-payment-fields').style.display = o.partialPayment ? 'block' : 'none';
   document.getElementById('pos-message').innerHTML = '';
   renderCart();
   renderTabs();
@@ -627,8 +641,15 @@ function buildCheckoutPayload() {
     shipping_fee: getShippingFee(),
     note: document.getElementById('order-note').value,
     tags: document.getElementById('order-tags').value,
+    paid_amount: document.getElementById('partial-payment-toggle').checked
+      ? (parseFloat(document.getElementById('paid-amount').value) || 0)
+      : null,
   };
 }
+
+document.getElementById('partial-payment-toggle').addEventListener('change', (e) => {
+  document.getElementById('partial-payment-fields').style.display = e.target.checked ? 'block' : 'none';
+});
 
 function resetOrderAfterCheckout() {
   if (orders.length > 1) {

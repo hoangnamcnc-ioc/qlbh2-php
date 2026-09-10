@@ -195,6 +195,26 @@ require_once __DIR__ . '/inc_header.php';
   <?php endforeach; ?>
 </div>
 
+<?php $orderRemaining = (float) $order['total_amount'] - (float) $order['paid_amount']; ?>
+<?php if ($orderRemaining > 0.01): ?>
+<div class="card" style="max-width:360px;margin-left:auto;margin-top:16px;">
+  <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Thanh toán</h2>
+  <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;color:#059669;"><span>Đã thanh toán</span><span><?= money($order['paid_amount']) ?></span></div>
+  <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px;margin-bottom:12px;font-weight:600;color:#dc2626;"><span>Còn phải trả</span><span><?= money($orderRemaining) ?></span></div>
+  <?php if ($order['customer_id']): ?>
+    <form method="post" action="order_pay.php" style="display:flex;gap:8px;align-items:end;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+      <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+      <div class="field" style="flex:1;margin:0;">
+        <label>Số tiền thu thêm</label>
+        <input class="input" type="number" min="1" max="<?= (float) $orderRemaining ?>" name="amount" required>
+      </div>
+      <button type="submit" class="btn">Ghi nhận thu</button>
+    </form>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
+
 <?php if ($history): ?>
 <h2 style="font-size:16px;font-weight:600;margin:32px 0 12px;">Lịch sử thay đổi</h2>
 <div class="card" style="padding:0;overflow-x:auto;">

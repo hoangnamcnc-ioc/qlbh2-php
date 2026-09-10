@@ -5,6 +5,7 @@ $statusLabels = [
     'DRAFT' => 'Đặt hàng', 'APPROVED' => 'Duyệt', 'PACKED' => 'Đóng gói',
     'SHIPPED' => 'Xuất kho', 'COMPLETED' => 'Hoàn thành', 'CANCELLED' => 'Đã hủy',
 ];
+$paymentStatusLabels = ['PAID' => 'Đã thanh toán', 'PARTIAL' => 'Trả một phần', 'UNPAID' => 'Chưa thanh toán'];
 
 $status = $_GET['status'] ?? '';
 $fromDate = $_GET['from'] ?? '';
@@ -86,11 +87,11 @@ $orders = $stmt->fetchAll();
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
-      <tr><th style="width:32px;"></th><th>Mã đơn hàng</th><th>Ngày tạo</th><th>Khách hàng</th><th>Nhân viên</th><th>Kênh bán</th><th>Trạng thái</th><th class="text-right">Tổng tiền</th></tr>
+      <tr><th style="width:32px;"></th><th>Mã đơn hàng</th><th>Ngày tạo</th><th>Khách hàng</th><th>Nhân viên</th><th>Kênh bán</th><th>Trạng thái</th><th>Thanh toán</th><th class="text-right">Tổng tiền</th></tr>
     </thead>
     <tbody>
       <?php if (!$orders): ?>
-        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Không có đơn hàng nào khớp bộ lọc.</td></tr>
+        <tr><td colspan="9" class="text-center muted" style="padding:32px;">Không có đơn hàng nào khớp bộ lọc.</td></tr>
       <?php endif; ?>
       <?php foreach ($orders as $o): ?>
         <tr>
@@ -101,11 +102,16 @@ $orders = $stmt->fetchAll();
           <td class="muted"><?= e($o['staff_name']) ?></td>
           <td class="muted"><?= e($o['channel_name'] ?: 'Trực tiếp') ?></td>
           <td><span class="badge badge-gray"><?= e($statusLabels[$o['status']] ?? $o['status']) ?></span></td>
+          <td>
+            <?php if ($o['payment_status'] === 'PAID'): ?><span class="badge badge-green"><?= e($paymentStatusLabels['PAID']) ?></span>
+            <?php elseif ($o['payment_status'] === 'PARTIAL'): ?><span class="badge badge-red"><?= e($paymentStatusLabels['PARTIAL']) ?></span>
+            <?php else: ?><span class="badge badge-red"><?= e($paymentStatusLabels['UNPAID']) ?></span><?php endif; ?>
+          </td>
           <td class="text-right" style="font-weight:600;"><?= money($o['total_amount']) ?></td>
         </tr>
         <tr class="quick-row" data-row-for="<?= (int) $o['id'] ?>" style="display:none;">
           <td></td>
-          <td colspan="7" class="muted" style="font-size:13px;padding:8px 12px;background:#f8fafc;">Đang tải...</td>
+          <td colspan="8" class="muted" style="font-size:13px;padding:8px 12px;background:#f8fafc;">Đang tải...</td>
         </tr>
       <?php endforeach; ?>
     </tbody>

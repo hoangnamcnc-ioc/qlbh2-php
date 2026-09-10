@@ -35,6 +35,8 @@ $deliveryAddress = $isDelivery ? trim((string) ($input['delivery_address'] ?? ''
 $shippingFee = $isDelivery ? max(0, (float) ($input['shipping_fee'] ?? 0)) : 0.0;
 $orderNote = trim((string) ($input['note'] ?? '')) ?: null;
 $orderTags = trim((string) ($input['tags'] ?? '')) ?: null;
+$paidAmountInput = $input['paid_amount'] ?? null;
+$paidAmountInput = $paidAmountInput === null || $paidAmountInput === '' ? null : max(0, (float) $paidAmountInput);
 
 $pdo = db();
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
@@ -214,12 +216,21 @@ try {
     }
     $totalAmount += $shippingFee;
 
+    if ($paidAmountInput === null || $paidAmountInput >= $totalAmount) {
+        $paidAmount = $totalAmount;
+    } elseif (!$customerId) {
+        throw new RuntimeException('Chỉ có thể cho khách nợ một phần khi đã chọn khách hàng (nhập SĐT)');
+    } else {
+        $paidAmount = max(0, $paidAmountInput);
+    }
+    $paymentStatus = $paidAmount >= $totalAmount ? 'PAID' : ($paidAmount > 0 ? 'PARTIAL' : 'UNPAID');
+
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
         'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, tags, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", "COMPLETED", "PAID", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $totalAmount]);
+         VALUES (?, ?, ?, ?, "POS", "COMPLETED", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $user['id'], $paymentStatus, $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $paidAmount]);
     $orderId = (int) $pdo->lastInsertId();
 
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, "COMPLETED", ?)')
@@ -236,13 +247,19 @@ try {
         $pdo->prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?')->execute([$couponId]);
     }
 
-    $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
-        ->execute([$orderId, $paymentMethod, $totalAmount]);
+    if ($paidAmount > 0) {
+        $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
+            ->execute([$orderId, $paymentMethod, $paidAmount]);
+    }
 
     if ($customerId) {
         $points = (int) floor($totalAmount / 10000);
         $pdo->prepare('UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?')
             ->execute([$points, $customerId]);
+        $unpaid = $totalAmount - $paidAmount;
+        if ($unpaid > 0) {
+            $pdo->prepare('UPDATE customers SET debt = debt + ? WHERE id = ?')->execute([$unpaid, $customerId]);
+        }
     }
 
     $pdo->commit();
