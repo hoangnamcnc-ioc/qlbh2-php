@@ -506,3 +506,17 @@ Báo cáo, Vận chuyển/Bảo hành/Marketing) đối chiếu trực tiếp v�
 đủ các trường/tính năng khả thi bằng phần mềm. Các giới hạn còn lại đều đã ghi rõ lý do trong từng
 mục — chủ yếu là tích hợp API/phần cứng thật của bên thứ 3 (thanh toán, hóa đơn điện tử, vận chuyển,
 sàn TMĐT, cân điện tử) nằm ngoài quyết định phạm vi ban đầu của dự án.
+
+## Vòng rà soát module Sổ quỹ (đối chiếu trang thực tế của Sapo)
+
+Bổ sung các tính năng còn thiếu so với trang "Sổ quỹ" của Sapo:
+- **Lọc theo khoảng ngày** (mặc định 30 ngày gần nhất), **loại phiếu** (Thu/Chi), **chi nhánh**,
+  **hình thức thanh toán** — trước đây chỉ hiển thị 100 phiếu gần nhất không lọc được.
+- **Số dư đầu kỳ** và **Tồn cuối kỳ**: tính đúng số dư lũy kế trước ngày bắt đầu lọc + cộng/trừ thu
+  chi trong kỳ đang xem, khớp đúng cách Sapo hiển thị (không chỉ là tổng thu/chi trong khoảng lọc).
+- **Hình thức thanh toán** cho từng phiếu thu/chi (Tiền mặt/Chuyển khoản/Quẹt thẻ/QR).
+- **Xuất file CSV** (`cashbook_export.php`) theo đúng bộ lọc đang áp dụng.
+
+Đã test trên app.kt-soft.vn: tạo phiếu thu 100.000đ bằng Chuyển khoản → Tồn cuối kỳ cập nhật đúng
+từ 0 lên 100.000đ; lọc theo loại "Phiếu chi" → phiếu thu vừa tạo biến mất đúng khỏi danh sách; xuất
+file CSV → nội dung khớp đúng dữ liệu phiếu vừa tạo. Đã xóa sạch dữ liệu test.
