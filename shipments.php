@@ -22,14 +22,25 @@ $sql .= ' ORDER BY s.created_at DESC LIMIT 100';
 $shipments = $pdo->query($sql)->fetchAll();
 
 $totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM shipments WHERE cod_amount > 0 AND reconciled_at IS NULL')->fetch()['s'];
+$totalNetUnreconciled = $pdo->query(
+    "SELECT COALESCE(SUM(CASE WHEN fee_payer = 'CUSTOMER' THEN cod_amount - shipping_fee ELSE cod_amount END),0) AS s
+     FROM shipments WHERE cod_amount > 0 AND reconciled_at IS NULL"
+)->fetch()['s'];
+$feePayerLabels = ['CUSTOMER' => 'Khách trả', 'SHOP' => 'Shop trả'];
 ?>
 
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Vận chuyển</h1>
 <p class="muted" style="margin-bottom:16px;">Theo dõi vận đơn nội bộ. Tạo vận đơn từ trang chi tiết đơn hàng.</p>
 
-<div class="card" style="max-width:320px;margin-bottom:16px;">
-  <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">COD chưa đối soát</div>
-  <div style="font-size:20px;font-weight:700;color:#dc2626;"><?= money($totalUnreconciled) ?></div>
+<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+  <div class="card" style="max-width:320px;">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">COD chưa đối soát</div>
+    <div style="font-size:20px;font-weight:700;color:#dc2626;"><?= money($totalUnreconciled) ?></div>
+  </div>
+  <div class="card" style="max-width:320px;">
+    <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Thực nhận chưa đối soát (đã trừ phí ship nếu khách trả)</div>
+    <div style="font-size:20px;font-weight:700;color:#dc2626;"><?= money($totalNetUnreconciled) ?></div>
+  </div>
 </div>
 
 <div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid #e2e8f0;">
@@ -40,12 +51,13 @@ $totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM s
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Đơn hàng</th><th>Người nhận</th><th>Mã vận đơn</th><th>Đơn vị</th><th>Trạng thái</th><th class="text-right">Phí ship</th><th class="text-right">Thu hộ (COD)</th><th>Đối soát</th></tr></thead>
+    <thead><tr><th>Đơn hàng</th><th>Người nhận</th><th>Mã vận đơn</th><th>Đơn vị</th><th>Trạng thái</th><th class="text-right">Phí ship</th><th>Người trả phí</th><th class="text-right">Thu hộ (COD)</th><th class="text-right">Thực nhận</th><th>Đối soát</th></tr></thead>
     <tbody>
       <?php if (!$shipments): ?>
-        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Không có vận đơn nào.</td></tr>
+        <tr><td colspan="10" class="text-center muted" style="padding:32px;">Không có vận đơn nào.</td></tr>
       <?php endif; ?>
       <?php foreach ($shipments as $s): ?>
+        <?php $net = $s['fee_payer'] === 'CUSTOMER' ? (float) $s['cod_amount'] - (float) $s['shipping_fee'] : (float) $s['cod_amount']; ?>
         <tr>
           <td><a href="order_view.php?id=<?= (int) $s['order_id'] ?>" style="font-family:monospace;"><?= e($s['order_code']) ?></a></td>
           <td><?= e($s['recipient_name'] ?: ($s['customer_name'] ?: 'Khách lẻ')) ?><?php if ($s['recipient_phone']): ?><br><span class="muted" style="font-size:12px;"><?= e($s['recipient_phone']) ?></span><?php endif; ?></td>
@@ -53,7 +65,9 @@ $totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM s
           <td><?= e($s['carrier_name'] ?: '—') ?></td>
           <td><span class="badge badge-gray"><?= e($statusLabels[$s['status']] ?? $s['status']) ?></span></td>
           <td class="text-right"><?= money($s['shipping_fee']) ?></td>
+          <td class="muted"><?= e($feePayerLabels[$s['fee_payer']] ?? $s['fee_payer']) ?></td>
           <td class="text-right"><?= money($s['cod_amount']) ?></td>
+          <td class="text-right" style="font-weight:600;"><?= money($net) ?></td>
           <td>
             <?php if ($s['cod_amount'] <= 0): ?>
               <span class="muted">—</span>

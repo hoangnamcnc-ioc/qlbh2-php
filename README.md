@@ -755,3 +755,31 @@ nợ NCC: 100.000", đúng cả 2 bảng theo nhà cung cấp và theo sản ph�
 cáo tùy chỉnh do người dùng tự tạo) là các tính năng phụ, phức tạp hơn nhiều so với nhu cầu thực
 tế của một phần mềm quản lý bán hàng tổng quát — chưa làm, có thể bổ sung sau nếu người dùng có
 nhu cầu cụ thể.
+
+## Vòng rà soát tiếp module Vận chuyển (đối chiếu trang chi tiết phiếu giao hàng thực tế của Sapo)
+
+Vòng trước đã rà soát ở mức menu; vòng này đối chiếu sâu hơn ở trang "Chi tiết phiếu giao hàng"
+thật của Sapo (mã vận đơn, người nhận, địa chỉ, ngày đóng gói/xuất kho/giao hàng, đối tác vận
+chuyển, tiền thu hộ COD, phí trả ĐTVC, đối soát, **người trả phí**). QLBH2 đã có hầu hết các
+trường quan trọng (người nhận, SĐT, đơn vị, mã vận đơn, trạng thái, phí ship, COD, đối soát) —
+gap cụ thể: **thiếu trường "Người trả phí giao hàng" (khách trả / shop trả)**, khiến số tiền thực
+tế cửa hàng nhận về từ đơn vị vận chuyển sau khi đối soát bị tính sai — nếu khách trả phí ship thì
+đơn vị vận chuyển giữ lại phần phí đó từ tiền COD trước khi trả về cho shop (thực nhận = COD - phí
+ship), còn nếu shop trả phí thì thực nhận đúng bằng COD; trước đây QLBH2 chỉ hiển thị 2 số riêng
+lẻ (phí ship, COD) mà không có công thức nối chúng lại nên số liệu đối soát dễ sai.
+
+Đã bổ sung:
+- `shipments`: thêm cột `fee_payer` (CUSTOMER/SHOP).
+- `shipment_form.php`: chọn người trả phí khi tạo/sửa vận đơn.
+- `shipments.php`: thêm cột "Người trả phí" và "Thực nhận" (tính theo công thức trên) vào danh
+  sách; thêm thẻ tổng "Thực nhận chưa đối soát" bên cạnh thẻ "COD chưa đối soát" đã có.
+- `order_view.php`: card "Vận chuyển" hiển thị thêm người trả phí và số tiền thực nhận từ ĐVVC.
+
+Đã test trên app.kt-soft.vn: tạo vận đơn COD 100.000, phí ship 20.000, khách trả phí → "Thực nhận"
+hiển thị đúng 80.000 ở cả danh sách vận chuyển và trang chi tiết đơn hàng. Đã xóa sạch dữ liệu test.
+
+**Giới hạn còn lại**: mốc thời gian riêng cho từng bước (ngày đóng gói/ngày xuất kho/ngày giao
+hàng) mà Sapo lưu chi tiết — QLBH2 chỉ lưu 1 trạng thái hiện tại + thời điểm cập nhật gần nhất
+(`updated_at`), không có lịch sử timestamp theo từng mốc; địa chỉ nhận hàng tách riêng
+phường/quận/tỉnh của Sapo — QLBH2 dùng 1 trường địa chỉ gộp ở cấp đơn hàng. Cả hai đều là tính
+năng phụ, có thể bổ sung sau nếu cần đối soát chi tiết hơn với đối tác vận chuyển thật.

@@ -637,6 +637,7 @@ CREATE TABLE IF NOT EXISTS order_status_history (
 
 -- ===== Đối soát COD =====
 ALTER TABLE shipments ADD COLUMN reconciled_at DATETIME NULL;
+ALTER TABLE shipments ADD COLUMN fee_payer ENUM('CUSTOMER','SHOP') NOT NULL DEFAULT 'CUSTOMER';
 
 -- ===== Quản lý khuyến mại (chương trình tự động, khác mã coupon) =====
 CREATE TABLE IF NOT EXISTS promotions (

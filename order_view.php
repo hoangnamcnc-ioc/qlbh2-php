@@ -160,6 +160,10 @@ require_once __DIR__ . '/inc_header.php';
     <p style="margin:2px 0;">Đơn vị: <?= e($shipment['carrier_name'] ?: '—') ?></p>
     <p style="margin:2px 0;">Mã vận đơn: <?= e($shipment['tracking_code'] ?: '—') ?></p>
     <p style="margin:2px 0;">Trạng thái: <span class="badge badge-gray"><?= e($shipmentStatusLabels[$shipment['status']] ?? $shipment['status']) ?></span></p>
+    <?php if ((float) $shipment['cod_amount'] > 0): ?>
+      <p style="margin:2px 0;">Người trả phí ship: <?= $shipment['fee_payer'] === 'SHOP' ? 'Shop trả' : 'Khách trả' ?></p>
+      <p style="margin:2px 0;">Thực nhận từ ĐVVC: <b><?= money($shipment['fee_payer'] === 'CUSTOMER' ? (float) $shipment['cod_amount'] - (float) $shipment['shipping_fee'] : (float) $shipment['cod_amount']) ?></b></p>
+    <?php endif; ?>
   </div>
   <?php endif; ?>
 </div>
