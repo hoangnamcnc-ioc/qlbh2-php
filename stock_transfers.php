@@ -22,18 +22,21 @@ $transfers = $pdo->query(
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Mã phiếu</th><th>Từ</th><th>Đến</th><th>Người tạo</th><th>Ngày</th></tr></thead>
+    <thead><tr><th>Mã phiếu</th><th>Từ</th><th>Đến</th><th>Người tạo</th><th>Ngày</th><th>Trạng thái</th></tr></thead>
     <tbody>
       <?php if (!$transfers): ?>
-        <tr><td colspan="5" class="text-center muted" style="padding:32px;">Chưa có phiếu chuyển hàng nào.</td></tr>
+        <tr><td colspan="6" class="text-center muted" style="padding:32px;">Chưa có phiếu chuyển hàng nào.</td></tr>
       <?php endif; ?>
+      <?php $statusLabels = ['IN_TRANSIT' => ['Đang vận chuyển', 'badge-gray'], 'COMPLETED' => ['Đã nhận hàng', 'badge-green'], 'CANCELLED' => ['Đã hủy', 'badge-red']]; ?>
       <?php foreach ($transfers as $t): ?>
+        <?php [$statusText, $statusClass] = $statusLabels[$t['status']] ?? ['—', 'badge-gray']; ?>
         <tr>
           <td><a href="stock_transfer_view.php?id=<?= (int) $t['id'] ?>" style="font-family:monospace;"><?= e($t['code']) ?></a></td>
           <td><?= e($t['from_branch_name']) ?></td>
           <td><?= e($t['to_branch_name']) ?></td>
           <td><?= e($t['created_by_name']) ?></td>
           <td class="muted"><?= date('d/m/Y H:i', strtotime($t['created_at'])) ?></td>
+          <td><span class="badge <?= $statusClass ?>"><?= e($statusText) ?></span></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

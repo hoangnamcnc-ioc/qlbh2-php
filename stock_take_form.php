@@ -36,30 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             try {
                 $code = 'KH' . substr((string) (int) round(microtime(true) * 1000), -8);
-                $pdo->prepare('INSERT INTO stock_takes (code, branch_id, created_by_id, note) VALUES (?,?,?,?)')
+                $pdo->prepare("INSERT INTO stock_takes (code, branch_id, created_by_id, note, status) VALUES (?,?,?,?,'DRAFT')")
                     ->execute([$code, $branchId, $currentUser['id'], $note]);
                 $takeId = (int) $pdo->lastInsertId();
 
+                // Chỉ ghi lại số đếm thực tế ở dạng nháp — CHƯA cập nhật tồn kho hệ thống, chờ
+                // nhân viên có quyền bấm "Cân bằng kho" xác nhận mới áp dụng (xem stock_take_balance.php).
                 $itemStmt = $pdo->prepare(
                     'INSERT INTO stock_take_items (take_id, product_id, variant_id, system_qty, counted_qty) VALUES (?,?,?,?,?)'
                 );
                 foreach ($lines as [$pid, $vid, $sys, $counted]) {
                     $itemStmt->execute([$takeId, $pid, $vid, $sys, $counted]);
-
-                    if ($vid) {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
-                        $inv->execute([$branchId, $vid]);
-                    } else {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
-                        $inv->execute([$branchId, $pid]);
-                    }
-                    $invRow = $inv->fetch();
-                    if ($invRow) {
-                        $pdo->prepare('UPDATE inventory SET quantity = ? WHERE id = ?')->execute([$counted, $invRow['id']]);
-                    } else {
-                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
-                            ->execute([$branchId, $pid, $vid, $counted]);
-                    }
                 }
 
                 $pdo->commit();

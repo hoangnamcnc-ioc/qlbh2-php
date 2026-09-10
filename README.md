@@ -543,3 +543,36 @@ khung dữ liệu nào để trả lại hàng đã nhập cho nhà cung cấp k
 
 Do phiên đăng nhập Sapo hết hạn giữa chừng, chưa kịp đối chiếu sâu thêm "Đặt hàng nhập" và "Kiểm
 hàng/Chuyển hàng" trong vòng này — có thể tiếp tục nếu bạn đăng nhập lại và muốn rà soát tiếp.
+
+## Vòng bổ sung: Chuyển hàng "đang vận chuyển" + Kiểm hàng "nháp/cân bằng" (đúng quy trình thực tế Sapo)
+
+Nhờ đăng nhập lại được Sapo, phát hiện 2 gap quan trọng trong quy trình kho: cả **Chuyển hàng** và
+**Kiểm hàng** của QLBH2 trước đây áp dụng thay đổi tồn kho **ngay lập tức** khi tạo phiếu, trong khi
+Sapo tách thành 2 bước rõ ràng (tạo phiếu nháp → xác nhận riêng để áp dụng), khớp với thực tế vận
+hành (hàng cần thời gian di chuyển giữa chi nhánh, kiểm hàng cần review trước khi cập nhật hệ thống).
+
+**Chuyển hàng — thêm trạng thái "Đang vận chuyển"**:
+- Tạo phiếu chuyển: trừ tồn kho chi nhánh gửi ngay (hàng đã rời kho), nhưng **chưa cộng** vào chi
+  nhánh nhận — trạng thái `IN_TRANSIT`.
+- **Xác nhận đã nhận hàng** (`stock_transfer_receive.php`): cộng đúng số lượng vào tồn kho chi
+  nhánh nhận, chuyển trạng thái `COMPLETED`, ghi lại người nhận + thời điểm.
+- **Hủy chuyển hàng** (khi hàng chưa tới nơi): hoàn lại tồn kho về chi nhánh gửi, trạng thái
+  `CANCELLED`.
+
+**Kiểm hàng — thêm trạng thái "Nháp / Đã cân bằng"** (khớp đúng 2 mốc thời gian "Ngày tạo" và
+"Ngày cân bằng" của Sapo):
+- Tạo phiếu kiểm: chỉ lưu số đếm thực tế, **chưa** cập nhật tồn kho hệ thống — trạng thái `DRAFT`.
+- **Cân bằng kho** (`stock_take_balance.php`): áp dụng số đã đếm vào tồn kho hệ thống, chuyển
+  trạng thái `BALANCED`, ghi lại người cân bằng + thời điểm.
+
+Đã test trên app.kt-soft.vn: tạo phiếu chuyển 8 sản phẩm giữa 2 chi nhánh → xác nhận tồn kho chi
+nhánh gửi giảm ngay nhưng chi nhánh nhận **chưa** có hàng (đúng "đang vận chuyển") → bấm xác nhận
+nhận hàng → tồn kho chi nhánh nhận tăng đúng 8, trạng thái chuyển "Đã nhận hàng". Tạo phiếu kiểm
+hàng đếm 17 (hệ thống ghi 20) → xác nhận tồn kho **chưa đổi**, trạng thái "Chưa cân bằng" → bấm
+"Cân bằng kho" → tồn kho cập nhật đúng thành 17, trạng thái "Đã cân bằng". Đã xóa sạch dữ liệu test.
+
+**Lưu ý kỹ thuật phát hiện trong quá trình test**: một lần upload FTP báo thành công nhưng nội dung
+file trên server vẫn là bản cũ (xác minh lại bằng cách tải file qua FTP so với bản local) — nghi do
+race condition khi upload nhiều file liên tiếp quá nhanh trong vòng lặp. Đã khắc phục bằng cách
+upload lại từng file kèm xác minh nội dung qua FTP trước khi test — nên áp dụng cách xác minh này
+cho các lần deploy nhiều file sau này thay vì chỉ tin vào exit code thành công của curl.

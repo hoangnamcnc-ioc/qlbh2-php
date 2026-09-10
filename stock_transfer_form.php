@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $code = 'CH' . substr((string) (int) round(microtime(true) * 1000), -8);
-                $pdo->prepare('INSERT INTO stock_transfers (code, from_branch_id, to_branch_id, created_by_id, note) VALUES (?,?,?,?,?)')
+                $pdo->prepare("INSERT INTO stock_transfers (code, from_branch_id, to_branch_id, created_by_id, note, status) VALUES (?,?,?,?,?,'IN_TRANSIT')")
                     ->execute([$code, $fromBranchId, $toBranchId, $currentUser['id'], $note]);
                 $transferId = (int) $pdo->lastInsertId();
 
@@ -63,29 +63,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach ($lines as [$pid, $vid, $qty]) {
                     $itemStmt->execute([$transferId, $pid, $vid, $qty]);
 
-                    // Trừ kho chi nhánh chuyển
+                    // Trừ kho chi nhánh chuyển ngay (hàng đang trên đường đi, chưa cộng vào chi
+                    // nhánh nhận — chỉ cộng khi chi nhánh nhận xác nhận đã nhận hàng, xem
+                    // stock_transfer_receive.php).
                     if ($vid) {
                         $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE branch_id = ? AND variant_id = ?')
                             ->execute([$qty, $fromBranchId, $vid]);
                     } else {
                         $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL')
                             ->execute([$qty, $fromBranchId, $pid]);
-                    }
-
-                    // Cộng kho chi nhánh nhận
-                    if ($vid) {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
-                        $inv->execute([$toBranchId, $vid]);
-                    } else {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
-                        $inv->execute([$toBranchId, $pid]);
-                    }
-                    $invRow = $inv->fetch();
-                    if ($invRow) {
-                        $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')->execute([$qty, $invRow['id']]);
-                    } else {
-                        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
-                            ->execute([$toBranchId, $pid, $vid, $qty]);
                     }
                 }
 

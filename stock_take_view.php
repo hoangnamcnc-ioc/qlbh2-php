@@ -29,8 +29,25 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="stock_takes.php" class="muted" style="font-size:14px;">← Danh sách phiếu kiểm hàng</a>
-<h1 style="font-size:24px;font-weight:600;font-family:monospace;margin:8px 0 4px;"><?= e($take['code']) ?></h1>
-<p class="muted" style="margin:0 0 24px;"><?= date('d/m/Y H:i', strtotime($take['created_at'])) ?> · <?= e($take['branch_name']) ?> · <?= e($take['created_by_name']) ?></p>
+<div style="display:flex;align-items:center;justify-content:space-between;">
+  <h1 style="font-size:24px;font-weight:600;font-family:monospace;margin:8px 0 4px;"><?= e($take['code']) ?></h1>
+  <?php if ($take['status'] === 'DRAFT'): ?>
+    <form method="post" action="stock_take_balance.php" onsubmit="return confirm('Cân bằng kho theo số liệu đã kiểm? Tồn kho hệ thống sẽ được cập nhật ngay.');">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+      <input type="hidden" name="take_id" value="<?= (int) $take['id'] ?>">
+      <button type="submit" class="btn">Cân bằng kho</button>
+    </form>
+  <?php endif; ?>
+</div>
+<p class="muted" style="margin:0 0 8px;"><?= date('d/m/Y H:i', strtotime($take['created_at'])) ?> · <?= e($take['branch_name']) ?> · Tạo bởi <?= e($take['created_by_name']) ?></p>
+<p style="margin:0 0 24px;">
+  <?php if ($take['status'] === 'BALANCED'): ?>
+    <span class="badge badge-green">Đã cân bằng</span>
+    <span class="muted" style="font-size:13px;"> — lúc <?= date('d/m/Y H:i', strtotime($take['balanced_at'])) ?></span>
+  <?php else: ?>
+    <span class="badge badge-gray">Chưa cân bằng (nháp)</span>
+  <?php endif; ?>
+</p>
 
 <?php if ($take['note']): ?><p class="muted">Ghi chú: <?= e($take['note']) ?></p><?php endif; ?>
 

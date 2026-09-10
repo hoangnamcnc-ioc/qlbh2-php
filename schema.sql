@@ -368,11 +368,17 @@ CREATE TABLE IF NOT EXISTS stock_takes (
   code VARCHAR(50) NOT NULL UNIQUE,
   branch_id INT NOT NULL,
   created_by_id INT NOT NULL,
+  status ENUM('DRAFT','BALANCED') NOT NULL DEFAULT 'DRAFT',
+  balanced_by_id INT NULL,
+  balanced_at DATETIME NULL,
   note VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id),
-  FOREIGN KEY (created_by_id) REFERENCES users(id)
+  FOREIGN KEY (created_by_id) REFERENCES users(id),
+  FOREIGN KEY (balanced_by_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Lưu ý: bản cài mới dùng DEFAULT 'DRAFT' ở trên; khi migrate DB có dữ liệu cũ (đã áp dụng ngay
+-- lúc tạo), cột status cần ALTER với DEFAULT 'BALANCED' để không đổi ý nghĩa dữ liệu lịch sử.
 
 CREATE TABLE IF NOT EXISTS stock_take_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -392,11 +398,15 @@ CREATE TABLE IF NOT EXISTS stock_transfers (
   from_branch_id INT NOT NULL,
   to_branch_id INT NOT NULL,
   created_by_id INT NOT NULL,
+  status ENUM('IN_TRANSIT','COMPLETED','CANCELLED') NOT NULL DEFAULT 'IN_TRANSIT',
+  received_by_id INT NULL,
+  received_at DATETIME NULL,
   note VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (from_branch_id) REFERENCES branches(id),
   FOREIGN KEY (to_branch_id) REFERENCES branches(id),
-  FOREIGN KEY (created_by_id) REFERENCES users(id)
+  FOREIGN KEY (created_by_id) REFERENCES users(id),
+  FOREIGN KEY (received_by_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS stock_transfer_items (
