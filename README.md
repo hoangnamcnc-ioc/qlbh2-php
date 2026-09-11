@@ -906,3 +906,32 @@ hàng" (DRAFT), có nút "Chuyển sang: Duyệt"; bấm liên tiếp qua đủ 
 đúng lúc đó phiếu bảo hành mới xuất hiện (sản phẩm có bật bảo hành) — xác nhận việc hoãn tạo phiếu
 bảo hành đến khi hoàn thành hoạt động đúng. Đã xóa sạch dữ liệu test (đơn hàng, phiếu bảo hành,
 khách hàng, sản phẩm test).
+
+## Vòng rà soát tiếp module Marketing
+
+Tài khoản "test" trên Sapo bị giới hạn quyền ở hầu hết trang Marketing con ("Danh sách chiến dịch"
+báo "Bạn không có quyền truy cập") nên không đối chiếu trực tiếp được giao diện thật ở vòng này —
+chuyển sang rà soát kỹ nội bộ `promotions.php`/`coupons.php`/`campaigns.php` của QLBH2 thay vì đoán
+mò theo Sapo.
+
+Phát hiện: cả `promotions.php` (Khuyến mại tự động) và `coupons.php` (Mã giảm giá) đều có cột
+`is_active` trong schema và **hiển thị badge "Đã tắt"** khi tắt — nhưng **không có bất kỳ nút nào
+để tắt/bật** chương trình khuyến mại hay mã giảm giá sau khi tạo. Một khi tạo xong, chương trình cứ
+tự động áp dụng liên tục cho đến khi hết `end_date` (hoặc vĩnh viễn nếu không đặt ngày kết thúc) —
+không có cách nào dừng ngay một mã giảm giá bị lộ/lạm dụng, hoặc tạm dừng một chương trình cấu hình
+sai mà không xóa hẳn dữ liệu lịch sử đã áp dụng.
+
+Đã bổ sung:
+- `promotion_toggle.php`, `coupon_toggle.php` (mới): đảo trạng thái `is_active` cho 1 chương
+  trình/mã giảm giá cụ thể.
+- `promotions.php`: thêm nút "Tắt"/"Bật lại" theo từng dòng; tách rõ 3 trạng thái hiển thị: "Đã
+  tắt" (is_active=0), "Ngoài thời gian" (is_active=1 nhưng ngoài khoảng ngày), "Đang áp dụng".
+- `coupons.php`: thêm nút "Tắt"/"Bật lại" theo từng dòng, giữ nguyên 3 trạng thái hiển thị đã có
+  (Đã tắt/Hết hạn/Đang hiệu lực).
+- Đã xác nhận `coupon_check.php` và logic áp dụng khuyến mại tự động trong `pos_checkout.php` đã
+  lọc đúng theo `is_active = 1` từ trước, nên bật/tắt có tác dụng ngay lập tức tại POS mà không cần
+  sửa thêm gì ở phía kiểm tra.
+
+Đã test trên app.kt-soft.vn: tạo 1 chương trình khuyến mại test → "Đang áp dụng"; bấm "Tắt" → chuyển
+đúng thành "Đã tắt"; bấm "Bật lại" → về đúng "Đang áp dụng". Tương tự với mã giảm giá test → bấm
+"Tắt" → chuyển đúng thành "Đã tắt". Đã xóa sạch dữ liệu test.

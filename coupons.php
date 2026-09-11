@@ -72,10 +72,10 @@ require_once __DIR__ . '/inc_header.php';
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Mã</th><th>Loại giảm</th><th class="text-right">Giá trị</th><th class="text-right">Đơn tối thiểu</th><th class="text-right">Đã dùng</th><th>Hiệu lực</th></tr></thead>
+    <thead><tr><th>Mã</th><th>Loại giảm</th><th class="text-right">Giá trị</th><th class="text-right">Đơn tối thiểu</th><th class="text-right">Đã dùng</th><th>Hiệu lực</th><th></th></tr></thead>
     <tbody>
       <?php if (!$coupons): ?>
-        <tr><td colspan="6" class="text-center muted" style="padding:32px;">Chưa có mã giảm giá nào.</td></tr>
+        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Chưa có mã giảm giá nào.</td></tr>
       <?php endif; ?>
       <?php foreach ($coupons as $c): ?>
         <tr>
@@ -88,6 +88,13 @@ require_once __DIR__ . '/inc_header.php';
             <?php if (!$c['is_active']): ?><span class="badge badge-gray">Đã tắt</span>
             <?php elseif ($c['end_date'] && strtotime($c['end_date']) < time()): ?><span class="badge badge-red">Hết hạn</span>
             <?php else: ?><span class="badge badge-green">Đang hiệu lực</span><?php endif; ?>
+          </td>
+          <td>
+            <form method="post" action="coupon_toggle.php" onsubmit="return confirm('<?= $c['is_active'] ? 'Tắt' : 'Bật lại' ?> mã giảm giá này?');">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+              <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;"><?= $c['is_active'] ? 'Tắt' : 'Bật lại' ?></button>
+            </form>
           </td>
         </tr>
       <?php endforeach; ?>

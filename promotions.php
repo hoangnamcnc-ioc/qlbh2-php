@@ -55,22 +55,33 @@ require_once __DIR__ . '/inc_header.php';
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Tên chương trình</th><th class="text-right">Đơn tối thiểu</th><th class="text-right">% Giảm</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Tên chương trình</th><th class="text-right">Đơn tối thiểu</th><th class="text-right">% Giảm</th><th>Thời gian</th><th>Trạng thái</th><th></th></tr></thead>
     <tbody>
       <?php if (!$promotions): ?>
-        <tr><td colspan="5" class="text-center muted" style="padding:32px;">Chưa có chương trình khuyến mại nào.</td></tr>
+        <tr><td colspan="6" class="text-center muted" style="padding:32px;">Chưa có chương trình khuyến mại nào.</td></tr>
       <?php endif; ?>
       <?php foreach ($promotions as $p):
-        $active = $p['is_active']
-            && (!$p['start_date'] || strtotime($p['start_date']) <= time())
+        $inDateRange = (!$p['start_date'] || strtotime($p['start_date']) <= time())
             && (!$p['end_date'] || strtotime($p['end_date'] . ' 23:59:59') >= time());
+        $active = $p['is_active'] && $inDateRange;
       ?>
         <tr>
           <td><?= e($p['name']) ?></td>
           <td class="text-right"><?= money($p['min_order_amount']) ?></td>
           <td class="text-right"><?= rtrim(rtrim(number_format((float) $p['discount_percent'], 1), '0'), '.') ?>%</td>
           <td class="muted"><?= $p['start_date'] ? date('d/m/Y', strtotime($p['start_date'])) : '—' ?> → <?= $p['end_date'] ? date('d/m/Y', strtotime($p['end_date'])) : '—' ?></td>
-          <td><?php if ($active): ?><span class="badge badge-green">Đang áp dụng</span><?php else: ?><span class="badge badge-gray">Không áp dụng</span><?php endif; ?></td>
+          <td>
+            <?php if (!$p['is_active']): ?><span class="badge badge-gray">Đã tắt</span>
+            <?php elseif ($active): ?><span class="badge badge-green">Đang áp dụng</span>
+            <?php else: ?><span class="badge badge-gray">Ngoài thời gian</span><?php endif; ?>
+          </td>
+          <td>
+            <form method="post" action="promotion_toggle.php" onsubmit="return confirm('<?= $p['is_active'] ? 'Tắt' : 'Bật lại' ?> chương trình này?');">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+              <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;"><?= $p['is_active'] ? 'Tắt' : 'Bật lại' ?></button>
+            </form>
+          </td>
         </tr>
       <?php endforeach; ?>
     </tbody>
