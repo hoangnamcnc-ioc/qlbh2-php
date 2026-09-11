@@ -38,6 +38,17 @@ $gifts = $pdo->query(
      FROM gifts g ORDER BY g.points_required'
 )->fetchAll();
 
+$redemptions = $pdo->query(
+    'SELECT r.*, g.name AS gift_name, c.name AS customer_name, c.phone AS customer_phone,
+            b.name AS branch_name, u.name AS redeemed_by_name
+     FROM gift_redemptions r
+     JOIN gifts g ON g.id = r.gift_id
+     JOIN customers c ON c.id = r.customer_id
+     LEFT JOIN branches b ON b.id = r.branch_id
+     JOIN users u ON u.id = r.redeemed_by_id
+     ORDER BY r.created_at DESC LIMIT 100'
+)->fetchAll();
+
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -89,6 +100,28 @@ require_once __DIR__ . '/inc_header.php';
               <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;"><?= $g['is_active'] ? 'Tắt' : 'Bật' ?></button>
             </form>
           </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+<h2 style="font-size:18px;font-weight:600;margin:32px 0 12px;">Lịch sử đổi quà</h2>
+<div class="card" style="padding:0;overflow-x:auto;">
+  <table>
+    <thead><tr><th>Thời gian</th><th>Khách hàng</th><th>Quà</th><th class="text-right">Điểm đã dùng</th><th>Chi nhánh</th><th>Người thực hiện</th></tr></thead>
+    <tbody>
+      <?php if (!$redemptions): ?>
+        <tr><td colspan="6" class="text-center muted" style="padding:24px;">Chưa có lượt đổi quà nào.</td></tr>
+      <?php endif; ?>
+      <?php foreach ($redemptions as $r): ?>
+        <tr>
+          <td class="muted"><?= date('d/m/Y H:i', strtotime($r['created_at'])) ?></td>
+          <td><a href="customer_view.php?id=<?= (int) $r['customer_id'] ?>"><?= e($r['customer_name']) ?></a> <span class="muted"><?= e($r['customer_phone'] ?: '') ?></span></td>
+          <td><?= e($r['gift_name']) ?></td>
+          <td class="text-right"><?= (int) $r['points_used'] ?></td>
+          <td class="muted"><?= e($r['branch_name'] ?: '—') ?></td>
+          <td class="muted"><?= e($r['redeemed_by_name']) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

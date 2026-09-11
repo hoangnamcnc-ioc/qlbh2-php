@@ -88,6 +88,13 @@ $debtEntries = $pdo->prepare(
 $debtEntries->execute([$id]);
 $debtEntries = $debtEntries->fetchAll();
 
+$giftRedemptions = $pdo->prepare(
+    'SELECT r.*, g.name AS gift_name FROM gift_redemptions r JOIN gifts g ON g.id = r.gift_id
+     WHERE r.customer_id = ? ORDER BY r.created_at DESC LIMIT 50'
+);
+$giftRedemptions->execute([$id]);
+$giftRedemptions = $giftRedemptions->fetchAll();
+
 $tiers = $pdo->query('SELECT * FROM customer_tiers WHERE is_active = 1 ORDER BY min_spend')->fetchAll();
 $currentTier = null;
 $nextTier = null;
@@ -166,6 +173,24 @@ require_once __DIR__ . '/inc_header.php';
           <td class="text-right" style="font-weight:600;<?= $de['amount'] > 0 ? 'color:#dc2626;' : 'color:#059669;' ?>">
             <?= $de['amount'] > 0 ? '+' : '' ?><?= money($de['amount']) ?>
           </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
+
+<?php if ($giftRedemptions): ?>
+<h2 style="font-size:18px;font-weight:600;margin:0 0 12px;">Lịch sử đổi quà</h2>
+<div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
+  <table>
+    <thead><tr><th>Thời gian</th><th>Quà</th><th class="text-right">Điểm đã dùng</th></tr></thead>
+    <tbody>
+      <?php foreach ($giftRedemptions as $gr): ?>
+        <tr>
+          <td class="muted"><?= date('d/m/Y H:i', strtotime($gr['created_at'])) ?></td>
+          <td><?= e($gr['gift_name']) ?></td>
+          <td class="text-right" style="font-weight:600;">-<?= (int) $gr['points_used'] ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

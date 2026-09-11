@@ -966,3 +966,25 @@ hàng là tự động thưởng chiết khấu cho khách mua nhiều, nhưng t
 `loyalty_discount_percent: 10`; bán tiếp 1 đơn 100.000 cho khách này → hóa đơn tự động giảm đúng
 10.000 (10%), khách phải trả đúng 90.000. Đã xóa sạch dữ liệu test (hạng thẻ, khách hàng, đơn hàng,
 sản phẩm test).
+
+## Vòng rà soát module Quà tặng đổi điểm
+
+Rà soát nội bộ toàn bộ luồng đổi quà (`gifts.php` khai báo danh mục, `pos_gifts.php` liệt kê quà đủ
+điểm, `redeem_gift.php` xử lý đổi quà) — phần xử lý giao dịch bản thân nó đã đúng và an toàn: dùng
+`FOR UPDATE` khóa dòng khách hàng/quà tặng tránh trừ điểm/trừ tồn kho quà trùng khi 2 người thu
+ngân bấm đổi quà cùng lúc, kiểm tra đủ điểm/còn hàng trước khi trừ, ghi lại `gift_redemptions` đầy
+đủ. Gap phát hiện được: bảng `gift_redemptions` đã lưu đủ dữ liệu (ai đổi, quà gì, bao nhiêu điểm,
+lúc nào, chi nhánh nào) nhưng **không có bất kỳ trang nào hiển thị lại lịch sử này** — `gifts.php`
+trước đó chỉ hiện 1 con số tổng "Đã đổi" theo từng quà, không xem được đã đổi cho ai, khi nào; trang
+`customer_view.php` cũng không có mục nào cho lịch sử đổi quà của riêng khách đó. Nếu có tranh chấp
+("khách này đã nhận quà chưa?", "khách X đã đổi những quà gì?") thì không có cách nào tra cứu lại.
+
+Đã bổ sung:
+- `gifts.php`: thêm bảng "Lịch sử đổi quà" (100 lượt gần nhất) — thời gian, khách hàng (link tới
+  trang chi tiết), quà, điểm đã dùng, chi nhánh, người thực hiện.
+- `customer_view.php`: thêm mục "Lịch sử đổi quà" riêng cho khách đang xem, đặt cạnh "Lịch sử công
+  nợ" đã có từ vòng trước — theo đúng mẫu đã dùng cho các loại lịch sử khác trong trang này.
+
+Đã test trên app.kt-soft.vn: tạo quà test 50 điểm, khách hàng test có 100 điểm → đổi quà qua
+`redeem_gift.php` → còn đúng 50 điểm; lịch sử đổi quà hiện đúng cả ở `gifts.php` (kèm tên khách,
+chi nhánh, người thực hiện) và ở trang chi tiết khách hàng đó. Đã xóa sạch dữ liệu test.
