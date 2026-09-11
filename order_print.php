@@ -28,6 +28,8 @@ $items = $pdo->prepare(
 );
 $items->execute([$id]);
 $items = $items->fetchAll();
+$paperWidthMm = getSetting('print_paper_width', '80') === '58' ? '58mm' : '80mm';
+$paperWidth = $paperWidthMm === '58mm' ? '260px' : '380px';
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -35,7 +37,7 @@ $items = $items->fetchAll();
 <meta charset="UTF-8">
 <title>Hóa đơn <?= e($order['code']) ?></title>
 <style>
-  body { font-family: 'Courier New', monospace; max-width: 380px; margin: 0 auto; padding: 16px; font-size: 13px; color: #000; }
+  body { font-family: 'Courier New', monospace; max-width: <?= $paperWidth ?>; margin: 0 auto; padding: 16px; font-size: 13px; color: #000; }
   h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
   .center { text-align: center; }
   .line { border-top: 1px dashed #000; margin: 8px 0; }
@@ -45,6 +47,7 @@ $items = $items->fetchAll();
   .total-row td { font-weight: bold; font-size: 14px; padding-top: 6px; }
   @media print {
     .no-print { display: none; }
+    @page { size: <?= $paperWidthMm ?> auto; margin: 0; }
   }
 </style>
 </head>

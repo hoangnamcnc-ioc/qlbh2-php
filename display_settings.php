@@ -39,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
         ->execute(['print_split_lines', $splitLines]);
 
+    $paperWidth = in_array($_POST['print_paper_width'] ?? '', ['58', '80'], true) ? $_POST['print_paper_width'] : '80';
+    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
+        ->execute(['print_paper_width', $paperWidth]);
+
     $showSTT = isset($_POST['show_column_stt']) ? '1' : '0';
     $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
         ->execute(['show_column_stt', $showSTT]);
@@ -59,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $brandColor = getSetting('brand_color', '#2563eb');
 $sortOrder = getSetting('product_sort_order', 'name_asc');
 $splitLines = getSetting('print_split_lines', '0');
+$paperWidth = getSetting('print_paper_width', '80');
 $showSTT = getSetting('show_column_stt', '1');
 $showSku = getSetting('show_column_sku', '0');
 $qaValues = [];
@@ -104,6 +109,13 @@ require_once __DIR__ . '/inc_header.php';
 
   <div class="card" style="max-width:640px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:600;margin:0 0 12px;">Mẫu in hóa đơn</h2>
+    <div class="field">
+      <label>Khổ giấy in nhiệt</label>
+      <select class="input" name="print_paper_width" style="max-width:200px;">
+        <option value="80" <?= $paperWidth === '80' ? 'selected' : '' ?>>80mm (phổ biến)</option>
+        <option value="58" <?= $paperWidth === '58' ? 'selected' : '' ?>>58mm (máy in mini)</option>
+      </select>
+    </div>
     <div class="field">
       <label style="font-weight:400;"><input type="checkbox" name="print_split_lines" <?= $splitLines === '1' ? 'checked' : '' ?>> Tách dòng: in mỗi đơn vị sản phẩm thành 1 dòng riêng thay vì gộp theo số lượng</label>
     </div>

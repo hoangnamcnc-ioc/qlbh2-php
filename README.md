@@ -846,3 +846,29 @@ test (đơn hàng, phiếu sổ quỹ tự động, sản phẩm test).
 để ghi nhận doanh thu bán hàng theo cách thủ công) sẽ bị trùng với phiếu tự động mới từ vòng này —
 cần rà soát và xóa các phiếu thủ công trùng lặp đó nếu có, để tránh tính đúp doanh thu trong Sổ quỹ
 kể từ ngày cập nhật.
+
+## Vòng rà soát module Cấu hình (đối chiếu trang "Cấu hình" thực tế của Sapo)
+
+Trang `settings.php` của QLBH2 (23 mục con, chia 4 nhóm) đã che phủ gần hết danh sách cấu hình thật
+của Sapo: Thông tin cửa hàng, Chi nhánh, Nhân viên & phân quyền, Thuế, Chính sách giá, Thanh toán,
+Quản lý kho & Sản phẩm, Cấu hình bán hàng, Nguồn/Kênh bán hàng, Lý do hủy trả, Quà đổi điểm, Hạng
+thẻ, Khuyến mại, Mã giảm giá, Chính sách bảo hành, Marketing, Sổ quỹ, Báo cáo, Xuất/nhập file,
+Nhật ký hoạt động. Các mục còn lại của Sapo (Gói dịch vụ Sapo, Hóa đơn điện tử, Cân điện tử) là
+tính năng gắn với hạ tầng/dịch vụ bên thứ 3 của riêng Sapo, đúng như các vòng trước đã xác định là
+ngoài phạm vi. Tài khoản "test" dùng để khảo sát bị giới hạn quyền ở hầu hết trang cấu hình con
+(vd "Cấu hình bán hàng", "Xử lý đơn hàng" báo "Bạn không có quyền truy cập") nên không đối chiếu
+sâu được các trang đó — chỉ xác nhận được sự tồn tại của chúng qua menu.
+
+Gap cụ thể vẫn xác minh được: mục "Mẫu in" của Sapo cho tùy chỉnh mẫu in theo từng khổ giấy, trong
+khi `order_print.php` của QLBH2 **hardcode khổ giấy 80mm** — nếu cửa hàng dùng máy in nhiệt mini
+58mm (rất phổ biến với các máy in giá rẻ ở tiệm tạp hóa/dược nhỏ) thì hóa đơn in ra sẽ bị tràn lề
+hoặc cắt mất nội dung bên phải.
+
+Đã bổ sung:
+- `display_settings.php` (card "Mẫu in hóa đơn" đã có sẵn): thêm lựa chọn khổ giấy in nhiệt
+  80mm/58mm (`print_paper_width`).
+- `order_print.php`: đọc cấu hình này để chỉnh `max-width` của hóa đơn HTML và thêm khai báo CSS
+  `@page { size: 58mm/80mm auto; }` để trình duyệt in đúng khổ giấy khi gọi lệnh in.
+
+Đã test trên app.kt-soft.vn: chuyển cấu hình sang 58mm → trang in hóa đơn co đúng còn 260px và khai
+báo `@page` đúng 58mm; chuyển lại 80mm → về đúng 380px/80mm như cũ. Đã xóa dữ liệu test.
