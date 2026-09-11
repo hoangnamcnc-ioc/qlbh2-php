@@ -1014,3 +1014,31 @@ tham chiếu nhanh (vd trong báo cáo, xuất file) và không có chỗ ghi ch
 **Giới hạn còn lại**: tính năng "Nhóm khách hàng tự động" (dynamic segment) của Sapo — cần xem được
 giao diện cấu hình điều kiện thật để làm đúng, hiện bị chặn quyền trên tài khoản khảo sát nên để
 lại cho vòng sau nếu có quyền truy cập hoặc mô tả cụ thể hơn từ người dùng.
+
+## Vòng rà soát module Chi nhánh
+
+Trang "Quản lý chi nhánh" của Sapo bị chặn quyền với tài khoản khảo sát (giống nhiều trang cấu hình
+admin khác) nên chuyển sang rà soát nội bộ `branches.php` của QLBH2.
+
+Phát hiện: bảng `branches` **đã có sẵn cột `is_active`** trong schema nhưng **chưa từng được dùng ở
+bất kỳ đâu** — `branches.php` chỉ có chức năng thêm mới, không có sửa và không có cách tắt/mở một
+chi nhánh; đồng thời `is_active` không được lọc ở bất kỳ danh sách chọn chi nhánh nào trong toàn bộ
+ứng dụng (chuyển đổi chi nhánh tại POS, tạo phiếu kiểm kho, tạo phiếu chuyển hàng, gán chi nhánh cho
+nhân viên). Hệ quả: một khi cửa hàng đóng cửa 1 chi nhánh, chi nhánh đó vẫn hiện vĩnh viễn trong mọi
+danh sách chọn, và không có cách nào sửa lại tên/SĐT/địa chỉ nếu nhập sai — phải xóa hẳn (nguy hiểm,
+vỡ toàn bộ dữ liệu lịch sử liên kết) hoặc chấp nhận sai sót mãi mãi.
+
+Đã bổ sung:
+- `branches.php`: thêm chức năng **sửa** tên/SĐT/địa chỉ ngay trên từng dòng, và nút **"Ngừng hoạt
+  động"/"Bật lại"** dùng cột `is_active` có sẵn.
+- Lọc `WHERE is_active = 1` ở các danh sách chọn chi nhánh mang tính "thao tác mới" (nơi chọn chi
+  nhánh để làm việc, không phải nơi xem lại lịch sử): `pos.php` (chuyển đổi chi nhánh), `pos_switch_
+  branch.php` (chặn luôn ở phía server, không chỉ ẩn ở giao diện), `stock_take_form.php` (tạo phiếu
+  kiểm kho mới), `stock_transfer_form.php` (tạo phiếu chuyển hàng mới), `users.php` (gán chi nhánh
+  cho nhân viên). Các trang xem/lọc lịch sử theo chi nhánh (báo cáo, sổ quỹ, tồn kho, sản phẩm) cố
+  tình **không lọc** để không mất khả năng xem lại dữ liệu cũ của chi nhánh đã ngừng hoạt động.
+
+Đã test trên app.kt-soft.vn: tạo chi nhánh test → sửa lại tên/SĐT/địa chỉ → lưu đúng; bấm "Ngừng
+hoạt động" → hiện đúng badge, biến mất khỏi bộ chọn chi nhánh tại POS; thử chuyển vào chi nhánh đó
+qua `pos_switch_branch.php` trực tiếp (bỏ qua giao diện) → bị từ chối đúng, vẫn ở chi nhánh cũ; bật
+lại → hoạt động bình thường. Đã xóa sạch dữ liệu test.

@@ -10,7 +10,7 @@ $pdo = db();
 $branchId = (int) ($_POST['branch_id'] ?? 0);
 
 if ($branchId) {
-    $check = $pdo->prepare('SELECT id FROM branches WHERE id = ?');
+    $check = $pdo->prepare('SELECT id FROM branches WHERE id = ? AND is_active = 1');
     $check->execute([$branchId]);
     if ($check->fetch()) {
         $_SESSION['pos_branch_id'] = $branchId;

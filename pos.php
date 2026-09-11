@@ -4,7 +4,7 @@ require_once __DIR__ . '/inc_header.php';
 $pdo = db();
 $branchId = effectiveBranchId($currentUser);
 $canSwitchBranch = hasRole('ADMIN', 'MANAGER');
-$allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll() : [];
+$allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll() : [];
 $showColStt = getSetting('show_column_stt', '1') === '1';
 $showColSku = getSetting('show_column_sku', '0') === '1';
 $qa = fn(string $key) => getSetting($key, '1') === '1';

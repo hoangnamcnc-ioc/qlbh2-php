@@ -5,7 +5,7 @@ $currentUser = requireRole('ADMIN');
 
 $pdo = db();
 $error = null;
-$branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
+$branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
 $roleLabels = ['ADMIN' => 'Quản trị viên', 'MANAGER' => 'Quản lý', 'CASHIER' => 'Thu ngân'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -4,7 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
+$branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
