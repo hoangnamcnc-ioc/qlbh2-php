@@ -30,6 +30,7 @@ if ($order && $order['customer_id'] && $amount > 0) {
                 ->execute([$orderId, 'CASH', $amount]);
             $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
                 ->execute([$order['customer_id'], $orderId, -$amount, 'Thu nợ đơn hàng', $currentUser['id']]);
+            recordCashbookEntry((int) $order['branch_id'], 'RECEIPT', $amount, 'Thu nợ đơn hàng ' . $order['code'], 'CASH', $currentUser['id'], $orderId);
             $pdo->commit();
             logActivity('ORDER_PAY', "order_id=$orderId amount=$amount");
         } catch (Throwable $ex) {

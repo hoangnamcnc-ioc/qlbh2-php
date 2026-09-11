@@ -89,6 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->prepare('UPDATE suppliers SET debt = debt + ? WHERE id = ?')->execute([$total - $paidAmount, $supplierId]);
                 }
 
+                if ($paidAmount > 0) {
+                    recordCashbookEntry($branchId, 'PAYMENT', $paidAmount, "Chi tiền nhập hàng $code", 'CASH', $currentUser['id'], null, $receiptId);
+                }
+
                 $pdo->commit();
                 redirect('stock_receipt_view.php?id=' . $receiptId);
             } catch (Throwable $ex) {

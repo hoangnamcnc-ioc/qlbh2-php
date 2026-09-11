@@ -270,6 +270,7 @@ try {
     if ($paidAmount > 0) {
         $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
             ->execute([$orderId, $paymentMethod, $paidAmount]);
+        recordCashbookEntry($branchId, 'RECEIPT', $paidAmount, "Thu tiền bán hàng $code", $paymentMethod, $user['id'], $orderId);
     }
 
     if ($customerId) {

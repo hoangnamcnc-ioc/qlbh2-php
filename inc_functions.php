@@ -86,3 +86,24 @@ function getSetting(string $key, string $default = ''): string
     }
     return $cache[$key] ?? $default;
 }
+
+/** Tự động ghi 1 phiếu thu/chi vào Sổ quỹ khi có dòng tiền thật phát sinh (bán hàng, thu nợ, trả NCC...). */
+function recordCashbookEntry(
+    int $branchId,
+    string $type,
+    float $amount,
+    string $reason,
+    string $paymentMethod,
+    int $createdById,
+    ?int $orderId = null,
+    ?int $receiptId = null
+): void {
+    if ($amount <= 0 || !$branchId) {
+        return;
+    }
+    $prefix = $type === 'RECEIPT' ? 'PT' : 'PC';
+    $code = genCode($prefix);
+    db()->prepare(
+        'INSERT INTO cashbook_entries (code, branch_id, type, amount, reason, payment_method, created_by_id, order_id, receipt_id, auto_generated) VALUES (?,?,?,?,?,?,?,?,?,1)'
+    )->execute([$code, $branchId, $type, $amount, $reason, $paymentMethod, $createdById, $orderId, $receiptId]);
+}

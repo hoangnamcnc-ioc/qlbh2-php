@@ -23,6 +23,7 @@ if ($receipt && $receipt['supplier_id'] && $amount > 0) {
         try {
             $pdo->prepare('UPDATE stock_receipts SET paid_amount = paid_amount + ? WHERE id = ?')->execute([$amount, $receiptId]);
             $pdo->prepare('UPDATE suppliers SET debt = GREATEST(0, debt - ?) WHERE id = ?')->execute([$amount, $receipt['supplier_id']]);
+            recordCashbookEntry((int) $receipt['branch_id'], 'PAYMENT', $amount, 'Trả nợ NCC phiếu nhập ' . $receipt['code'], 'CASH', $currentUser['id'], null, $receiptId);
             $pdo->commit();
             logActivity('STOCK_RECEIPT_PAY', "receipt_id=$receiptId amount=$amount");
         } catch (Throwable $ex) {

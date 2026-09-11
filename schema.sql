@@ -639,6 +639,7 @@ CREATE TABLE IF NOT EXISTS order_status_history (
 ALTER TABLE shipments ADD COLUMN reconciled_at DATETIME NULL;
 ALTER TABLE shipments ADD COLUMN fee_payer ENUM('CUSTOMER','SHOP') NOT NULL DEFAULT 'CUSTOMER';
 ALTER TABLE products ADD COLUMN warranty_policy_id INT NULL, ADD FOREIGN KEY (warranty_policy_id) REFERENCES warranty_policies(id) ON DELETE SET NULL;
+ALTER TABLE cashbook_entries ADD COLUMN order_id INT NULL, ADD COLUMN receipt_id INT NULL, ADD COLUMN auto_generated TINYINT(1) NOT NULL DEFAULT 0;
 
 -- ===== Quản lý khuyến mại (chương trình tự động, khác mã coupon) =====
 CREATE TABLE IF NOT EXISTS promotions (

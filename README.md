@@ -809,3 +809,40 @@ sau khi bán) — dễ bị bỏ sót trong thực tế vận hành.
 Đã test trên app.kt-soft.vn: tạo sản phẩm test có `has_warranty=1` gắn chính sách 6 tháng, bán qua
 POS → phiếu bảo hành tự động xuất hiện đúng trong danh sách, đúng khách hàng, đúng chính sách,
 ngày kết thúc lệch chính xác +6 tháng so với ngày bán. Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát tiếp module Sổ quỹ (phát hiện gap lớn: sổ quỹ tách rời hoàn toàn khỏi dòng tiền bán hàng)
+
+Vòng trước chỉ so khớp giao diện lọc/tổng hợp của trang Sổ quỹ (đã khớp gần như 1:1 với Sapo). Vòng
+này xem kỹ trang **"Phiếu thu"** riêng của Sapo (menu con của Sổ quỹ) thì phát hiện điều quan
+trọng: mọi khoản khách thanh toán khi mua hàng đều **tự động sinh ra 1 "Phiếu thu"** trong sổ quỹ
+(loại phiếu "Tự động", có "Chứng từ gốc" trỏ về đúng mã đơn hàng) — tức Sổ quỹ trên Sapo chính là
+sổ tiền mặt/ngân hàng THẬT của toàn bộ cửa hàng, không phải một sổ ghi chép tay riêng biệt.
+
+Kiểm tra lại thì `cashbook_entries` của QLBH2 hoàn toàn tách rời khỏi `payments`/`orders`/
+`stock_receipts` — bán được 10 đơn hàng trị giá 10 triệu thì trang Sổ quỹ vẫn hiện "Tổng thu = 0"
+vì chưa từng có ai tạo phiếu thu thủ công tương ứng. Đây là gap nghiêm trọng nhất phát hiện được ở
+module này vì nó khiến Sổ quỹ (vốn là công cụ để chủ shop biết chính xác số tiền mặt/tiền trong
+tài khoản đang có) trở nên vô dụng trong thực tế nếu không thao tác thủ công song song.
+
+Đã bổ sung:
+- Hàm dùng chung `recordCashbookEntry()` (`inc_functions.php`) để tự động ghi 1 phiếu thu/chi.
+- `cashbook_entries`: thêm `order_id`, `receipt_id` (liên kết chứng từ gốc) và `auto_generated`.
+- **Tự động ghi Phiếu thu** khi: bán hàng có thu tiền ngay tại `pos_checkout.php` (dù thu đủ hay
+  thu một phần), thu nợ đơn hàng qua `order_pay.php`, thu nợ khách hàng trực tiếp qua
+  `customer_view.php`.
+- **Tự động ghi Phiếu chi** khi: trả tiền NCC ngay lúc tạo phiếu nhập (`stock_receipt_form.php`),
+  trả thêm nợ NCC qua `stock_receipt_pay.php`.
+- `cashbook.php`: thêm cột "Nguồn" hiển thị badge "Tự động"/"Thủ công" kèm link về đúng đơn
+  hàng/phiếu nhập gốc; thêm bộ lọc theo "Người tạo" (giống Sapo).
+- `cashbook_export.php`: file CSV xuất ra cũng có thêm cột nguồn/chứng từ liên quan, áp dụng đúng
+  bộ lọc người tạo.
+
+Đã test trên app.kt-soft.vn: bán 1 đơn 60.000 qua chuyển khoản tại POS → Sổ quỹ tự động xuất hiện
+đúng 1 phiếu thu 60.000, đúng hình thức "Chuyển khoản", có link về đúng mã đơn hàng, "Tổng thu"
+trong kỳ tăng đúng từ 0 lên 60.000 — không cần bất kỳ thao tác thủ công nào. Đã xóa sạch dữ liệu
+test (đơn hàng, phiếu sổ quỹ tự động, sản phẩm test).
+
+**Lưu ý quan trọng**: các phiếu thu/chi thủ công tạo trước đây trong QLBH2 (nếu người dùng đã dùng
+để ghi nhận doanh thu bán hàng theo cách thủ công) sẽ bị trùng với phiếu tự động mới từ vòng này —
+cần rà soát và xóa các phiếu thủ công trùng lặp đó nếu có, để tránh tính đúp doanh thu trong Sổ quỹ
+kể từ ngày cập nhật.

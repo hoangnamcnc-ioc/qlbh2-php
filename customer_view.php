@@ -32,6 +32,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
         $pdo->prepare('UPDATE customers SET debt = debt - ? WHERE id = ?')->execute([$amount, $id]);
         $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, amount, note, created_by_id) VALUES (?,?,?,?)')
             ->execute([$id, -$amount, 'Thu nợ trực tiếp', $currentUser['id']]);
+        $collectBranchId = effectiveBranchId($currentUser);
+        if ($collectBranchId) {
+            recordCashbookEntry($collectBranchId, 'RECEIPT', $amount, 'Thu nợ trực tiếp KH ' . $customer['name'], 'CASH', $currentUser['id']);
+        }
         redirect('customer_view.php?id=' . $id);
     }
 }

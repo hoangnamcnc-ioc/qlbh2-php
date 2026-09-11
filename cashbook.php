@@ -39,8 +39,10 @@ $toDt = $to . ' 23:59:59';
 $typeFilter = $_GET['type'] ?? '';
 $branchFilter = (int) ($_GET['branch_id'] ?? 0);
 $paymentFilter = $_GET['payment_method'] ?? '';
+$staffFilter = (int) ($_GET['staff_id'] ?? 0);
 
 $branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
+$staffList = $pdo->query('SELECT id, name FROM users ORDER BY name')->fetchAll();
 
 // Số dư đầu kỳ: tổng thu - chi của mọi phiếu trước ngày bắt đầu lọc.
 $opening = $pdo->prepare(
@@ -64,6 +66,10 @@ if (array_key_exists($paymentFilter, $paymentLabels)) {
     $where[] = 'ce.payment_method = ?';
     $params[] = $paymentFilter;
 }
+if ($staffFilter) {
+    $where[] = 'ce.created_by_id = ?';
+    $params[] = $staffFilter;
+}
 $whereSql = implode(' AND ', $where);
 
 $totals = $pdo->prepare(
@@ -76,10 +82,12 @@ $totals = $totals->fetch();
 $closingBalance = $openingBalance + (float) $totals['total_receipt'] - (float) $totals['total_payment'];
 
 $entries = $pdo->prepare(
-    "SELECT ce.*, b.name AS branch_name, u.name AS created_by_name
+    "SELECT ce.*, b.name AS branch_name, u.name AS created_by_name, o.code AS order_code, r.code AS receipt_code
      FROM cashbook_entries ce
      JOIN branches b ON b.id = ce.branch_id
      JOIN users u ON u.id = ce.created_by_id
+     LEFT JOIN orders o ON o.id = ce.order_id
+     LEFT JOIN stock_receipts r ON r.id = ce.receipt_id
      WHERE $whereSql
      ORDER BY ce.created_at DESC LIMIT 200"
 );
@@ -114,6 +122,12 @@ require_once __DIR__ . '/inc_header.php';
     <option value="">Tất cả hình thức TT</option>
     <?php foreach ($paymentLabels as $val => $lbl): ?>
       <option value="<?= e($val) ?>" <?= $paymentFilter === $val ? 'selected' : '' ?>><?= e($lbl) ?></option>
+    <?php endforeach; ?>
+  </select>
+  <select name="staff_id" class="input" style="max-width:170px;">
+    <option value="">Tất cả người tạo</option>
+    <?php foreach ($staffList as $s): ?>
+      <option value="<?= (int) $s['id'] ?>" <?= $staffFilter === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option>
     <?php endforeach; ?>
   </select>
   <button type="submit" class="btn btn-secondary">Lọc</button>
@@ -180,11 +194,11 @@ require_once __DIR__ . '/inc_header.php';
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
-      <tr><th>Mã phiếu</th><th>Loại</th><th>Lý do</th><th>Hình thức TT</th><th>Chi nhánh</th><th>Người tạo</th><th>Ngày</th><th class="text-right">Số tiền</th></tr>
+      <tr><th>Mã phiếu</th><th>Loại</th><th>Nguồn</th><th>Lý do</th><th>Hình thức TT</th><th>Chi nhánh</th><th>Người tạo</th><th>Ngày</th><th class="text-right">Số tiền</th></tr>
     </thead>
     <tbody>
       <?php if (!$entries): ?>
-        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Không có phiếu thu/chi nào khớp bộ lọc.</td></tr>
+        <tr><td colspan="9" class="text-center muted" style="padding:32px;">Không có phiếu thu/chi nào khớp bộ lọc.</td></tr>
       <?php endif; ?>
       <?php foreach ($entries as $en): ?>
         <tr>
@@ -194,6 +208,17 @@ require_once __DIR__ . '/inc_header.php';
               <span class="badge badge-green">Phiếu thu</span>
             <?php else: ?>
               <span class="badge badge-red">Phiếu chi</span>
+            <?php endif; ?>
+          </td>
+          <td>
+            <?php if ($en['order_code']): ?>
+              <span class="badge badge-gray">Tự động</span> <a href="order_view.php?id=<?= (int) $en['order_id'] ?>" style="font-family:monospace;font-size:12px;"><?= e($en['order_code']) ?></a>
+            <?php elseif ($en['receipt_code']): ?>
+              <span class="badge badge-gray">Tự động</span> <a href="stock_receipt_view.php?id=<?= (int) $en['receipt_id'] ?>" style="font-family:monospace;font-size:12px;"><?= e($en['receipt_code']) ?></a>
+            <?php elseif ($en['auto_generated']): ?>
+              <span class="badge badge-gray">Tự động</span>
+            <?php else: ?>
+              <span class="muted" style="font-size:12px;">Thủ công</span>
             <?php endif; ?>
           </td>
           <td><?= e($en['reason']) ?></td>
