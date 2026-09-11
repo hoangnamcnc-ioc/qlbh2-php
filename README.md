@@ -988,3 +988,29 @@ trước đó chỉ hiện 1 con số tổng "Đã đổi" theo từng quà, kh�
 Đã test trên app.kt-soft.vn: tạo quà test 50 điểm, khách hàng test có 100 điểm → đổi quà qua
 `redeem_gift.php` → còn đúng 50 điểm; lịch sử đổi quà hiện đúng cả ở `gifts.php` (kèm tên khách,
 chi nhánh, người thực hiện) và ở trang chi tiết khách hàng đó. Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát module Nhóm khách hàng
+
+Truy cập trực tiếp được trang "Danh sách nhóm khách hàng" thật của Sapo (không bị chặn quyền như
+nhiều trang cấu hình khác). Cột hiển thị: Mã nhóm, Loại nhóm, Mô tả, Số lượng khách hàng, Ngày tạo.
+Sapo còn hỗ trợ 2 loại nhóm — "**Nhóm cố định**" (gán tay từng khách, giống QLBH2 đang có) và
+"**Nhóm tự động**" (tự tập hợp khách theo điều kiện chung, dùng cho marketing/chăm sóc) — nhưng
+trang tạo "Nhóm tự động" bị hạn chế quyền với tài khoản test nên không xem được chi tiết bộ điều
+kiện thật sự dùng gì (chi tiêu, thẻ, khu vực...) — không đủ cơ sở để làm đúng, nên **chưa build
+phần này** để tránh đoán mò sai lệch so với thực tế.
+
+Gap xác minh chắc chắn được (nhìn trực tiếp từ danh sách thật): `customer_groups` của QLBH2 thiếu
+2 cột Mã nhóm và Mô tả mà Sapo có sẵn — nhóm khách hàng trong QLBH2 chỉ có tên, không có mã riêng để
+tham chiếu nhanh (vd trong báo cáo, xuất file) và không có chỗ ghi chú ý nghĩa/tiêu chí của nhóm.
+
+Đã bổ sung:
+- `customer_groups`: thêm cột `code` (mã nhóm, unique) và `description` (mô tả).
+- `groups.php`: form tạo nhóm thêm ô nhập mã (bỏ trống thì tự sinh mã dạng `NHM########`) và ô mô
+  tả; danh sách nhóm hiển thị thêm mã và mô tả (nếu có) cho từng nhóm.
+
+Đã test trên app.kt-soft.vn: tạo nhóm không nhập mã → tự sinh đúng mã `NHM########`, mô tả hiển thị
+đúng; tạo nhóm khác với mã tự nhập `TESTBB` → lưu đúng mã đã nhập. Đã xóa sạch dữ liệu test.
+
+**Giới hạn còn lại**: tính năng "Nhóm khách hàng tự động" (dynamic segment) của Sapo — cần xem được
+giao diện cấu hình điều kiện thật để làm đúng, hiện bị chặn quyền trên tài khoản khảo sát nên để
+lại cho vòng sau nếu có quyền truy cập hoặc mô tả cụ thể hơn từ người dùng.

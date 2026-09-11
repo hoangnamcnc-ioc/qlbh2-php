@@ -689,6 +689,7 @@ CREATE TABLE IF NOT EXISTS product_prices (
 
 ALTER TABLE customer_groups ADD COLUMN price_list_id INT NULL,
   ADD CONSTRAINT fk_customer_groups_price_list FOREIGN KEY (price_list_id) REFERENCES price_lists(id) ON DELETE SET NULL;
+ALTER TABLE customer_groups ADD COLUMN code VARCHAR(50) NULL UNIQUE, ADD COLUMN description VARCHAR(255) NULL;
 
 -- Dữ liệu khởi tạo
 INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')

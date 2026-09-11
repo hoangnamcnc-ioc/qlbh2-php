@@ -17,6 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('groups.php');
     } else {
         $name = post('name');
+        $code = strtoupper(post('code'));
+        $description = post('description') ?: null;
         if ($name === '') {
             $error = 'Vui lòng nhập tên nhóm';
         } else {
@@ -25,8 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($check->fetch()) {
                 $error = 'Nhóm khách hàng này đã tồn tại';
             } else {
-                $pdo->prepare('INSERT INTO customer_groups (name) VALUES (?)')->execute([$name]);
-                redirect('groups.php');
+                if ($code === '') {
+                    $code = 'NHM' . substr((string) (int) round(microtime(true) * 1000), -8);
+                }
+                $codeCheck = $pdo->prepare('SELECT id FROM customer_groups WHERE code = ?');
+                $codeCheck->execute([$code]);
+                if ($codeCheck->fetch()) {
+                    $error = 'Mã nhóm này đã tồn tại';
+                } else {
+                    $pdo->prepare('INSERT INTO customer_groups (name, code, description) VALUES (?,?,?)')->execute([$name, $code, $description]);
+                    redirect('groups.php');
+                }
             }
         }
     }
@@ -47,12 +58,20 @@ require_once __DIR__ . '/inc_header.php';
 
 <div class="card" style="max-width:640px;margin-bottom:24px;">
   <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
-  <form method="post" style="display:flex;align-items:end;gap:12px;">
+  <form method="post" style="display:flex;align-items:end;gap:12px;flex-wrap:wrap;">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
     <input type="hidden" name="action" value="create">
     <div>
       <label style="font-size:12px;">Tên nhóm mới</label>
-      <input class="input" name="name" required placeholder="vd: VIP, Bán buôn..." style="width:260px;">
+      <input class="input" name="name" required placeholder="vd: VIP, Bán buôn..." style="width:220px;">
+    </div>
+    <div>
+      <label style="font-size:12px;">Mã nhóm (bỏ trống = tự sinh)</label>
+      <input class="input" name="code" placeholder="vd: VIP" style="width:140px;">
+    </div>
+    <div>
+      <label style="font-size:12px;">Mô tả</label>
+      <input class="input" name="description" placeholder="tùy chọn" style="width:220px;">
     </div>
     <button type="submit" class="btn">Thêm nhóm</button>
   </form>
@@ -69,7 +88,9 @@ require_once __DIR__ . '/inc_header.php';
       <input type="hidden" name="group_id" value="<?= (int) $g['id'] ?>">
       <div style="flex:1;">
         <?= e($g['name']) ?>
+        <span class="muted" style="font-size:12px;font-family:monospace;"> (<?= e($g['code'] ?: '—') ?>)</span>
         <span class="muted" style="font-size:12px;"> · <?= (int) $g['customer_count'] ?> khách hàng</span>
+        <?php if ($g['description']): ?><div class="muted" style="font-size:12px;"><?= e($g['description']) ?></div><?php endif; ?>
       </div>
       <select name="price_list_id" class="input" style="max-width:200px;" onchange="this.form.submit()">
         <option value="">— Giá mặc định —</option>
