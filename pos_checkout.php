@@ -194,6 +194,31 @@ try {
         }
     }
 
+    // Chiết khấu khách hàng thân thiết: lấy mức cao hơn giữa chiết khấu riêng của khách
+    // và chiết khấu theo hạng thẻ (tính theo tổng chi tiêu lũy kế các đơn chưa hủy), cộng dồn tiếp.
+    if ($customerId) {
+        $custStmt = $pdo->prepare('SELECT discount_percent FROM customers WHERE id = ?');
+        $custStmt->execute([$customerId]);
+        $loyaltyDiscountPercent = (float) ($custStmt->fetchColumn() ?: 0);
+
+        $spendStmt = $pdo->prepare(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE customer_id = ? AND status != 'CANCELLED'"
+        );
+        $spendStmt->execute([$customerId]);
+        $totalSpend = (float) $spendStmt->fetchColumn();
+
+        $tierStmt = $pdo->prepare(
+            'SELECT discount_percent FROM customer_tiers WHERE is_active = 1 AND min_spend <= ? ORDER BY min_spend DESC LIMIT 1'
+        );
+        $tierStmt->execute([$totalSpend]);
+        $tierDiscountPercent = (float) ($tierStmt->fetchColumn() ?: 0);
+
+        $loyaltyDiscountPercent = max($loyaltyDiscountPercent, $tierDiscountPercent);
+        if ($loyaltyDiscountPercent > 0) {
+            $discount = min($subTotal, $discount + $subTotal * $loyaltyDiscountPercent / 100);
+        }
+    }
+
     // Áp dụng tự động chương trình khuyến mại phù hợp nhất (không cần nhập mã),
     // cộng dồn với giảm giá từ coupon nếu có.
     $promotionId = null;

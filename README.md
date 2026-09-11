@@ -935,3 +935,34 @@ sai mà không xóa hẳn dữ liệu lịch sử đã áp dụng.
 Đã test trên app.kt-soft.vn: tạo 1 chương trình khuyến mại test → "Đang áp dụng"; bấm "Tắt" → chuyển
 đúng thành "Đã tắt"; bấm "Bật lại" → về đúng "Đang áp dụng". Tương tự với mã giảm giá test → bấm
 "Tắt" → chuyển đúng thành "Đã tắt". Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát module Khách hàng thân thiết (phát hiện: chiết khấu hạng thẻ/chiết khấu riêng chưa từng được áp dụng)
+
+Đọc lại chính ghi chú cảnh báo có sẵn trên trang `customer_tiers.php`: "Đây là danh mục tham chiếu,
+**chưa tự động áp dụng chiết khấu theo hạng vào đơn hàng**" — kiểm tra lại toàn bộ `pos_checkout.php`
+xác nhận đúng là như vậy: cả `customer_tiers.discount_percent` (chiết khấu theo hạng thẻ) lẫn
+`customers.discount_percent` (chiết khấu riêng khai báo ở trang khách hàng) **chưa bao giờ được
+dùng để giảm giá đơn hàng** — chỉ có coupon và khuyến mại tự động (promotions) là thực sự trừ tiền.
+Đây là gap cốt lõi của tính năng "khách hàng thân thiết": mục đích chính của việc phân hạng khách
+hàng là tự động thưởng chiết khấu cho khách mua nhiều, nhưng tính năng này hoàn toàn không hoạt
+động trong thực tế dù giao diện hiển thị đầy đủ hạng/chiết khấu.
+
+Đã bổ sung:
+- `pos_checkout.php`: khi có khách hàng, tính chiết khấu thân thiết = **mức cao hơn** giữa chiết
+  khấu riêng của khách và chiết khấu theo hạng thẻ hiện tại (theo tổng chi tiêu lũy kế các đơn chưa
+  hủy) — không cộng dồn cả 2 để tránh giảm giá chồng chéo vô lý; khoản này cộng dồn tiếp với chiết
+  khấu tay/coupon/khuyến mại tự động như các loại chiết khấu khác đã có.
+- `customer_lookup.php`: trả thêm `loyalty_discount_percent` để giao diện POS biết trước mức chiết
+  khấu sẽ áp dụng ngay khi tra cứu khách hàng theo SĐT (tính đúng cùng công thức phía server).
+- `pos.php`: hiển thị "Chiết khấu thân thiết: X%" ngay trong dòng thông tin khách hàng, và cộng
+  khoản này vào tổng tiền xem trước tại POS (trước đây chỉ khuyến mại tự động là tính "ngầm" phía
+  server mà giao diện không hiển thị trước — nay chiết khấu thân thiết được hiển thị minh bạch
+  ngay khi chọn khách, tránh chênh lệch giữa số hiển thị và số thực thu).
+- `customer_tiers.php`: cập nhật lại đúng nội dung ghi chú, không còn cảnh báo "chưa tự động áp
+  dụng" nữa.
+
+Đã test trên app.kt-soft.vn: tạo hạng thẻ test "TEST Vàng" (chi tiêu tối thiểu 100.000, chiết khấu
+10%), tạo khách hàng có sẵn 1 đơn 200.000 (đủ điều kiện lên hạng) → tra cứu SĐT trả về đúng
+`loyalty_discount_percent: 10`; bán tiếp 1 đơn 100.000 cho khách này → hóa đơn tự động giảm đúng
+10.000 (10%), khách phải trả đúng 90.000. Đã xóa sạch dữ liệu test (hạng thẻ, khách hàng, đơn hàng,
+sản phẩm test).

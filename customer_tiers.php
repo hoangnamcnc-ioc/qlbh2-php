@@ -40,8 +40,9 @@ require_once __DIR__ . '/inc_header.php';
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 8px;">Hạng thẻ khách hàng</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">
   Khai báo các mốc chi tiêu để tự động xếp hạng khách hàng (theo tổng chi tiêu tích lũy, không tính
-  đơn đã hủy) — hiển thị trong trang chi tiết khách hàng. Đây là danh mục tham chiếu, chưa tự động
-  áp dụng chiết khấu theo hạng vào đơn hàng.
+  đơn đã hủy). Chiết khấu theo hạng được <b>tự động áp dụng tại POS</b> khi chọn khách hàng — nếu
+  khách vừa có chiết khấu riêng (khai báo ở trang khách hàng) vừa đủ điều kiện lên hạng, hệ thống
+  lấy mức chiết khấu cao hơn trong 2 mức đó (không cộng dồn cả hai).
 </p>
 
 <div class="card" style="max-width:520px;margin-bottom:24px;">

@@ -289,7 +289,7 @@ window.addEventListener('online', () => { updateOfflineBanner(); syncOfflineQueu
 window.addEventListener('offline', () => { updateOfflineBanner(); });
 function makeEmptyOrder() {
   return {
-    cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, paymentMethod: 'CASH',
+    cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, loyaltyDiscountPercent: 0, paymentMethod: 'CASH',
     manualDiscountType: defaultDiscountUnit, manualDiscountValue: '', appliedCoupon: null, couponInput: '',
     isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', tags: '', cashGiven: '',
     partialPayment: false, paidAmount: '',
@@ -306,6 +306,7 @@ function saveCurrentOrderState() {
   o.priceListId = currentPriceListId;
   o.customerId = currentCustomerId;
   o.customerPoints = currentCustomerPoints;
+  o.loyaltyDiscountPercent = currentLoyaltyDiscountPercent;
   o.paymentMethod = document.getElementById('payment-method').value;
   o.manualDiscountType = document.getElementById('manual-discount-type').value;
   o.manualDiscountValue = document.getElementById('manual-discount-value').value;
@@ -327,6 +328,7 @@ function loadOrderState(idx) {
   currentPriceListId = o.priceListId;
   currentCustomerId = o.customerId;
   currentCustomerPoints = o.customerPoints;
+  currentLoyaltyDiscountPercent = o.loyaltyDiscountPercent || 0;
   appliedCoupon = o.appliedCoupon;
   document.getElementById('customer-phone').value = o.customerPhone;
   document.getElementById('customer-info').textContent = '';
@@ -394,6 +396,7 @@ let searchTimer = null;
 let currentPriceListId = null;
 let currentCustomerId = null;
 let currentCustomerPoints = 0;
+let currentLoyaltyDiscountPercent = 0;
 
 const customerPhoneInput = document.getElementById('customer-phone');
 let phoneTimer = null;
@@ -403,7 +406,9 @@ customerPhoneInput.addEventListener('input', () => {
   currentPriceListId = null;
   currentCustomerId = null;
   currentCustomerPoints = 0;
+  currentLoyaltyDiscountPercent = 0;
   document.getElementById('customer-info').textContent = '';
+  updateTotals();
   if (phone.length < 6) return;
   phoneTimer = setTimeout(() => {
     fetch('customer_lookup.php?phone=' + encodeURIComponent(phone))
@@ -414,10 +419,14 @@ customerPhoneInput.addEventListener('input', () => {
           currentPriceListId = data.price_list_id;
           currentCustomerId = data.id;
           currentCustomerPoints = data.loyalty_points;
-          infoEl.textContent = data.name + (data.group_name ? ' · Nhóm: ' + data.group_name : '') + ' · Điểm: ' + data.loyalty_points + (data.price_list_id ? ' · Áp dụng bảng giá riêng' : '');
+          currentLoyaltyDiscountPercent = data.loyalty_discount_percent || 0;
+          infoEl.textContent = data.name + (data.group_name ? ' · Nhóm: ' + data.group_name : '') + ' · Điểm: ' + data.loyalty_points
+            + (currentLoyaltyDiscountPercent > 0 ? ' · Chiết khấu thân thiết: ' + currentLoyaltyDiscountPercent + '%' : '')
+            + (data.price_list_id ? ' · Áp dụng bảng giá riêng' : '');
         } else {
           infoEl.textContent = 'Khách hàng mới';
         }
+        updateTotals();
       });
   }, 400);
 });
@@ -556,7 +565,8 @@ function updateTotals() {
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const manualDiscount = getManualDiscount(subTotal);
   const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
-  const discount = Math.min(subTotal, manualDiscount + couponDiscount);
+  const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
+  const discount = Math.min(subTotal, manualDiscount + couponDiscount + loyaltyDiscount);
   const shippingFee = getShippingFee();
   const total = Math.max(0, subTotal - discount) + shippingFee;
   document.getElementById('cart-subtotal').textContent = formatMoney(subTotal);
@@ -597,7 +607,8 @@ document.getElementById('delivery-toggle').addEventListener('change', (e) => {
 
 function updateChange() {
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const discount = Math.min(subTotal, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0));
+  const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
+  const discount = Math.min(subTotal, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0) + loyaltyDiscount);
   const total = Math.max(0, subTotal - discount) + getShippingFee();
   const given = parseFloat(document.getElementById('cash-given').value) || 0;
   const change = given - Math.max(0, total);
