@@ -1073,3 +1073,24 @@ jar khác) → xác nhận vào được `users.php` (trang chỉ ADMIN mới v�
 "Khóa" tài khoản test đó; gọi lại `users.php` bằng đúng phiên cũ (không đăng nhập lại) → bị chuyển
 hướng ngay lập tức về `login.php?locked=1` kèm thông báo, xác nhận lỗ hổng đã được vá. Đã xóa sạch
 tài khoản test.
+
+## Vòng rà soát module Tồn kho
+
+Trang danh sách sản phẩm thật của Sapo (cột Ảnh/Sản phẩm/Loại/Nhãn hiệu/Có thể bán/Tồn kho) và
+widget "THÔNG TIN KHO" trên dashboard (Sản phẩm dưới định mức/Số tồn kho/Giá trị tồn kho) — đối
+chiếu thì QLBH2 đã có tương đương ở `index.php` (tổng tồn kho, danh sách sản phẩm dưới định mức) và
+`reports.php` (giá trị tồn kho, bảng chi tiết theo sản phẩm, đã làm ở vòng Báo cáo). Gap cụ thể còn
+lại nằm ở chính trang `inventory.php` ("Quản lý kho") — trang duyệt tồn kho theo từng dòng chi
+nhánh/sản phẩm: **không có ô tìm kiếm theo tên/SKU, không lọc được riêng sản phẩm dưới định mức,
+không hiển thị giá trị tồn** — với danh sách giới hạn 200 dòng gần cập nhật nhất, một cửa hàng có
+nhiều sản phẩm gần như không thể tìm ra đúng dòng cần xem hoặc lọc được danh sách hàng cần nhập
+thêm.
+
+Đã bổ sung vào `inventory.php`:
+- Ô tìm kiếm theo tên sản phẩm/biến thể hoặc mã SKU.
+- Checkbox "Chỉ hiện dưới định mức" — lọc nhanh đúng những dòng cần nhập thêm hàng.
+- Thêm cột SKU và cột "Giá trị tồn" (số lượng × giá vốn) cho từng dòng.
+
+Đã test trên app.kt-soft.vn: tạo sản phẩm test tồn 2/định mức 10, giá vốn 5.000 → tìm theo SKU ra
+đúng kết quả, cột giá trị tồn hiển thị đúng 10.000; bật "Chỉ hiện dưới định mức" → sản phẩm test
+xuất hiện đúng trong danh sách lọc. Đã xóa sạch dữ liệu test.
