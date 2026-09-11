@@ -1110,3 +1110,41 @@ từ trước ("chưa tích hợp API thật... cần đăng ký tài khoản v�
 soát mà do bản chất tính năng phụ thuộc hoàn toàn vào dịch vụ trả phí của bên thứ 3 (Tổng cục Thuế/
 nhà cung cấp hóa đơn điện tử), nằm ngoài quyết định phạm vi ban đầu của dự án QLBH2. Không có thay
 đổi code nào trong vòng này.
+
+## Vòng rà soát module Đặt hàng Online — xây mới, có xác nhận phạm vi với người dùng trước khi làm
+
+Xem trực tiếp mục "Đặt hàng Online" thật của Sapo (`/admin/apps/app-landing-order`, nằm trong nhóm
+"KÊNH BÁN HÀNG"): đây là 1 ứng dụng riêng cho 1 **trang đặt hàng công khai không cần đăng nhập** để
+chia sẻ cho khách qua Facebook/Zalo — khách tự xem sản phẩm, chọn số lượng, điền thông tin và đặt
+hàng, đơn tự động đổ về hệ thống chờ xác nhận. Khác hẳn quy mô các vòng trước: kiểm tra code QLBH2
+xác nhận **100% các trang đều bắt buộc đăng nhập** (`inc_header.php` luôn gọi `requireLogin()`) —
+tức chưa từng có bất kỳ trang công khai nào. Đây là xây MỚI một khả năng (không phải sửa gap nhỏ),
+nên đã hỏi ý kiến người dùng trước khi làm thay vì tự ý quyết định phạm vi — người dùng chọn
+phương án xây bản đơn giản.
+
+Đã xây dựng:
+- `shop.php` (mới, **không yêu cầu đăng nhập**): trang công khai liệt kê sản phẩm loại `PRODUCT`
+  đang bán và còn hàng tại chi nhánh đang hoạt động đầu tiên, kèm ảnh/giá/tồn kho; khách nhập số
+  lượng từng sản phẩm muốn mua + họ tên/SĐT/địa chỉ nhận hàng/ghi chú rồi gửi.
+- `shop_order.php` (mới, **không yêu cầu đăng nhập**): xử lý đơn — validate lại giá và tồn kho phía
+  server (không tin số liệu từ trình duyệt), tự tạo/tìm khách hàng theo SĐT, tạo đơn hàng ở trạng
+  thái **DRAFT** (`source = 'ONLINE'`, gắn kênh bán hàng loại `WEBSITE` nếu có khai báo), trừ tồn
+  kho ngay lúc đặt (nhất quán với cách POS đang làm), dùng khóa `FOR UPDATE` tránh bán trùng khi
+  nhiều khách đặt cùng lúc. Đơn tạo ra tái sử dụng đúng pipeline Đặt hàng/Duyệt/Đóng gói/Xuất
+  kho/Hoàn thành đã xây ở vòng "Đơn hàng" trước đó — không cần thêm code xử lý trạng thái mới.
+- `online_shop_settings.php` (mới): trang cấu hình cho ADMIN/MANAGER — hiển thị đường link công
+  khai để copy chia sẻ, và công tắc bật/tắt nhận đơn online tạm thời (không cần gỡ link đã chia sẻ
+  khi hết hàng/nghỉ bán).
+- `settings.php`: thêm mục "🛒 Đặt hàng Online" vào nhóm "Thiết lập bán hàng".
+
+Đã test trên app.kt-soft.vn: mở `shop.php` **không đăng nhập** → thấy đúng sản phẩm test đang bán;
+đặt 3 sản phẩm với thông tin khách mới → nhận đúng mã đơn, tồn kho giảm đúng từ 15 xuống 12; đơn
+xuất hiện đúng trong "Đơn hàng → Đặt hàng (DRAFT)" với đúng tên khách/địa chỉ; chuyển đơn qua đủ 4
+bước bằng `order_advance.php` đã có sẵn → về đúng "Hoàn thành" — xác nhận đơn từ kênh online tái sử
+dụng đúng toàn bộ hạ tầng pipeline/bảo hành/điểm tích lũy đã xây trước đó mà không cần sửa gì thêm.
+Đã xóa sạch dữ liệu test.
+
+**Giới hạn của bản đơn giản này** (đã nói rõ khi hỏi phạm vi): chỉ hỗ trợ sản phẩm loại thường
+(không biến thể, không combo) để giữ đơn giản; không có xác thực OTP/CAPTCHA chống spam đơn ảo;
+không tuỳ chỉnh giao diện/thương hiệu trang; không đồng bộ nhiều chi nhánh (luôn dùng chi nhánh
+đang hoạt động đầu tiên). Có thể mở rộng thêm nếu người dùng cần.
