@@ -872,3 +872,37 @@ hoặc cắt mất nội dung bên phải.
 
 Đã test trên app.kt-soft.vn: chuyển cấu hình sang 58mm → trang in hóa đơn co đúng còn 260px và khai
 báo `@page` đúng 58mm; chuyển lại 80mm → về đúng 380px/80mm như cũ. Đã xóa dữ liệu test.
+
+## Vòng rà soát module Đơn hàng (phát hiện gap lớn: quy trình xử lý đơn hàng hoàn toàn không dùng được)
+
+`orders.status` có đủ 5 bước ENUM (`DRAFT/APPROVED/PACKED/SHIPPED/COMPLETED/CANCELLED`), `order_view.php`
+vẽ đúng thanh tiến trình 5 bước, `orders.php` lọc được theo từng trạng thái, dashboard có widget đếm
+"Đơn hàng cần xử lý" theo từng bước (làm ở vòng trước) — nhưng rà lại toàn bộ code thì phát hiện
+**`pos_checkout.php` là nơi DUY NHẤT tạo đơn hàng, và luôn tạo thẳng ở trạng thái `COMPLETED`**, đồng
+thời **không có bất kỳ file nào để chuyển trạng thái đơn hàng sang bước tiếp theo**. Kết quả: toàn bộ
+quy trình Chờ duyệt → Duyệt → Đóng gói → Xuất kho → Hoàn thành chỉ tồn tại trên giao diện nhưng
+không bao giờ có đơn hàng nào thực sự đi qua nó — widget dashboard luôn hiện số 0, bộ lọc trạng thái
+trên `orders.php` không bao giờ lọc ra kết quả nào ngoài "Hoàn thành"/"Đã hủy". Đây là gap nghiêm
+trọng vì nó khiến toàn bộ tính năng "quy trình xử lý đơn hàng" — vốn cần thiết cho đơn đặt trước/đơn
+gọi điện/đơn online cần duyệt và đóng gói trước khi giao — không thể dùng được trong thực tế.
+
+Đã bổ sung:
+- `inc_functions.php`: tách hàm dùng chung `createWarrantyCardsForOrder()` (trước đây nằm thẳng
+  trong `pos_checkout.php`, giờ tái dùng được ở cả bước hoàn thành thủ công).
+- `pos.php`: thêm nút "Đặt hàng — xử lý sau" bên cạnh nút "Thanh toán" — tạo đơn nhưng không thu
+  tiền, không xuất kho ngay tinh thần bán hàng thật (vẫn trừ tồn kho ngay lúc đặt để tránh bán trùng
+  hàng, giống cách "Hoàn thành" đang trừ kho — chỉ khác ở việc chưa thu tiền/chưa tạo phiếu bảo
+  hành/chưa cộng điểm, các việc này chỉ làm khi đơn thực sự hoàn thành).
+- `pos_checkout.php`: nhận thêm cờ `draft` — nếu bật thì tạo đơn ở trạng thái `DRAFT`, `payment_status
+  = UNPAID`, bỏ qua tạo phiếu bảo hành/cộng điểm/ghi sổ quỹ (dời đến lúc đơn được chuyển sang Hoàn
+  thành).
+- `order_advance.php` (mới): nút "Chuyển sang: <bước tiếp theo>" cho ADMIN/MANAGER, dịch đơn hàng
+  sang đúng bước kế tiếp trong pipeline, ghi `order_status_history`; khi bước tới đích là `COMPLETED`
+  mới chạy phần tạo phiếu bảo hành + cộng điểm tích lũy đã bị hoãn lại từ lúc đặt.
+- `order_view.php`: hiển thị nút chuyển bước này ngay cạnh các nút Sửa/Hủy đơn hiện có.
+
+Đã test trên app.kt-soft.vn: tạo đơn qua nút "Đặt hàng — xử lý sau" → đơn ở đúng trạng thái "Đặt
+hàng" (DRAFT), có nút "Chuyển sang: Duyệt"; bấm liên tiếp qua đủ 4 bước → đơn về đúng "Hoàn thành",
+đúng lúc đó phiếu bảo hành mới xuất hiện (sản phẩm có bật bảo hành) — xác nhận việc hoãn tạo phiếu
+bảo hành đến khi hoàn thành hoạt động đúng. Đã xóa sạch dữ liệu test (đơn hàng, phiếu bảo hành,
+khách hàng, sản phẩm test).

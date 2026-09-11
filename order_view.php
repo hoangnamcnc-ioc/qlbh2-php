@@ -83,6 +83,18 @@ require_once __DIR__ . '/inc_header.php';
     <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
       <a href="order_edit.php?id=<?= (int) $order['id'] ?>" class="btn btn-secondary">Sửa đơn hàng</a>
     <?php endif; ?>
+    <?php
+      $pipelineOrder = ['DRAFT', 'APPROVED', 'PACKED', 'SHIPPED', 'COMPLETED'];
+      $curIdx = array_search($order['status'], $pipelineOrder, true);
+      $nextLabel = ($curIdx !== false && $curIdx < count($pipelineOrder) - 1) ? ($statusLabels[$pipelineOrder[$curIdx + 1]] ?? null) : null;
+    ?>
+    <?php if (hasRole('ADMIN', 'MANAGER') && $nextLabel): ?>
+      <form method="post" action="order_advance.php" onsubmit="return confirm('Chuyển đơn hàng sang bước &quot;<?= e($nextLabel) ?>&quot;?');">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+        <button type="submit" class="btn">Chuyển sang: <?= e($nextLabel) ?></button>
+      </form>
+    <?php endif; ?>
     <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
       <?php $cancelReasons = $pdo->query("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('CANCEL','BOTH') ORDER BY id")->fetchAll(); ?>
       <form method="post" action="order_cancel.php" style="display:flex;gap:6px;align-items:center;" onsubmit="return confirm('Hủy đơn hàng này? Tồn kho sẽ được hoàn lại.');">

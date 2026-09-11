@@ -37,6 +37,7 @@ $orderNote = trim((string) ($input['note'] ?? '')) ?: null;
 $orderTags = trim((string) ($input['tags'] ?? '')) ?: null;
 $paidAmountInput = $input['paid_amount'] ?? null;
 $paidAmountInput = $paidAmountInput === null || $paidAmountInput === '' ? null : max(0, (float) $paidAmountInput);
+$isDraft = !empty($input['draft']);
 
 $pdo = db();
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
@@ -216,72 +217,62 @@ try {
     }
     $totalAmount += $shippingFee;
 
-    if ($paidAmountInput === null || $paidAmountInput >= $totalAmount) {
+    if ($isDraft) {
+        $paidAmount = 0.0;
+        $paymentStatus = 'UNPAID';
+    } elseif ($paidAmountInput === null || $paidAmountInput >= $totalAmount) {
         $paidAmount = $totalAmount;
     } elseif (!$customerId) {
         throw new RuntimeException('Chỉ có thể cho khách nợ một phần khi đã chọn khách hàng (nhập SĐT)');
     } else {
         $paidAmount = max(0, $paidAmountInput);
     }
-    $paymentStatus = $paidAmount >= $totalAmount ? 'PAID' : ($paidAmount > 0 ? 'PARTIAL' : 'UNPAID');
+    if (!$isDraft) {
+        $paymentStatus = $paidAmount >= $totalAmount ? 'PAID' : ($paidAmount > 0 ? 'PARTIAL' : 'UNPAID');
+    }
+    $initialStatus = $isDraft ? 'DRAFT' : 'COMPLETED';
 
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
         'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, tags, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", "COMPLETED", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $paymentStatus, $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $paidAmount]);
+         VALUES (?, ?, ?, ?, "POS", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $user['id'], $initialStatus, $paymentStatus, $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $paidAmount]);
     $orderId = (int) $pdo->lastInsertId();
 
-    $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, "COMPLETED", ?)')
-        ->execute([$orderId, $user['id']]);
+    $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, ?, ?)')
+        ->execute([$orderId, $initialStatus, $user['id']]);
 
     $itemStmt = $pdo->prepare(
         'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)'
     );
-    $warrantyStmt = $pdo->prepare(
-        'INSERT INTO warranty_cards (code, order_item_id, product_id, customer_id, policy_id, start_date, end_date, created_by_id) VALUES (?,?,?,?,?,?,?,?)'
-    );
     foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal]) {
         $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal]);
-        $orderItemId = (int) $pdo->lastInsertId();
-
-        $prodStmt = $pdo->prepare('SELECT has_warranty, warranty_policy_id FROM products WHERE id = ?');
-        $prodStmt->execute([$productId]);
-        $prodInfo = $prodStmt->fetch();
-        if ($prodInfo && $prodInfo['has_warranty']) {
-            $duration = 12;
-            if ($prodInfo['warranty_policy_id']) {
-                $durStmt = $pdo->prepare('SELECT duration_months FROM warranty_policies WHERE id = ?');
-                $durStmt->execute([$prodInfo['warranty_policy_id']]);
-                $duration = (int) ($durStmt->fetchColumn() ?: 12);
-            }
-            $wCode = 'WR' . strtoupper(base_convert((string) (microtime(true) * 1000 + $orderItemId), 10, 36));
-            $wStart = date('Y-m-d');
-            $wEnd = date('Y-m-d', strtotime("+$duration months"));
-            $warrantyStmt->execute([$wCode, $orderItemId, $productId, $customerId, $prodInfo['warranty_policy_id'], $wStart, $wEnd, $user['id']]);
-        }
     }
 
     if ($couponId) {
         $pdo->prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?')->execute([$couponId]);
     }
 
-    if ($paidAmount > 0) {
-        $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
-            ->execute([$orderId, $paymentMethod, $paidAmount]);
-        recordCashbookEntry($branchId, 'RECEIPT', $paidAmount, "Thu tiền bán hàng $code", $paymentMethod, $user['id'], $orderId);
-    }
+    if (!$isDraft) {
+        createWarrantyCardsForOrder($orderId, $customerId, $user['id']);
 
-    if ($customerId) {
-        $points = (int) floor($totalAmount / 10000);
-        $pdo->prepare('UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?')
-            ->execute([$points, $customerId]);
-        $unpaid = $totalAmount - $paidAmount;
-        if ($unpaid > 0) {
-            $pdo->prepare('UPDATE customers SET debt = debt + ? WHERE id = ?')->execute([$unpaid, $customerId]);
-            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
-                ->execute([$customerId, $orderId, $unpaid, 'Bán hàng chưa thanh toán đủ', $user['id']]);
+        if ($paidAmount > 0) {
+            $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
+                ->execute([$orderId, $paymentMethod, $paidAmount]);
+            recordCashbookEntry($branchId, 'RECEIPT', $paidAmount, "Thu tiền bán hàng $code", $paymentMethod, $user['id'], $orderId);
+        }
+
+        if ($customerId) {
+            $points = (int) floor($totalAmount / 10000);
+            $pdo->prepare('UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?')
+                ->execute([$points, $customerId]);
+            $unpaid = $totalAmount - $paidAmount;
+            if ($unpaid > 0) {
+                $pdo->prepare('UPDATE customers SET debt = debt + ? WHERE id = ?')->execute([$unpaid, $customerId]);
+                $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                    ->execute([$customerId, $orderId, $unpaid, 'Bán hàng chưa thanh toán đủ', $user['id']]);
+            }
         }
     }
 

@@ -87,6 +87,34 @@ function getSetting(string $key, string $default = ''): string
     return $cache[$key] ?? $default;
 }
 
+/** Tự động tạo phiếu bảo hành cho các dòng sản phẩm có bật has_warranty trong 1 đơn hàng đã hoàn thành. */
+function createWarrantyCardsForOrder(int $orderId, ?int $customerId, int $createdById): void
+{
+    $pdo = db();
+    $items = $pdo->prepare(
+        'SELECT oi.id AS order_item_id, oi.product_id, p.has_warranty, p.warranty_policy_id
+         FROM order_items oi JOIN products p ON p.id = oi.product_id
+         WHERE oi.order_id = ? AND p.has_warranty = 1'
+    );
+    $items->execute([$orderId]);
+
+    $warrantyStmt = $pdo->prepare(
+        'INSERT INTO warranty_cards (code, order_item_id, product_id, customer_id, policy_id, start_date, end_date, created_by_id) VALUES (?,?,?,?,?,?,?,?)'
+    );
+    foreach ($items->fetchAll() as $it) {
+        $duration = 12;
+        if ($it['warranty_policy_id']) {
+            $durStmt = $pdo->prepare('SELECT duration_months FROM warranty_policies WHERE id = ?');
+            $durStmt->execute([$it['warranty_policy_id']]);
+            $duration = (int) ($durStmt->fetchColumn() ?: 12);
+        }
+        $wCode = 'WR' . strtoupper(base_convert((string) (microtime(true) * 1000 + $it['order_item_id']), 10, 36));
+        $wStart = date('Y-m-d');
+        $wEnd = date('Y-m-d', strtotime("+$duration months"));
+        $warrantyStmt->execute([$wCode, $it['order_item_id'], $it['product_id'], $customerId, $it['warranty_policy_id'], $wStart, $wEnd, $createdById]);
+    }
+}
+
 /** Tự động ghi 1 phiếu thu/chi vào Sổ quỹ khi có dòng tiền thật phát sinh (bán hàng, thu nợ, trả NCC...). */
 function recordCashbookEntry(
     int $branchId,

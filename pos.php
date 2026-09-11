@@ -195,6 +195,7 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
     </div>
 
     <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
+    <button id="draft-btn" class="btn btn-secondary" style="width:100%;padding:10px;font-weight:600;margin-top:8px;" <?= $branchId ? '' : 'disabled' ?>>Đặt hàng — xử lý sau (chưa thu tiền, chưa giao)</button>
     <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
       F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F8 Khuyến mại · F9 Thêm dịch vụ · Alt+1 In đơn gần nhất
     </p>
@@ -715,6 +716,41 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
       updateOfflineBanner();
     })
     .finally(() => { btn.disabled = false; btn.textContent = 'Thanh toán'; });
+});
+
+document.getElementById('draft-btn').addEventListener('click', () => {
+  const msgBox = document.getElementById('pos-message');
+  msgBox.innerHTML = '';
+  if (!cart.length) return;
+
+  const btn = document.getElementById('draft-btn');
+  btn.disabled = true;
+  btn.textContent = 'Đang xử lý...';
+
+  const payload = buildCheckoutPayload();
+  payload.draft = true;
+  payload.paid_amount = null;
+
+  fetch('pos_checkout.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        msgBox.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error)}</div>`;
+      } else {
+        msgBox.innerHTML = `<div class="alert alert-success">Đã lưu đơn hàng ${escapeHtml(data.code)} — chờ xử lý. <a href="order_view.php?id=${data.order_id}">Xem đơn hàng</a></div>`;
+        const successMsg = msgBox.innerHTML;
+        resetOrderAfterCheckout();
+        msgBox.innerHTML = successMsg;
+      }
+    })
+    .catch(() => {
+      msgBox.innerHTML = '<div class="alert alert-error">Không kết nối được máy chủ, vui lòng thử lại.</div>';
+    })
+    .finally(() => { btn.disabled = false; btn.textContent = 'Đặt hàng — xử lý sau (chưa thu tiền, chưa giao)'; });
 });
 
 document.getElementById('manual-discount-type').value = defaultDiscountUnit;
