@@ -7,6 +7,9 @@ if (currentUser()) {
 }
 
 $error = null;
+if (isset($_GET['locked'])) {
+    $error = 'Tài khoản của bạn đã bị khóa hoặc thay đổi quyền, vui lòng đăng nhập lại.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();

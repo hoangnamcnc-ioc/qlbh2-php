@@ -1042,3 +1042,34 @@ vỡ toàn bộ dữ liệu lịch sử liên kết) hoặc chấp nhận sai s�
 hoạt động" → hiện đúng badge, biến mất khỏi bộ chọn chi nhánh tại POS; thử chuyển vào chi nhánh đó
 qua `pos_switch_branch.php` trực tiếp (bỏ qua giao diện) → bị từ chối đúng, vẫn ở chi nhánh cũ; bật
 lại → hoạt động bình thường. Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát module Nhân viên và phân quyền (phát hiện lỗ hổng bảo mật)
+
+Trang quản lý nhân viên thật của Sapo hóa ra nằm ở hệ thống tài khoản trung tâm riêng
+(`merchants.sapo.vn`, dùng chung cho mọi cửa hàng của 1 tài khoản Sapo) chứ không nằm trong admin
+của từng cửa hàng — tài khoản "test" không có quyền vào đó nên không đối chiếu trực tiếp được. Hệ
+thống phân quyền tập trung đa cửa hàng này vượt quá phạm vi của một phần mềm bán hàng độc lập như
+QLBH2 nên không cố tái tạo. Chuyển sang rà soát bảo mật nội bộ của `inc_auth.php`/`users.php`.
+
+`users.php` của QLBH2 vốn đã khá đầy đủ: tạo tài khoản, đổi vai trò, gán chi nhánh, khóa/mở khóa,
+đặt lại mật khẩu, tự bảo vệ (không cho tự hạ quyền/khóa chính mình). Nhưng rà kỹ `inc_auth.php` thì
+phát hiện **lỗ hổng bảo mật thực sự**: `$_SESSION['user']` chỉ được nạp 1 lần lúc đăng nhập và
+không bao giờ được đối chiếu lại với DB sau đó — nghĩa là nếu ADMIN **khóa tài khoản** hoặc **hạ
+quyền** một nhân viên trong khi trình duyệt của nhân viên đó vẫn đang đăng nhập (tab vẫn mở), nhân
+viên đó **tiếp tục thao tác với quyền cũ vô thời hạn** cho đến khi tự đăng xuất — kể cả với nhân
+viên đã bị cho nghỉ việc hoặc phát hiện lạm quyền.
+
+Đã bổ sung:
+- `inc_auth.php`: thêm `refreshUserSession()` — mỗi request gọi `requireLogin()`/`requireRole()`
+  (tức mọi trang có yêu cầu đăng nhập) sẽ đối chiếu lại `role`/`branch_id`/`is_active` mới nhất từ
+  DB (1 câu SELECT theo khóa chính, chạy đúng 1 lần/request nhờ cờ tĩnh — chi phí không đáng kể).
+  Nếu tài khoản đã bị khóa hoặc không còn tồn tại, hủy session ngay và chuyển về trang đăng nhập;
+  nếu vai trò/chi nhánh đã đổi, đồng bộ lại session để có hiệu lực ngay từ request tiếp theo, không
+  cần đợi đăng xuất/đăng nhập lại.
+- `login.php`: hiển thị thông báo rõ ràng khi bị đá ra do tài khoản vừa bị khóa/đổi quyền.
+
+Đã test trên app.kt-soft.vn: tạo tài khoản ADMIN test, đăng nhập ở 1 phiên trình duyệt riêng (cookie
+jar khác) → xác nhận vào được `users.php` (trang chỉ ADMIN mới vào được); từ phiên admin thật, bấm
+"Khóa" tài khoản test đó; gọi lại `users.php` bằng đúng phiên cũ (không đăng nhập lại) → bị chuyển
+hướng ngay lập tức về `login.php?locked=1` kèm thông báo, xác nhận lỗ hổng đã được vá. Đã xóa sạch
+tài khoản test.

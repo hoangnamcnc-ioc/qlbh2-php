@@ -11,13 +11,43 @@ function currentUser(): ?array
     return $_SESSION['user'] ?? null;
 }
 
+/**
+ * Đồng bộ lại role/chi nhánh/trạng thái hoạt động của user trong session với dữ liệu mới nhất
+ * trong DB — tránh trường hợp tài khoản đã bị khóa/đổi quyền nhưng phiên đăng nhập cũ (trình
+ * duyệt vẫn đang mở) tiếp tục hoạt động với quyền cũ cho đến khi tự đăng xuất. Chỉ chạy 1 lần
+ * mỗi request nhờ cờ tĩnh, nên chi phí thêm là 1 câu SELECT đơn giản theo khóa chính.
+ */
+function refreshUserSession(): void
+{
+    static $checked = false;
+    if ($checked || empty($_SESSION['user'])) {
+        return;
+    }
+    $checked = true;
+
+    $stmt = db()->prepare('SELECT role, branch_id, is_active, name FROM users WHERE id = ?');
+    $stmt->execute([$_SESSION['user']['id']]);
+    $fresh = $stmt->fetch();
+
+    if (!$fresh || !$fresh['is_active']) {
+        $_SESSION = [];
+        session_destroy();
+        redirect('login.php?locked=1');
+    }
+
+    $_SESSION['user']['role'] = $fresh['role'];
+    $_SESSION['user']['branch_id'] = $fresh['branch_id'];
+    $_SESSION['user']['name'] = $fresh['name'];
+}
+
 function requireLogin(): array
 {
     $user = currentUser();
     if (!$user) {
         redirect('login.php');
     }
-    return $user;
+    refreshUserSession();
+    return currentUser();
 }
 
 /** Chỉ cho phép các role được liệt kê. Chặn (403) nếu không đúng quyền. */
