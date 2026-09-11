@@ -1094,3 +1094,19 @@ thêm.
 Đã test trên app.kt-soft.vn: tạo sản phẩm test tồn 2/định mức 10, giá vốn 5.000 → tìm theo SKU ra
 đúng kết quả, cột giá trị tồn hiển thị đúng 10.000; bật "Chỉ hiện dưới định mức" → sản phẩm test
 xuất hiện đúng trong danh sách lọc. Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát mục "Kế toán và Thuế" — xác nhận hoàn toàn ngoài phạm vi, không có gì để bổ sung
+
+Vào thẳng mục "KẾ TOÁN VÀ THUẾ" trên sidebar thật của Sapo để xem chính xác nội dung bên trong (mục
+này trước đó chỉ được suy đoán là "hóa đơn điện tử"). Xác nhận: toàn bộ mục này chỉ là 3 ứng dụng
+trả phí của riêng Sapo — **Sapo Invoice** (phát hành hóa đơn điện tử, lập sổ kế toán/tờ khai HKD
+theo Thông tư 152/2025/TT-BTC), **Sapo Tax** (kê khai thuế TNCN theo thuế suất × doanh thu), **Sapo
+Accounting** (đồng bộ chứng từ với phần mềm kế toán Sapo Accounting) — không có bất kỳ trang cấu
+hình/dữ liệu nào khác. Đây đúng là loại tính năng đòi hỏi kết nối API thật với nhà cung cấp hóa đơn
+điện tử được Tổng cục Thuế công nhận, khớp chính xác với nội dung `accounting.php` của QLBH2 đã ghi
+từ trước ("chưa tích hợp API thật... cần đăng ký tài khoản với 1 nhà cung cấp hóa đơn điện tử").
+
+**Kết luận: không có gì khả thi để xây dựng thêm ở mục này** — không phải do thiếu thời gian rà
+soát mà do bản chất tính năng phụ thuộc hoàn toàn vào dịch vụ trả phí của bên thứ 3 (Tổng cục Thuế/
+nhà cung cấp hóa đơn điện tử), nằm ngoài quyết định phạm vi ban đầu của dự án QLBH2. Không có thay
+đổi code nào trong vòng này.
