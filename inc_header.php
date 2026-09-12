@@ -58,6 +58,17 @@ if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = ['settings.php' => 'Cấu hình'];
 }
 
+$groupIcons = [
+    'Tổng quan' => '📊',
+    'Bán hàng' => '🛒',
+    'Sản phẩm' => '📦',
+    'Khách hàng' => '👤',
+    'Marketing & Khuyến mại' => '📣',
+    'Bảo hành' => '🛡️',
+    'Tài chính & Báo cáo' => '💰',
+    'Cấu hình' => '⚙️',
+];
+
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
 $storeLogo = getSetting('store_logo', '');
 $brandColor = getSetting('brand_color', '#2563eb');
@@ -84,8 +95,11 @@ $brandColorDark = darkenColor($brandColor, 15);
   .sidebar .nav-item.active { background: var(--brand); color: #fff; }
   .sidebar .group-toggle { display: flex; align-items: center; justify-content: space-between; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none; margin-bottom: 2px; }
   .sidebar .group-toggle:hover { background: #1e293b; color: #fff; }
-  .sidebar .group-toggle .chevron { font-size: 11px; color: #64748b; transition: transform .15s; }
+  .sidebar .group-toggle .chevron { font-size: 18px; line-height: 1; color: #94a3b8; transition: transform .15s; }
+  .sidebar .group-toggle:hover .chevron { color: #fff; }
+  .sidebar .group-toggle.has-active .chevron { color: #cbd5e1; }
   .sidebar .group-toggle.open .chevron { transform: rotate(90deg); }
+  .sidebar .nav-icon { display: inline-block; width: 22px; font-size: 16px; text-align: center; margin-right: 4px; }
   .sidebar .group-toggle.has-active { color: #fff; }
   .sidebar .submenu { display: none; margin: 0 0 4px 12px; padding-left: 10px; border-left: 1px solid #1e293b; }
   .sidebar .submenu.open { display: block; }
@@ -132,9 +146,10 @@ $brandColorDark = darkenColor($brandColor, 15);
     </div>
     <?php foreach ($navGroups as $label => $links): ?>
       <?php $hasActive = array_key_exists($currentFile, $links); ?>
+      <?php $groupIcon = $groupIcons[$label] ?? '•'; ?>
       <?php if (count($links) > 1): ?>
         <div class="group-toggle<?= $hasActive ? ' open has-active' : '' ?>" onclick="toggleGroup(this)">
-          <span><?= e($label) ?></span>
+          <span><span class="nav-icon"><?= $groupIcon ?></span><?= e($label) ?></span>
           <span class="chevron">▸</span>
         </div>
         <div class="submenu<?= $hasActive ? ' open' : '' ?>">
@@ -144,7 +159,7 @@ $brandColorDark = darkenColor($brandColor, 15);
         </div>
       <?php else: ?>
         <?php foreach ($links as $file => $text): ?>
-          <a href="<?= e($file) ?>" class="nav-item <?= $currentFile === $file ? 'active' : '' ?>"><?= e($text) ?></a>
+          <a href="<?= e($file) ?>" class="nav-item <?= $currentFile === $file ? 'active' : '' ?>"><span class="nav-icon"><?= $groupIcon ?></span><?= e($text) ?></a>
         <?php endforeach; ?>
       <?php endif; ?>
     <?php endforeach; ?>
