@@ -95,7 +95,7 @@ $brandColorDark = darkenColor($brandColor, 15);
   .sidebar .nav-item.active { background: var(--brand); color: #fff; }
   .sidebar .group-toggle { display: flex; align-items: center; justify-content: space-between; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none; margin-bottom: 2px; }
   .sidebar .group-toggle:hover { background: #1e293b; color: #fff; }
-  .sidebar .group-toggle .chevron { font-size: 18px; line-height: 1; color: #94a3b8; transition: transform .15s; }
+  .sidebar .group-toggle .chevron { font-size: 26px; line-height: 1; color: #94a3b8; transition: transform .15s; }
   .sidebar .group-toggle:hover .chevron { color: #fff; }
   .sidebar .group-toggle.has-active .chevron { color: #cbd5e1; }
   .sidebar .group-toggle.open .chevron { transform: rotate(90deg); }
