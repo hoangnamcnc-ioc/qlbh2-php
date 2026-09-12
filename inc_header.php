@@ -59,6 +59,7 @@ if (hasRole('ADMIN')) {
 }
 
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
+$storeLogo = getSetting('store_logo', '');
 $brandColor = getSetting('brand_color', '#2563eb');
 $brandColorDark = darkenColor($brandColor, 15);
 ?>
@@ -68,6 +69,7 @@ $brandColorDark = darkenColor($brandColor, 15);
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QLBH2 - Quản lý bán hàng</title>
+<?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
 <style>
   :root { --brand: <?= e($brandColor) ?>; --brand-dark: <?= e($brandColorDark) ?>; }
   * { box-sizing: border-box; }
@@ -124,7 +126,10 @@ $brandColorDark = darkenColor($brandColor, 15);
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <div class="brand">QLBH2</div>
+    <div class="brand" style="display:flex;align-items:center;gap:8px;">
+      <?php if ($storeLogo): ?><img src="uploads/store/<?= e($storeLogo) ?>" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;background:#fff;"><?php endif; ?>
+      <span>QLBH2</span>
+    </div>
     <?php foreach ($navGroups as $label => $links): ?>
       <?php $hasActive = array_key_exists($currentFile, $links); ?>
       <?php if (count($links) > 1): ?>

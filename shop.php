@@ -5,6 +5,7 @@ require_once __DIR__ . '/inc_functions.php';
 $pdo = db();
 $branch = $pdo->query("SELECT id, name FROM branches WHERE is_active = 1 ORDER BY id LIMIT 1")->fetch();
 $storeName = getSetting('store_name', 'Cửa hàng');
+$storeLogo = getSetting('store_logo', '');
 $enabled = getSetting('online_shop_enabled', '1') === '1';
 
 $products = [];
@@ -28,6 +29,7 @@ if ($branch && $enabled) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Đặt hàng online - <?= e($storeName) ?></title>
+<?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
 <style>
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; margin: 0; color: #1e293b; }
   .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
@@ -51,7 +53,10 @@ if ($branch && $enabled) {
 </head>
 <body>
 <div class="wrap">
-  <h1>🛒 Đặt hàng online — <?= e($storeName) ?></h1>
+  <h1 style="display:flex;align-items:center;gap:10px;">
+    <?php if ($storeLogo): ?><img src="uploads/store/<?= e($storeLogo) ?>" alt="" style="width:32px;height:32px;object-fit:contain;border-radius:6px;"><?php else: ?>🛒<?php endif; ?>
+    Đặt hàng online — <?= e($storeName) ?>
+  </h1>
 
   <?php if (isset($_GET['ok'])): ?>
     <div class="alert alert-success">Đặt hàng thành công! Mã đơn <b><?= e($_GET['code'] ?? '') ?></b> — chúng tôi sẽ liên hệ xác nhận sớm nhất.</div>

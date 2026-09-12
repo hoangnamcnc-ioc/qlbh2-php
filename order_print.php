@@ -52,6 +52,8 @@ $paperWidth = $paperWidthMm === '58mm' ? '260px' : '380px';
 </style>
 </head>
 <body>
+  <?php $storeLogo = getSetting('store_logo', ''); ?>
+  <?php if ($storeLogo): ?><div class="center"><img src="uploads/store/<?= e($storeLogo) ?>" alt="" style="width:56px;height:56px;object-fit:contain;"></div><?php endif; ?>
   <h1><?= e($order['branch_name']) ?></h1>
   <?php if ($order['branch_address']): ?><p class="center" style="margin:2px 0;"><?= e($order['branch_address']) ?></p><?php endif; ?>
   <?php if ($order['branch_phone']): ?><p class="center" style="margin:2px 0;">ĐT: <?= e($order['branch_phone']) ?></p><?php endif; ?>

@@ -1276,3 +1276,23 @@ danh mục này thì phát hiện 2 gap nhất quán:
 dropdown trả hàng NCC, tạo trả hàng chọn lý do này → lưu đúng vào `supplier_returns.reason`; hủy 1
 đơn hàng chọn "Khác" kèm lý do tự nhập → lưu và hiển thị đúng lý do tự nhập trong lịch sử đơn. Đã
 xóa sạch dữ liệu test.
+
+## Bổ sung logo cửa hàng
+
+Theo yêu cầu người dùng — thêm khả năng tải lên và hiển thị logo riêng của cửa hàng, trước đó QLBH2
+hoàn toàn không có chỗ nào để cấu hình việc này.
+
+Đã bổ sung:
+- `store_settings.php`: thêm ô tải logo (JPEG/PNG/WebP, tối đa 3MB), lưu file vào `uploads/store/`
+  với tên ngẫu nhiên (tránh trùng/đoán được), tên file lưu trong `store_settings` (key `store_logo`)
+  — tự xóa file logo cũ khi tải logo mới để không tích rác.
+- Hiển thị logo tại 4 nơi khi đã cấu hình: menu quản trị (`inc_header.php`, cạnh chữ "QLBH2"), trang
+  đăng nhập (`login.php`), hóa đơn in (`order_print.php`, phía trên tên chi nhánh), trang Đặt hàng
+  Online công khai (`shop.php`, cạnh tiêu đề) — và dùng làm favicon (icon tab trình duyệt) ở cả 4
+  trang trên.
+
+Đã test trên app.kt-soft.vn: tải lên logo thật của người dùng qua `store_settings.php` → xác nhận
+file lưu đúng vào `uploads/store/`, ảnh tải về được (HTTP 200); logo hiển thị đúng và rõ nét trên
+trang đăng nhập (xem trực tiếp qua trình duyệt) và trang Đặt hàng Online; xác nhận qua HTML rằng
+logo cũng xuất hiện đúng trên menu quản trị. Không cần xóa dữ liệu vì đây là cấu hình thật của
+người dùng, không phải dữ liệu test.
