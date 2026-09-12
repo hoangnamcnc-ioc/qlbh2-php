@@ -1190,3 +1190,30 @@ quy với hàng bán theo cái); nhập kho thêm 5.25kg → tồn cộng đúng
 **Lưu ý cho người dùng**: đây là thay đổi kiểu dữ liệu ở tầng DB — dữ liệu cũ (toàn số nguyên) không
 bị ảnh hưởng, tự động hoạt động bình thường như trước; ảnh hưởng chỉ áp dụng cho các giao dịch mới
 nhập số lượng lẻ từ bây giờ trở đi.
+
+## Vòng rà soát tiếp module Xử lý đơn hàng
+
+Trang "Xử lý đơn hàng" thật của Sapo (`/admin/settings/order_process_statuses`) tiếp tục bị chặn
+quyền với tài khoản khảo sát (thử lại vẫn báo "Bạn không có quyền truy cập") nên không đối chiếu
+trực tiếp được — chuyển sang rà soát nội bộ pipeline Đặt hàng/Duyệt/Đóng gói/Xuất kho/Hoàn thành đã
+xây ở vòng "Đơn hàng" trước đó, tìm gap vận hành thực tế thay vì đoán giao diện Sapo.
+
+Phát hiện: `order_advance.php` chỉ cho phép **đi tới** (DRAFT → APPROVED → ... → COMPLETED), không
+có cách nào lùi lại nếu nhân viên bấm nhầm — ví dụ bấm "Chuyển sang: Hoàn thành" trước khi khách
+thực sự nhận hàng/thanh toán xong. Cách duy nhất để sửa là hủy hẳn đơn hàng (`order_cancel.php`),
+mất luôn đơn thay vì chỉ lùi lại đúng 1 bước. Đây là gap vận hành thực tế phổ biến (thao tác nhầm
+trên giao diện là chuyện thường gặp), không phải suy đoán theo Sapo.
+
+Đã bổ sung:
+- `order_revert.php` (mới): cho phép ADMIN/MANAGER lùi đơn hàng về đúng bước liền trước trong
+  pipeline, ghi lại `order_status_history` với ghi chú "Lùi bước xử lý (điều chỉnh nhầm)". Nếu lùi
+  từ "Hoàn thành", tự động **hoàn tác các tác dụng phụ** đã áp dụng lúc hoàn thành: xóa phiếu bảo
+  hành đã tự tạo cho đơn này, trừ lại đúng số điểm tích lũy đã cộng cho khách — tránh để lại dữ liệu
+  mồ côi (phiếu bảo hành/điểm cho 1 đơn chưa thực sự hoàn thành).
+- `order_view.php`: thêm nút "← Lùi về: <bước trước>" cạnh nút "Chuyển sang: <bước sau>" đã có,
+  cảnh báo rõ trong hộp thoại xác nhận nếu lùi từ Hoàn thành sẽ hủy phiếu bảo hành/điểm đã cộng.
+
+Đã test trên app.kt-soft.vn: tạo đơn có sản phẩm bảo hành, gán cho khách hàng test, bấm "Chuyển
+sang" liên tiếp tới "Hoàn thành" → xác nhận phiếu bảo hành được tạo và khách được cộng đúng 9 điểm;
+bấm "Lùi về: Xuất kho" → đơn về đúng trạng thái trước đó, phiếu bảo hành bị xóa đúng, điểm khách về
+đúng 0, lịch sử đơn ghi đúng dòng "Lùi bước xử lý". Đã xóa sạch dữ liệu test.

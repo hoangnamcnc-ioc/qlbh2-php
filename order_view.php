@@ -87,7 +87,15 @@ require_once __DIR__ . '/inc_header.php';
       $pipelineOrder = ['DRAFT', 'APPROVED', 'PACKED', 'SHIPPED', 'COMPLETED'];
       $curIdx = array_search($order['status'], $pipelineOrder, true);
       $nextLabel = ($curIdx !== false && $curIdx < count($pipelineOrder) - 1) ? ($statusLabels[$pipelineOrder[$curIdx + 1]] ?? null) : null;
+      $prevLabel = ($curIdx !== false && $curIdx > 0) ? ($statusLabels[$pipelineOrder[$curIdx - 1]] ?? null) : null;
     ?>
+    <?php if (hasRole('ADMIN', 'MANAGER') && $prevLabel): ?>
+      <form method="post" action="order_revert.php" onsubmit="return confirm('Lùi đơn hàng về bước &quot;<?= e($prevLabel) ?>&quot;? Dùng khi vừa chuyển bước nhầm.<?= $order['status'] === 'COMPLETED' ? ' Phiếu bảo hành và điểm tích lũy đã cộng cho đơn này sẽ bị hủy.' : '' ?>');">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+        <button type="submit" class="btn btn-secondary">← Lùi về: <?= e($prevLabel) ?></button>
+      </form>
+    <?php endif; ?>
     <?php if (hasRole('ADMIN', 'MANAGER') && $nextLabel): ?>
       <form method="post" action="order_advance.php" onsubmit="return confirm('Chuyển đơn hàng sang bước &quot;<?= e($nextLabel) ?>&quot;?');">
         <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
