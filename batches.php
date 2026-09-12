@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $branchId = (int) ($_POST['branch_id'] ?? 0);
         $lotNumber = post('lot_number');
         $expiryDate = post('expiry_date') ?: null;
-        $quantity = postInt('quantity');
+        $quantity = postQty('quantity');
 
         if (!$productId || !$branchId || $lotNumber === '' || $quantity <= 0) {
             $error = 'Vui lòng chọn sản phẩm, chi nhánh, nhập số lô và số lượng lớn hơn 0';
@@ -84,7 +84,7 @@ require_once __DIR__ . '/inc_header.php';
       <div class="field"><label>Số lô *</label><input class="input" name="lot_number" required placeholder="vd: LOT20260901"></div>
       <div class="field"><label>Hạn sử dụng</label><input class="input" type="date" name="expiry_date"></div>
     </div>
-    <div class="field"><label>Số lượng *</label><input class="input" type="number" min="1" name="quantity" required></div>
+    <div class="field"><label>Số lượng *</label><input class="input" type="number" min="0.001" step="0.001" name="quantity" required></div>
     <button type="submit" class="btn">Thêm lô hàng</button>
   </form>
 </div>
@@ -110,7 +110,7 @@ require_once __DIR__ . '/inc_header.php';
               <?php elseif ($expiringSoon): ?><span class="badge badge-red">Sắp hết hạn</span><?php endif; ?>
             <?php else: ?><span class="muted">—</span><?php endif; ?>
           </td>
-          <td class="text-right"><?= (int) $b['quantity'] ?></td>
+          <td class="text-right"><?= fmtQty($b['quantity']) ?></td>
           <td class="text-right">
             <form method="post" onsubmit="return confirm('Xóa lô hàng này?');">
               <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">

@@ -89,7 +89,7 @@ require_once __DIR__ . '/inc_header.php';
       <select class="input" name="order_item_id" required>
         <?php foreach ($items as $it): ?>
           <option value="<?= (int) $it['id'] ?>">
-            <?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?> — SL <?= (int) $it['quantity'] ?>
+            <?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?> — SL <?= fmtQty($it['quantity']) ?>
           </option>
         <?php endforeach; ?>
       </select>

@@ -11,7 +11,7 @@ checkCsrf();
 $pdo = db();
 $productId = (int) ($_POST['product_id'] ?? 0);
 $componentId = (int) ($_POST['component_product_id'] ?? 0);
-$quantity = max(1, (int) ($_POST['quantity'] ?? 1));
+$quantity = max(0.001, round((float) ($_POST['quantity'] ?? 1), 3));
 
 if ($productId && $componentId && $productId !== $componentId) {
     $check = $pdo->prepare('SELECT id, quantity FROM combo_items WHERE combo_product_id = ? AND component_product_id = ?');

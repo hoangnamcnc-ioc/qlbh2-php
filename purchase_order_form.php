@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($productIds as $i => $pid) {
             $pid = (int) $pid;
             $vid = (int) ($variantIds[$i] ?? 0) ?: null;
-            $qty = (int) ($quantities[$i] ?? 0);
+            $qty = round((float) ($quantities[$i] ?? 0), 3);
             $cost = (float) ($costPrices[$i] ?? 0);
             if ($pid > 0 && $qty > 0) $lines[] = [$pid, $vid, $qty, $cost];
         }
@@ -150,7 +150,7 @@ function render() {
     body.innerHTML = lines.map((l, i) => `
       <tr>
         <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"><input type="hidden" name="variant_id[]" value="${l.variantId ?? ''}"></td>
-        <td class="text-right"><input type="number" min="1" value="${l.qty}" data-i="${i}" data-f="qty" name="quantity[]" style="width:70px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
+        <td class="text-right"><input type="number" min="0.001" step="0.001" value="${l.qty}" data-i="${i}" data-f="qty" name="quantity[]" style="width:70px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-right"><input type="number" min="0" value="${l.cost}" data-i="${i}" data-f="cost" name="cost_price[]" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-right">${fmt(l.qty * l.cost)}</td>
         <td class="text-right"><a href="#" data-i="${i}" class="remove" style="color:#ef4444;font-size:12px;">Xóa</a></td>

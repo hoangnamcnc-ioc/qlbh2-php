@@ -66,7 +66,7 @@ try {
     foreach ($items as $line) {
         $productId = (int) ($line['product_id'] ?? 0);
         $variantId = (int) ($line['variant_id'] ?? 0) ?: null;
-        $quantity = (int) ($line['quantity'] ?? 0);
+        $quantity = round((float) ($line['quantity'] ?? 0), 3);
         $unitPrice = (float) ($line['unit_price'] ?? 0);
         if ($productId <= 0 || $quantity <= 0) {
             throw new RuntimeException('Dữ liệu sản phẩm không hợp lệ');
@@ -86,13 +86,13 @@ try {
                 throw new RuntimeException('Combo này chưa có sản phẩm thành phần, không thể bán');
             }
             foreach ($components as $comp) {
-                $needQty = (int) $comp['comp_qty'] * $quantity;
+                $needQty = (float) $comp['comp_qty'] * $quantity;
                 $stmt = $pdo->prepare(
                     'SELECT * FROM inventory WHERE product_id = ? AND branch_id = ? AND variant_id IS NULL FOR UPDATE'
                 );
                 $stmt->execute([$comp['component_product_id'], $branchId]);
                 $compInv = $stmt->fetch();
-                if (!$allowNegativeStock && (!$compInv || (int) $compInv['quantity'] < $needQty)) {
+                if (!$allowNegativeStock && (!$compInv || (float) $compInv['quantity'] < $needQty)) {
                     $prod = $pdo->prepare('SELECT name FROM products WHERE id = ?');
                     $prod->execute([$comp['component_product_id']]);
                     $pname = $prod->fetchColumn() ?: ('#' . $comp['component_product_id']);
@@ -118,7 +118,7 @@ try {
             }
             $inv = $stmt->fetch();
 
-            if (!$allowNegativeStock && (!$inv || (int) $inv['quantity'] < $quantity)) {
+            if (!$allowNegativeStock && (!$inv || (float) $inv['quantity'] < $quantity)) {
                 if ($variantId) {
                     $prod = $pdo->prepare(
                         "SELECT CONCAT(p.name, ' - ', v.name) AS name FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = ?"
@@ -151,7 +151,7 @@ try {
                 $batchStmt->execute([$productId, $branchId]);
                 foreach ($batchStmt->fetchAll() as $batch) {
                     if ($remaining <= 0) break;
-                    $take = min($remaining, (int) $batch['quantity']);
+                    $take = min($remaining, (float) $batch['quantity']);
                     $pdo->prepare('UPDATE product_batches SET quantity = quantity - ? WHERE id = ?')->execute([$take, $batch['id']]);
                     $remaining -= $take;
                 }

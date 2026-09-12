@@ -482,7 +482,7 @@ function doSearch(q) {
         <div class="search-item" data-i="${i}"
              style="padding:8px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;">
           <span>${escapeHtml(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${escapeHtml(p.sku)})</span></span>
-          <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${p.qty}</span>
+          <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${fmtQty(p.qty)}</span>
         </div>`).join('');
       searchResults.style.display = 'block';
       searchResults.querySelectorAll('.search-item').forEach(el => {
@@ -517,14 +517,14 @@ function renderCart() {
         ${showColSku ? `<td class="muted" style="font-family:monospace;font-size:12px;">${escapeHtml(c.sku || '')}</td>` : ''}
         <td>${escapeHtml(c.name)}</td>
         <td class="text-right"><input type="number" min="0" value="${c.price}" data-idx="${i}" class="price-input" title="Đổi giá bán hàng" style="width:90px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
-        <td class="text-center"><input type="number" min="1" value="${c.qty}" data-idx="${i}" class="qty-input" style="width:64px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
+        <td class="text-center"><input type="number" min="0.001" step="0.001" value="${c.qty}" data-idx="${i}" class="qty-input" style="width:70px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
         <td class="text-right" style="font-weight:600;">${formatMoney(c.price * c.qty)}</td>
         <td class="text-right"><a href="#" data-idx="${i}" class="remove-item" style="color:#ef4444;font-size:12px;">Xóa</a></td>
       </tr>`).join('');
     body.querySelectorAll('.qty-input').forEach(inp => {
       inp.addEventListener('change', () => {
         const idx = parseInt(inp.dataset.idx, 10);
-        cart[idx].qty = Math.max(1, parseInt(inp.value, 10) || 1);
+        cart[idx].qty = Math.round(Math.max(0.001, parseFloat(inp.value) || 1) * 1000) / 1000;
         renderCart();
       });
     });
@@ -790,7 +790,7 @@ function setBrowseMode(on) {
         el.innerHTML = data.map((p, i) => `
           <div class="browse-item" data-i="${i}" style="padding:10px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;">
             <span>${escapeHtml(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${escapeHtml(p.sku)})</span></span>
-            <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${p.qty}</span>
+            <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${fmtQty(p.qty)}</span>
           </div>`).join('');
         el.querySelectorAll('.browse-item').forEach(row => {
           row.addEventListener('mouseenter', () => row.style.background = '#f8fafc');
@@ -924,7 +924,7 @@ on('qa-batches', 'click', () => {
       panel.innerHTML = '<b style="font-size:13px;">Lô sẽ tự động được trừ trước (hết hạn sớm nhất trước):</b>' +
         Object.values(byProduct).map(list => {
           const first = list[0];
-          return `<div style="margin-top:6px;font-size:13px;">• ${escapeHtml(first.product_name)}: lô <b>${escapeHtml(first.lot_number)}</b>${first.expiry_date ? ' (HSD ' + new Date(first.expiry_date).toLocaleDateString('vi-VN') + ')' : ''} — còn ${first.quantity}</div>`;
+          return `<div style="margin-top:6px;font-size:13px;">• ${escapeHtml(first.product_name)}: lô <b>${escapeHtml(first.lot_number)}</b>${first.expiry_date ? ' (HSD ' + new Date(first.expiry_date).toLocaleDateString('vi-VN') + ')' : ''} — còn ${fmtQty(first.quantity)}</div>`;
         }).join('');
     });
 });
@@ -1000,6 +1000,7 @@ document.getElementById('service-select').addEventListener('change', (e) => {
 });
 
 function formatMoney(n) { return Math.round(n).toLocaleString('vi-VN'); }
+function fmtQty(n) { n = parseFloat(n) || 0; return n % 1 === 0 ? String(n) : String(Math.round(n * 1000) / 1000); }
 function escapeHtml(s) {
   const div = document.createElement('div');
   div.textContent = s;

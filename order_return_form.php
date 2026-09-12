@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $hasQty = false;
         foreach ($quantities as $qty) {
-            if ((int) $qty > 0) { $hasQty = true; break; }
+            if ((float) $qty > 0) { $hasQty = true; break; }
         }
 
         if (!$hasQty) {
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lineData = [];
 
                 foreach ($quantities as $orderItemId => $qtyRaw) {
-                    $qty = (int) $qtyRaw;
+                    $qty = round((float) $qtyRaw, 3);
                     if ($qty <= 0) continue;
 
                     $stmt = $pdo->prepare(
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([(int) $orderItemId, $orderId]);
                     $item = $stmt->fetch();
 
-                    if (!$item || $qty > (int) $item['remaining_qty']) {
+                    if (!$item || $qty > (float) $item['remaining_qty']) {
                         throw new RuntimeException('Số lượng trả vượt quá số lượng còn lại có thể trả');
                     }
 
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $comboStmt = $pdo->prepare('SELECT component_product_id, quantity AS comp_qty FROM combo_items WHERE combo_product_id = ?');
                         $comboStmt->execute([$item['product_id']]);
                         foreach ($comboStmt->fetchAll() as $comp) {
-                            $restoreQty = (int) $comp['comp_qty'] * $qty;
+                            $restoreQty = (float) $comp['comp_qty'] * $qty;
                             $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
                             $inv->execute([$orderRow['branch_id'], $comp['component_product_id']]);
                             $invRow = $inv->fetch();
@@ -207,11 +207,11 @@ require_once __DIR__ . '/inc_header.php';
           <tr>
             <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
             <td class="text-right"><?= money($it['unit_price']) ?></td>
-            <td class="text-right"><?= (int) $it['quantity'] ?></td>
-            <td class="text-right"><?= (int) $it['remaining_qty'] ?></td>
+            <td class="text-right"><?= fmtQty($it['quantity']) ?></td>
+            <td class="text-right"><?= fmtQty($it['remaining_qty']) ?></td>
             <td class="text-center">
-              <?php if ((int) $it['remaining_qty'] > 0): ?>
-                <input type="number" name="qty[<?= (int) $it['id'] ?>]" min="0" max="<?= (int) $it['remaining_qty'] ?>" value="0" style="width:70px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
+              <?php if ((float) $it['remaining_qty'] > 0): ?>
+                <input type="number" name="qty[<?= (int) $it['id'] ?>]" min="0" step="0.001" max="<?= (float) $it['remaining_qty'] ?>" value="0" style="width:70px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
               <?php else: ?>
                 <span class="muted">Đã trả hết</span>
               <?php endif; ?>

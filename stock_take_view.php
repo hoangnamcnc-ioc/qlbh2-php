@@ -55,13 +55,13 @@ require_once __DIR__ . '/inc_header.php';
   <table>
     <thead><tr><th>Sản phẩm</th><th class="text-right">Tồn hệ thống</th><th class="text-right">SL thực tế</th><th class="text-right">Chênh lệch</th></tr></thead>
     <tbody>
-      <?php foreach ($items as $it): $diff = (int) $it['counted_qty'] - (int) $it['system_qty']; ?>
+      <?php foreach ($items as $it): $diff = round((float) $it['counted_qty'] - (float) $it['system_qty'], 3); ?>
         <tr>
           <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
-          <td class="text-right muted"><?= (int) $it['system_qty'] ?></td>
-          <td class="text-right"><?= (int) $it['counted_qty'] ?></td>
+          <td class="text-right muted"><?= fmtQty($it['system_qty']) ?></td>
+          <td class="text-right"><?= fmtQty($it['counted_qty']) ?></td>
           <td class="text-right" style="font-weight:600;<?= $diff == 0 ? '' : ($diff > 0 ? 'color:#059669;' : 'color:#dc2626;') ?>">
-            <?= $diff > 0 ? '+' : '' ?><?= $diff ?>
+            <?= $diff > 0 ? '+' : '' ?><?= fmtQty($diff) ?>
           </td>
         </tr>
       <?php endforeach; ?>

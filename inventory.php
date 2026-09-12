@@ -62,12 +62,12 @@ $inventories = $stmt->fetchAll();
       <?php if (!$inventories): ?>
         <tr><td colspan="7" class="text-center muted" style="padding:32px;">Chưa có dữ liệu tồn kho.</td></tr>
       <?php endif; ?>
-      <?php foreach ($inventories as $inv): $isLow = (int) $inv['quantity'] <= (int) $inv['min_stock']; ?>
+      <?php foreach ($inventories as $inv): $isLow = (float) $inv['quantity'] <= (float) $inv['min_stock']; ?>
         <tr>
           <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($inv['sku']) ?></td>
           <td><a href="product_form.php?id=<?= (int) $inv['product_id'] ?>"><?= e($inv['product_name']) ?><?php if ($inv['variant_name']): ?> <span class="muted">(<?= e($inv['variant_name']) ?>)</span><?php endif; ?></a></td>
           <td><?= e($inv['branch_name']) ?></td>
-          <td class="text-right" style="font-weight:600;"><?= (int) $inv['quantity'] ?></td>
+          <td class="text-right" style="font-weight:600;"><?= fmtQty($inv['quantity']) ?></td>
           <td class="text-right muted"><?= (int) $inv['min_stock'] ?></td>
           <td class="text-right"><?= money($inv['stock_value']) ?></td>
           <td>

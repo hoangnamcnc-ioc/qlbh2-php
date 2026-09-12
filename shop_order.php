@@ -42,7 +42,7 @@ try {
     $subTotal = 0.0;
     foreach ($qtyInput as $productId => $qty) {
         $productId = (int) $productId;
-        $qty = (int) $qty;
+        $qty = round((float) $qty, 3);
         if ($productId <= 0 || $qty <= 0) continue;
 
         $stmt = $pdo->prepare(
@@ -56,9 +56,9 @@ try {
         $product = $stmt->fetch();
         if (!$product) continue;
 
-        $stock = (int) ($product['stock'] ?? 0);
+        $stock = (float) ($product['stock'] ?? 0);
         if (!$allowNegativeStock && $qty > $stock) {
-            throw new RuntimeException('Sản phẩm "' . $product['name'] . '" chỉ còn ' . $stock . ' — vui lòng giảm số lượng.');
+            throw new RuntimeException('Sản phẩm "' . $product['name'] . '" chỉ còn ' . fmtQty($stock) . ' — vui lòng giảm số lượng.');
         }
 
         $unitPrice = (float) $product['sell_price'];

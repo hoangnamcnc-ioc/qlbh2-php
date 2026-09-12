@@ -188,7 +188,7 @@ require_once __DIR__ . '/inc_header.php';
         <tr>
           <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
           <td class="text-right"><?= money($it['unit_price']) ?></td>
-          <td class="text-center"><?= (int) $it['quantity'] ?></td>
+          <td class="text-center"><?= fmtQty($it['quantity']) ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($it['line_total']) ?></td>
         </tr>
       <?php endforeach; ?>

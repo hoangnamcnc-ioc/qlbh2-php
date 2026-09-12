@@ -11,7 +11,7 @@ checkCsrf();
 $productId = postInt('product_id');
 $variantId = postInt('variant_id') ?: null;
 $branchId = postInt('branch_id');
-$quantity = postInt('quantity');
+$quantity = postQty('quantity');
 $minStock = postInt('min_stock');
 $maxStockRaw = post('max_stock');
 $maxStock = $maxStockRaw === '' ? null : max(0, (int) $maxStockRaw);

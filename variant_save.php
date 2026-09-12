@@ -13,7 +13,7 @@ $barcode = post('barcode') ?: null;
 $name = post('name');
 $costPrice = postFloat('cost_price');
 $sellPrice = postFloat('sell_price');
-$initialQty = postInt('initial_qty');
+$initialQty = postQty('initial_qty');
 
 $product = $pdo->prepare('SELECT id FROM products WHERE id = ?');
 $product->execute([$productId]);

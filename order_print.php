@@ -71,19 +71,27 @@ $paperWidth = $paperWidthMm === '58mm' ? '260px' : '380px';
     <tbody>
       <?php if (getSetting('print_split_lines', '0') === '1'): ?>
         <?php foreach ($items as $it): ?>
-          <?php for ($u = 0; $u < (int) $it['quantity']; $u++): ?>
+          <?php if ((float) $it['quantity'] == (int) $it['quantity']): ?>
+            <?php for ($u = 0; $u < (int) $it['quantity']; $u++): ?>
+              <tr>
+                <td><?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?></td>
+                <td class="text-right" style="vertical-align:top;">1</td>
+                <td class="text-right" style="vertical-align:top;"><?= money($it['unit_price']) ?></td>
+              </tr>
+            <?php endfor; ?>
+          <?php else: ?>
             <tr>
-              <td><?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?></td>
-              <td class="text-right" style="vertical-align:top;">1</td>
-              <td class="text-right" style="vertical-align:top;"><?= money($it['unit_price']) ?></td>
+              <td><?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?><br><span style="color:#555;"><?= money($it['unit_price']) ?> x <?= fmtQty($it['quantity']) ?></span></td>
+              <td class="text-right" style="vertical-align:top;"><?= fmtQty($it['quantity']) ?></td>
+              <td class="text-right" style="vertical-align:top;"><?= money($it['line_total']) ?></td>
             </tr>
-          <?php endfor; ?>
+          <?php endif; ?>
         <?php endforeach; ?>
       <?php else: ?>
         <?php foreach ($items as $it): ?>
           <tr>
-            <td><?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?><br><span style="color:#555;"><?= money($it['unit_price']) ?> x <?= (int) $it['quantity'] ?></span></td>
-            <td class="text-right" style="vertical-align:top;"><?= (int) $it['quantity'] ?></td>
+            <td><?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?><br><span style="color:#555;"><?= money($it['unit_price']) ?> x <?= fmtQty($it['quantity']) ?></span></td>
+            <td class="text-right" style="vertical-align:top;"><?= fmtQty($it['quantity']) ?></td>
             <td class="text-right" style="vertical-align:top;"><?= money($it['line_total']) ?></td>
           </tr>
         <?php endforeach; ?>

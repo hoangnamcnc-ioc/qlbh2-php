@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS product_batches (
   branch_id INT NOT NULL,
   lot_number VARCHAR(100) NOT NULL,
   expiry_date DATE NULL,
-  quantity INT NOT NULL DEFAULT 0,
+  quantity DECIMAL(12,3) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS inventory (
   branch_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL DEFAULT 0,
+  quantity DECIMAL(12,3) NOT NULL DEFAULT 0,
   min_stock INT NOT NULL DEFAULT 0,
   max_stock INT NULL,
   storage_location VARCHAR(100) NULL,
@@ -276,7 +276,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   order_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
   unit_price DECIMAL(14,2) NOT NULL,
   discount DECIMAL(14,2) NOT NULL DEFAULT 0,
   line_total DECIMAL(14,2) NOT NULL,
@@ -342,7 +342,7 @@ CREATE TABLE IF NOT EXISTS order_return_items (
   order_item_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
   unit_price DECIMAL(14,2) NOT NULL,
   line_total DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (return_id) REFERENCES order_returns(id) ON DELETE CASCADE,
@@ -375,7 +375,7 @@ CREATE TABLE IF NOT EXISTS stock_receipt_items (
   receipt_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
   cost_price DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (receipt_id) REFERENCES stock_receipts(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id),
@@ -404,8 +404,8 @@ CREATE TABLE IF NOT EXISTS stock_take_items (
   take_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  system_qty INT NOT NULL,
-  counted_qty INT NOT NULL,
+  system_qty DECIMAL(12,3) NOT NULL,
+  counted_qty DECIMAL(12,3) NOT NULL,
   FOREIGN KEY (take_id) REFERENCES stock_takes(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id),
   FOREIGN KEY (variant_id) REFERENCES product_variants(id)
@@ -433,7 +433,7 @@ CREATE TABLE IF NOT EXISTS stock_transfer_items (
   transfer_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
   FOREIGN KEY (transfer_id) REFERENCES stock_transfers(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id),
   FOREIGN KEY (variant_id) REFERENCES product_variants(id)
@@ -552,7 +552,7 @@ CREATE TABLE IF NOT EXISTS supplier_return_items (
   return_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
   unit_price DECIMAL(14,2) NOT NULL,
   line_total DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (return_id) REFERENCES supplier_returns(id) ON DELETE CASCADE,
@@ -583,7 +583,7 @@ CREATE TABLE IF NOT EXISTS purchase_order_items (
   po_id INT NOT NULL,
   product_id INT NOT NULL,
   variant_id INT NULL,
-  quantity INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
   cost_price DECIMAL(14,2) NOT NULL,
   FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id),
@@ -663,7 +663,7 @@ CREATE TABLE IF NOT EXISTS combo_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   combo_product_id INT NOT NULL,
   component_product_id INT NOT NULL,
-  quantity INT NOT NULL DEFAULT 1,
+  quantity DECIMAL(12,3) NOT NULL DEFAULT 1,
   FOREIGN KEY (combo_product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY (component_product_id) REFERENCES products(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -697,6 +697,21 @@ INSERT INTO branches (id, name) VALUES (1, 'Chi nhánh chính')
 
 INSERT INTO customer_groups (name) VALUES ('Bán lẻ')
   ON DUPLICATE KEY UPDATE name = name;
+
+-- Hỗ trợ bán/nhập/chuyển/kiểm hàng theo số lượng lẻ (hàng cân như thịt/rau, vd 0.35kg) —
+-- đổi toàn bộ cột số lượng giao dịch từ INT sang DECIMAL(12,3). Ngưỡng tồn tối thiểu/tối đa
+-- (min_stock/max_stock) giữ nguyên INT vì so sánh với DECIMAL vẫn đúng bình thường.
+ALTER TABLE product_batches MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL DEFAULT 0;
+ALTER TABLE inventory MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL DEFAULT 0;
+ALTER TABLE order_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL;
+ALTER TABLE order_return_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL;
+ALTER TABLE stock_receipt_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL;
+ALTER TABLE stock_take_items MODIFY COLUMN counted_qty DECIMAL(12,3) NOT NULL;
+ALTER TABLE stock_take_items MODIFY COLUMN system_qty DECIMAL(12,3) NOT NULL;
+ALTER TABLE stock_transfer_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL;
+ALTER TABLE supplier_return_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL;
+ALTER TABLE purchase_order_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL;
+ALTER TABLE combo_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL DEFAULT 1;
 
 -- Tài khoản admin: chạy seed.php một lần sau khi import schema này để tạo
 -- admin@qlbh2.local / Admin@123 với mật khẩu băm đúng chuẩn (rồi xóa seed.php).

@@ -78,7 +78,7 @@ $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
           <td><?= e($p['unit'] ?: '—') ?></td>
           <td class="text-right"><?= money($p['cost_price']) ?></td>
           <td class="text-right"><?= money($p['sell_price']) ?></td>
-          <td class="text-right"><?= (int) $p['total_qty'] ?></td>
+          <td class="text-right"><?= fmtQty($p['total_qty']) ?></td>
           <td>
             <?php if ($p['is_active']): ?>
               <span class="badge badge-green">Đang bán</span>

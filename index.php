@@ -18,7 +18,7 @@ $cancelledToday = $pdo->prepare("SELECT COUNT(*) AS c FROM orders WHERE created_
 $cancelledToday->execute([$today]);
 $cancelledToday = (int) $cancelledToday->fetch()['c'];
 
-$totalStock = (int) $pdo->query('SELECT COALESCE(SUM(quantity),0) AS s FROM inventory')->fetch()['s'];
+$totalStock = fmtQty($pdo->query('SELECT COALESCE(SUM(quantity),0) AS s FROM inventory')->fetch()['s']);
 
 // Doanh thu 7 ngày qua (theo ngày) để vẽ biểu đồ
 $from7 = date('Y-m-d 00:00:00', strtotime('-6 days'));
@@ -117,7 +117,7 @@ $lowStock = $pdo->query(
       <?php foreach ($lowStock as $it): ?>
         <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-top:1px solid #f1f5f9;">
           <span><?= e($it['product_name']) ?><?= $it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '' ?><br><span class="muted" style="font-size:11px;"><?= e($it['branch_name']) ?></span></span>
-          <span style="font-weight:600;color:#dc2626;"><?= (int) $it['quantity'] ?>/<?= (int) $it['min_stock'] ?></span>
+          <span style="font-weight:600;color:#dc2626;"><?= fmtQty($it['quantity']) ?>/<?= (int) $it['min_stock'] ?></span>
         </div>
       <?php endforeach; ?>
       <a href="inventory.php" class="muted" style="font-size:12px;display:block;margin-top:8px;">Xem tất cả →</a>

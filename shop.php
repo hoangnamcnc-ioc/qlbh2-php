@@ -74,9 +74,9 @@ if ($branch && $enabled) {
             <div style="flex:1;">
               <div class="product-name"><?= e($p['name']) ?></div>
               <div class="product-price"><?= number_format((float) $p['sell_price'], 0, ',', '.') ?>đ</div>
-              <div class="product-stock">Còn <?= (int) $p['qty'] ?></div>
+              <div class="product-stock">Còn <?= fmtQty($p['qty']) ?></div>
             </div>
-            <input class="qty-input" type="number" min="0" max="<?= (int) $p['qty'] ?>" name="qty[<?= (int) $p['id'] ?>]" value="0">
+            <input class="qty-input" type="number" min="0" step="0.001" max="<?= (float) $p['qty'] ?>" name="qty[<?= (int) $p['id'] ?>]" value="0">
           </div>
         <?php endforeach; ?>
       </div>

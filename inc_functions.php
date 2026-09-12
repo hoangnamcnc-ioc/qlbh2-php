@@ -42,6 +42,27 @@ function postInt(string $key, int $default = 0): int
     return $n >= 0 ? $n : $default;
 }
 
+/**
+ * Đọc 1 giá trị số lượng từ POST — cho phép số lẻ (vd 0.35 kg hàng cân) thay vì chỉ số nguyên,
+ * làm tròn 3 chữ số thập phân (đủ chính xác tới gram). Dùng cho mọi cột quantity đã đổi sang
+ * DECIMAL(12,3): order_items, inventory, stock_receipt_items, stock_transfer_items...
+ */
+function postQty(string $key, float $default = 0): float
+{
+    $v = $_POST[$key] ?? null;
+    if ($v === null || $v === '') return $default;
+    $n = round((float) $v, 3);
+    return $n >= 0 ? $n : $default;
+}
+
+/** Hiển thị số lượng đẹp: bỏ số 0 thừa ở cuối (1 thay vì 1.000, 0.5 thay vì 0.500). */
+function fmtQty($value): string
+{
+    $n = round((float) $value, 3);
+    if ($n == (int) $n) return (string) (int) $n;
+    return rtrim(rtrim(number_format($n, 3, '.', ''), '0'), '.');
+}
+
 /** Chi nhánh đang bán hàng trong phiên POS hiện tại — mặc định là chi nhánh gán cho tài khoản,
  * nhưng ADMIN/MANAGER có thể tạm đổi sang chi nhánh khác qua nút "Đổi chi nhánh" trong POS. */
 function effectiveBranchId(array $user): int

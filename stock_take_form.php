@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($productIds as $i => $pid) {
             $pid = (int) $pid;
             $vid = (int) ($variantIds[$i] ?? 0) ?: null;
-            $sys = (int) ($systemQtys[$i] ?? 0);
-            $counted = (int) ($countedQtys[$i] ?? 0);
+            $sys = round((float) ($systemQtys[$i] ?? 0), 3);
+            $counted = round((float) ($countedQtys[$i] ?? 0), 3);
             if ($pid > 0) {
                 $lines[] = [$pid, $vid, $sys, $counted];
             }
@@ -118,12 +118,12 @@ searchInput.addEventListener('input', () => {
       .then(data => {
         if (!data.length) { searchResults.style.display = 'none'; return; }
         searchResults.innerHTML = data.map((p, i) => `
-          <div class="s-item" data-i="${i}" style="padding:8px 12px;font-size:14px;cursor:pointer;">${esc(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${esc(p.sku)})</span> · Tồn: ${p.qty}</div>`).join('');
+          <div class="s-item" data-i="${i}" style="padding:8px 12px;font-size:14px;cursor:pointer;">${esc(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${esc(p.sku)})</span> · Tồn: ${fmtQty(p.qty)}</div>`).join('');
         searchResults.style.display = 'block';
         searchResults.querySelectorAll('.s-item').forEach(el => {
           el.addEventListener('click', () => {
             const p = data[parseInt(el.dataset.i, 10)];
-            addLine(p.id, p.variant_id, p.name, parseInt(p.qty, 10) || 0);
+            addLine(p.id, p.variant_id, p.name, parseFloat(p.qty) || 0);
             searchInput.value = '';
             searchResults.style.display = 'none';
           });
@@ -150,15 +150,15 @@ function render() {
       return `
       <tr>
         <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"><input type="hidden" name="variant_id[]" value="${l.variantId ?? ''}"><input type="hidden" name="system_qty[]" value="${l.systemQty}"></td>
-        <td class="text-right muted">${l.systemQty}</td>
-        <td class="text-right"><input type="number" min="0" value="${l.counted}" data-i="${i}" name="counted_qty[]" style="width:80px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
-        <td class="text-right" style="${diffColor}">${diff > 0 ? '+' : ''}${diff}</td>
+        <td class="text-right muted">${fmtQty(l.systemQty)}</td>
+        <td class="text-right"><input type="number" min="0" step="0.001" value="${l.counted}" data-i="${i}" name="counted_qty[]" style="width:80px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
+        <td class="text-right" style="${diffColor}">${diff > 0 ? '+' : ''}${fmtQty(diff)}</td>
         <td class="text-right"><a href="#" data-i="${i}" class="remove" style="color:#ef4444;font-size:12px;">Xóa</a></td>
       </tr>`;
     }).join('');
     body.querySelectorAll('input[name="counted_qty[]"]').forEach(inp => {
       inp.addEventListener('input', () => {
-        lines[parseInt(inp.dataset.i, 10)].counted = parseInt(inp.value, 10) || 0;
+        lines[parseInt(inp.dataset.i, 10)].counted = Math.round((parseFloat(inp.value) || 0) * 1000) / 1000;
         render();
       });
     });
@@ -169,6 +169,7 @@ function render() {
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmtQty(n) { n = parseFloat(n) || 0; return n % 1 === 0 ? String(n) : String(Math.round(n * 1000) / 1000); }
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {

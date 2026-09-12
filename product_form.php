@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id = (int) $pdo->lastInsertId();
 
                 if ($productType === 'PRODUCT') {
-                    $initialQty = postInt('initial_qty');
+                    $initialQty = postQty('initial_qty');
                     $minStock = postInt('min_stock');
                     // Gán tồn kho ban đầu vào chi nhánh của người tạo; nếu tài khoản chưa gán
                     // chi nhánh (vd admin tổng) thì dùng chi nhánh đầu tiên trong hệ thống.
@@ -327,7 +327,7 @@ require_once __DIR__ . '/inc_header.php';
       <div class="grid-2">
         <div class="field">
           <label>Tồn kho ban đầu</label>
-          <input class="input" type="number" min="0" name="initial_qty" value="0">
+          <input class="input" type="number" min="0" step="0.001" name="initial_qty" value="0">
         </div>
         <div class="field">
           <label>Định mức tối thiểu</label>
@@ -356,12 +356,12 @@ require_once __DIR__ . '/inc_header.php';
       <input type="hidden" name="redirect" value="product_form.php?id=<?= (int) $product['id'] ?>">
       <div style="flex:1;font-size:14px;font-weight:500;min-width:120px;">
         <?= e($b['name']) ?>
-        <?php if ((int) $inv['quantity'] <= (int) $inv['min_stock']): ?>
+        <?php if ((float) $inv['quantity'] <= (int) $inv['min_stock']): ?>
           <span class="badge badge-red">Dưới định mức</span>
         <?php endif; ?>
       </div>
       <label class="muted" style="font-size:12px;">SL:
-        <input type="number" min="0" name="quantity" value="<?= (int) $inv['quantity'] ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+        <input type="number" min="0" step="0.001" name="quantity" value="<?= fmtQty($inv['quantity']) ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
       </label>
       <label class="muted" style="font-size:12px;">Tối thiểu:
         <input type="number" min="0" name="min_stock" value="<?= (int) $inv['min_stock'] ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
@@ -425,12 +425,12 @@ require_once __DIR__ . '/inc_header.php';
           <input type="hidden" name="redirect" value="product_form.php?id=<?= (int) $product['id'] ?>">
           <div style="flex:1;font-size:13px;">
             <?= e($b['name']) ?>
-            <?php if ((int) $inv['quantity'] <= (int) $inv['min_stock']): ?>
+            <?php if ((float) $inv['quantity'] <= (int) $inv['min_stock']): ?>
               <span class="badge badge-red">Dưới định mức</span>
             <?php endif; ?>
           </div>
           <label class="muted" style="font-size:12px;">SL:
-            <input type="number" min="0" name="quantity" value="<?= (int) $inv['quantity'] ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
+            <input type="number" min="0" step="0.001" name="quantity" value="<?= fmtQty($inv['quantity']) ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
           </label>
           <label class="muted" style="font-size:12px;">Định mức:
             <input type="number" min="0" name="min_stock" value="<?= (int) $inv['min_stock'] ?>" style="width:70px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;">
@@ -456,7 +456,7 @@ require_once __DIR__ . '/inc_header.php';
       <div class="field"><label>Giá vốn</label><input class="input" type="number" min="0" name="cost_price" value="0"></div>
       <div class="field"><label>Giá bán</label><input class="input" type="number" min="0" name="sell_price" value="0"></div>
     </div>
-    <div class="field"><label>Tồn kho ban đầu</label><input class="input" type="number" min="0" name="initial_qty" value="0" style="max-width:200px;"></div>
+    <div class="field"><label>Tồn kho ban đầu</label><input class="input" type="number" min="0" step="0.001" name="initial_qty" value="0" style="max-width:200px;"></div>
     <button type="submit" class="btn">Thêm biến thể</button>
   </form>
 </div>
@@ -476,7 +476,7 @@ require_once __DIR__ . '/inc_header.php';
       <div style="font-size:14px;">
         <?= e($ci['product_name']) ?>
         <span class="muted" style="font-family:monospace;font-size:12px;"> (<?= e($ci['product_sku']) ?>)</span>
-        <span class="muted"> × <?= (int) $ci['quantity'] ?></span>
+        <span class="muted"> × <?= fmtQty($ci['quantity']) ?></span>
       </div>
       <button type="submit" class="btn btn-danger" style="padding:4px 10px;font-size:12px;">Xóa</button>
     </form>
@@ -497,7 +497,7 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <div class="field" style="margin:0;">
       <label>Số lượng</label>
-      <input class="input" type="number" min="1" name="quantity" value="1" style="width:90px;">
+      <input class="input" type="number" min="0.001" step="0.001" name="quantity" value="1" style="width:90px;">
     </div>
     <button type="submit" class="btn">Thêm</button>
   </form>

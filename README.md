@@ -1148,3 +1148,45 @@ dụng đúng toàn bộ hạ tầng pipeline/bảo hành/điểm tích lũy đ�
 (không biến thể, không combo) để giữ đơn giản; không có xác thực OTP/CAPTCHA chống spam đơn ảo;
 không tuỳ chỉnh giao diện/thương hiệu trang; không đồng bộ nhiều chi nhánh (luôn dùng chi nhánh
 đang hoạt động đầu tiên). Có thể mở rộng thêm nếu người dùng cần.
+
+## Vòng rà soát module Cân điện tử — xác nhận ngoài phạm vi, nhưng phát hiện + xây dựng gap liên quan quy mô lớn (bán hàng theo số lượng lẻ)
+
+Xem trực tiếp mục "Cân điện tử" thật của Sapo trong Cấu hình: link còn trỏ về trang chủ (`href="/"`),
+tức chưa từng được kích hoạt/cấu hình được cho tài khoản khảo sát — xác nhận đây đúng là tính năng
+kết nối phần cứng thật (cân điện tử in mã vạch qua cổng USB/Serial/LAN của hãng cân cụ thể), **100%
+ngoài phạm vi phần mềm**, giống hệt "Hóa đơn điện tử".
+
+Nhưng mục đích cốt lõi của cân điện tử — bán hàng theo **cân nặng** (thịt/rau/hàng cân lẻ) — có 1
+phần hoàn toàn làm được mà không cần phần cứng: cho phép nhập **số lượng lẻ** (vd 0.35kg) thay vì
+chỉ số nguyên. Rà lại toàn bộ schema thì phát hiện **mọi cột `quantity` trong 10 bảng đều là kiểu
+`INT`** (tồn kho, đơn hàng, phiếu nhập/chuyển/kiểm/trả hàng, combo...) và giao diện POS ép
+`parseInt` — nên dù không có máy cân thật, việc bán 0.35kg thịt vẫn không thể nhập được. Đã hỏi ý
+kiến người dùng trước vì đây là thay đổi quy mô lớn (đụng ~30 file), không phải 1 gap nhỏ — người
+dùng chọn làm.
+
+Đã bổ sung:
+- Đổi 10 cột `quantity`/`counted_qty`/`system_qty` từ `INT` sang `DECIMAL(12,3)` (đủ chính xác tới
+  gram) ở các bảng: `inventory`, `order_items`, `order_return_items`, `stock_receipt_items`,
+  `stock_take_items`, `stock_transfer_items`, `supplier_return_items`, `purchase_order_items`,
+  `combo_items`, `product_batches`. Ngưỡng tồn tối thiểu/tối đa (`min_stock`/`max_stock`) giữ
+  nguyên `INT` vì so sánh với `DECIMAL` vẫn đúng bình thường, không cần đổi.
+- `inc_functions.php`: thêm `postQty()` (đọc số lượng cho phép số lẻ, làm tròn 3 chữ số thập phân)
+  và `fmtQty()` (hiển thị đẹp — bỏ số 0 thừa: `1` thay vì `1.000`, `0.5` thay vì `0.500`).
+- Rà soát và sửa toàn bộ ~28 file liên quan: mọi chỗ ép kiểu `(int)` trên số lượng đổi thành
+  `(float)`/`postQty()`/`fmtQty()`; mọi ô nhập số lượng (`<input type="number">`) thêm
+  `step="0.001"` và cho phép giá trị nhỏ hơn 1; JS `parseInt` trên số lượng đổi thành `parseFloat`.
+  Bao gồm: POS bán hàng (giỏ hàng, tìm kiếm, chọn lô FEFO, combo), đơn hàng (xem/in/hủy/đổi trả),
+  đặt hàng nhập, phiếu nhập kho, kiểm kho, chuyển kho, trả hàng NCC, lô hàng/HSD, sản phẩm (tồn
+  kho theo chi nhánh, combo, biến thể), trang Đặt hàng Online mới xây ở vòng trước, báo cáo, dashboard.
+- In hóa đơn (`order_print.php`): chế độ "tách dòng" (in mỗi đơn vị 1 dòng) tự động chuyển về in
+  gộp 1 dòng khi số lượng có phần lẻ, vì tách dòng cho 0.35kg vốn không có ý nghĩa.
+
+Đã test trên app.kt-soft.vn: tạo sản phẩm "Thịt heo (bán theo kg)" tồn 10.5kg → bán 0.35kg tại
+POS → đơn hiển thị đúng "0.35", tổng tiền đúng 52.500, tồn kho giảm đúng còn 10.15, hóa đơn in ra
+đúng "x 0.35"; bán tiếp 2 (số nguyên) → hiển thị gọn "2" chứ không phải "2.000" (xác nhận không hồi
+quy với hàng bán theo cái); nhập kho thêm 5.25kg → tồn cộng đúng thành 13.4, phiếu nhập hiển thị
+đúng "5.25". Đã xóa sạch dữ liệu test.
+
+**Lưu ý cho người dùng**: đây là thay đổi kiểu dữ liệu ở tầng DB — dữ liệu cũ (toàn số nguyên) không
+bị ảnh hưởng, tự động hoạt động bình thường như trước; ảnh hưởng chỉ áp dụng cho các giao dịch mới
+nhập số lượng lẻ từ bây giờ trở đi.

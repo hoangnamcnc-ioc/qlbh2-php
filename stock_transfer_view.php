@@ -76,7 +76,7 @@ $statusLabels = ['IN_TRANSIT' => ['Đang vận chuyển', 'badge-gray'], 'COMPLE
       <?php foreach ($items as $it): ?>
         <tr>
           <td><?= e($it['product_name']) ?><?php if ($it['variant_name']): ?> <span class="muted">(<?= e($it['variant_name']) ?>)</span><?php endif; ?></td>
-          <td class="text-right" style="font-weight:600;"><?= (int) $it['quantity'] ?></td>
+          <td class="text-right" style="font-weight:600;"><?= fmtQty($it['quantity']) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

@@ -34,7 +34,7 @@ if ($order && $order['status'] !== 'CANCELLED') {
                 $comboStmt = $pdo->prepare('SELECT component_product_id, quantity AS comp_qty FROM combo_items WHERE combo_product_id = ?');
                 $comboStmt->execute([$item['product_id']]);
                 foreach ($comboStmt->fetchAll() as $comp) {
-                    $restoreQty = (int) $comp['comp_qty'] * (int) $item['quantity'];
+                    $restoreQty = (float) $comp['comp_qty'] * (float) $item['quantity'];
                     $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
                     $inv->execute([$order['branch_id'], $comp['component_product_id']]);
                     $invRow = $inv->fetch();

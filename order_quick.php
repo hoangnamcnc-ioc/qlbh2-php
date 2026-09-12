@@ -22,5 +22,5 @@ if (!$items) {
 
 foreach ($items as $it) {
     $name = e($it['product_name']) . ($it['variant_name'] ? ' (' . e($it['variant_name']) . ')' : '');
-    echo '<div>' . $name . ' × ' . (int) $it['quantity'] . ' — ' . money($it['line_total']) . '</div>';
+    echo '<div>' . $name . ' × ' . fmtQty($it['quantity']) . ' — ' . money($it['line_total']) . '</div>';
 }

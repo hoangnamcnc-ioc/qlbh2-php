@@ -224,7 +224,7 @@ $cashSummary = $stmt->fetch();
           <?php foreach ($topProducts as $p): ?>
             <tr>
               <td><?= e($p['name']) ?></td>
-              <td class="text-right"><?= (int) $p['qty'] ?></td>
+              <td class="text-right"><?= fmtQty($p['qty']) ?></td>
               <td class="text-right" style="font-weight:600;"><?= money($p['total']) ?></td>
             </tr>
           <?php endforeach; ?>
@@ -358,7 +358,7 @@ $cashSummary = $stmt->fetch();
       <?php foreach ($returnsByProduct as $r): ?>
         <tr>
           <td><?= e($r['name']) ?></td>
-          <td class="text-right"><?= (int) $r['qty'] ?></td>
+          <td class="text-right"><?= fmtQty($r['qty']) ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($r['total']) ?></td>
         </tr>
       <?php endforeach; ?>
@@ -414,7 +414,7 @@ $cashSummary = $stmt->fetch();
           <?php foreach ($purchaseByProduct as $p): ?>
             <tr>
               <td><?= e($p['name']) ?></td>
-              <td class="text-right"><?= (int) $p['qty'] ?></td>
+              <td class="text-right"><?= fmtQty($p['qty']) ?></td>
               <td class="text-right" style="font-weight:600;"><?= money($p['total']) ?></td>
             </tr>
           <?php endforeach; ?>
@@ -436,7 +436,7 @@ $cashSummary = $stmt->fetch();
         <tr>
           <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($s['sku']) ?></td>
           <td><?= e($s['product_name']) ?></td>
-          <td class="text-right"><?= (int) $s['qty'] ?></td>
+          <td class="text-right"><?= fmtQty($s['qty']) ?></td>
           <td class="text-right" style="font-weight:600;"><?= money($s['value']) ?></td>
         </tr>
       <?php endforeach; ?>
