@@ -7,6 +7,7 @@ $pdo = db();
 $error = null;
 $receipt = null;
 $items = [];
+$returnReasons = $pdo->query("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('RETURN','BOTH') ORDER BY id")->fetchAll();
 
 $q = trim($_GET['q'] ?? '');
 
@@ -45,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $receiptId = (int) ($_POST['receipt_id'] ?? 0);
     $reason = post('reason');
+    if ($reason === '__OTHER__') {
+        $reason = post('reason_other');
+    }
     $quantities = $_POST['qty'] ?? [];
 
     $stmt = $pdo->prepare('SELECT * FROM stock_receipts WHERE id = ?');
@@ -187,8 +191,19 @@ require_once __DIR__ . '/inc_header.php';
     </table>
 
     <div class="field">
-      <label>Lý do trả hàng</label>
-      <input class="input" name="reason" placeholder="vd: Hàng lỗi, hết hạn sử dụng...">
+      <label>Lý do trả hàng (<a href="cancel_reasons.php" class="muted">quản lý danh sách</a>)</label>
+      <?php if ($returnReasons): ?>
+        <select class="input" name="reason">
+          <option value="">— Chọn lý do —</option>
+          <?php foreach ($returnReasons as $r): ?>
+            <option value="<?= e($r['name']) ?>"><?= e($r['name']) ?></option>
+          <?php endforeach; ?>
+          <option value="__OTHER__">Khác (nhập bên dưới)</option>
+        </select>
+        <input class="input" name="reason_other" placeholder="Nhập lý do khác nếu chọn 'Khác'" style="margin-top:8px;">
+      <?php else: ?>
+        <input class="input" name="reason" placeholder="vd: Hàng lỗi, hết hạn sử dụng...">
+      <?php endif; ?>
     </div>
 
     <button type="submit" class="btn">Tạo trả hàng NCC</button>

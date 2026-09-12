@@ -110,12 +110,16 @@ require_once __DIR__ . '/inc_header.php';
         <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
         <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
         <?php if ($cancelReasons): ?>
-          <select name="reason" class="input" style="max-width:180px;padding:6px 10px;">
+          <select name="reason" class="input" style="max-width:180px;padding:6px 10px;" onchange="document.getElementById('cancel-reason-other').style.display = this.value === '__OTHER__' ? 'inline-block' : 'none';">
             <option value="">— Lý do hủy —</option>
             <?php foreach ($cancelReasons as $r): ?>
               <option value="<?= e($r['name']) ?>"><?= e($r['name']) ?></option>
             <?php endforeach; ?>
+            <option value="__OTHER__">Khác (nhập bên cạnh)</option>
           </select>
+          <input class="input" id="cancel-reason-other" name="reason_other" placeholder="Nhập lý do khác" style="max-width:160px;padding:6px 10px;display:none;">
+        <?php else: ?>
+          <input class="input" name="reason" placeholder="Lý do hủy (tùy chọn)" style="max-width:180px;padding:6px 10px;">
         <?php endif; ?>
         <button type="submit" class="btn btn-danger">Hủy đơn hàng</button>
       </form>

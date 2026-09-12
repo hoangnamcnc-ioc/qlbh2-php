@@ -1247,3 +1247,32 @@ có gán nguồn qua `order_edit.php` thì trang xem đơn cũng không hiện �
 Đã test trên app.kt-soft.vn: tạo nguồn test "Nhắn tin Zalo" → hiện đúng trong ô chọn tại POS; bán 1
 đơn chọn nguồn này → trang chi tiết đơn hiện đúng "Nguồn: Nhắn tin Zalo"; lọc danh sách đơn theo
 nguồn này → ra đúng đơn vừa tạo. Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát module Lý do hủy trả
+
+`cancel_reasons.php` (CRUD + toggle, phân loại CANCEL/RETURN/BOTH) và cách dùng trong
+`order_return_form.php` (trả hàng khách) đã đúng và đầy đủ. Nhưng rà lại các nơi khác dùng chung
+danh mục này thì phát hiện 2 gap nhất quán:
+
+1. **`supplier_return_form.php` (trả hàng NCC) hoàn toàn không dùng danh mục lý do dùng chung** —
+   chỉ có 1 ô nhập tự do, trong khi đây cũng là 1 dạng "trả hàng" giống hệt `order_return_form.php`
+   về bản chất. Kết quả: lý do trả hàng cho NCC không thống nhất giữa các nhân viên — đúng vấn đề
+   mà tính năng "Lý do hủy trả" sinh ra để giải quyết, nhưng lại bỏ sót đúng 1 trong 2 luồng trả
+   hàng chính của phần mềm.
+2. **Form hủy đơn hàng trên `order_view.php` không có lựa chọn "Khác" để nhập lý do tự do** — nếu lý
+   do hủy không nằm trong danh sách đã khai báo, nhân viên không có cách nào ghi lại lý do thật; và
+   nếu cửa hàng chưa khai báo lý do nào cả thì ô nhập lý do biến mất hoàn toàn, đơn hủy luôn không
+   có lý do. Trong khi đó `order_return_form.php`/`supplier_return_form.php` đều đã có sẵn lựa chọn
+   "Khác (nhập bên dưới)" — chỉ riêng luồng hủy đơn là thiếu.
+
+Đã bổ sung:
+- `supplier_return_form.php`: thêm dropdown chọn lý do dùng chung (lọc `applies_to IN
+  ('RETURN','BOTH')`, giống hệt mẫu đã dùng ở `order_return_form.php`) kèm lựa chọn "Khác (nhập bên
+  dưới)".
+- `order_view.php`/`order_cancel.php`: thêm lựa chọn "Khác (nhập bên cạnh)" cho form hủy đơn khi đã
+  có danh sách lý do; khi cửa hàng chưa khai báo lý do nào thì hiện ô nhập tự do thay vì không có gì.
+
+Đã test trên app.kt-soft.vn: tạo lý do test "Hàng lỗi NCC" (áp dụng RETURN) → hiện đúng trong
+dropdown trả hàng NCC, tạo trả hàng chọn lý do này → lưu đúng vào `supplier_returns.reason`; hủy 1
+đơn hàng chọn "Khác" kèm lý do tự nhập → lưu và hiển thị đúng lý do tự nhập trong lịch sử đơn. Đã
+xóa sạch dữ liệu test.

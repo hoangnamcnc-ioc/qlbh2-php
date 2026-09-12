@@ -8,7 +8,11 @@ checkCsrf();
 
 $pdo = db();
 $orderId = (int) ($_POST['order_id'] ?? 0);
-$reason = post('reason') ?: null;
+$reason = post('reason');
+if ($reason === '__OTHER__') {
+    $reason = post('reason_other');
+}
+$reason = $reason ?: null;
 
 $stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
 $stmt->execute([$orderId]);
