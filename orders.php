@@ -12,15 +12,18 @@ $fromDate = $_GET['from'] ?? '';
 $toDate = $_GET['to'] ?? '';
 $staffId = (int) ($_GET['staff_id'] ?? 0);
 $channelId = (int) ($_GET['channel_id'] ?? 0);
+$sourceId = (int) ($_GET['source_id'] ?? 0);
 
 $pdo = db();
 $staffList = $pdo->query('SELECT id, name FROM users ORDER BY name')->fetchAll();
 $channelList = $pdo->query('SELECT id, name FROM sales_channels ORDER BY name')->fetchAll();
+$sourceList = $pdo->query('SELECT id, name FROM order_sources ORDER BY name')->fetchAll();
 
-$sql = 'SELECT o.*, c.name AS customer_name, u.name AS staff_name, sc.name AS channel_name FROM orders o
+$sql = 'SELECT o.*, c.name AS customer_name, u.name AS staff_name, sc.name AS channel_name, os.name AS source_name FROM orders o
         LEFT JOIN customers c ON c.id = o.customer_id
         JOIN users u ON u.id = o.sold_by_id
-        LEFT JOIN sales_channels sc ON sc.id = o.channel_id';
+        LEFT JOIN sales_channels sc ON sc.id = o.channel_id
+        LEFT JOIN order_sources os ON os.id = o.source_id';
 $where = [];
 $params = [];
 
@@ -43,6 +46,10 @@ if ($staffId) {
 if ($channelId) {
     $where[] = 'o.channel_id = ?';
     $params[] = $channelId;
+}
+if ($sourceId) {
+    $where[] = 'o.source_id = ?';
+    $params[] = $sourceId;
 }
 if ($where) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
@@ -76,6 +83,12 @@ $orders = $stmt->fetchAll();
     <option value="">Tất cả kênh bán</option>
     <?php foreach ($channelList as $ch): ?>
       <option value="<?= (int) $ch['id'] ?>" <?= $channelId === (int) $ch['id'] ? 'selected' : '' ?>><?= e($ch['name']) ?></option>
+    <?php endforeach; ?>
+  </select>
+  <select name="source_id" class="input" style="max-width:180px;">
+    <option value="">Tất cả nguồn</option>
+    <?php foreach ($sourceList as $s): ?>
+      <option value="<?= (int) $s['id'] ?>" <?= $sourceId === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option>
     <?php endforeach; ?>
   </select>
   <input type="date" name="from" class="input" style="max-width:160px;" value="<?= e($fromDate) ?>">

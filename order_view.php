@@ -16,12 +16,13 @@ $id = (int) ($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare(
     'SELECT o.*, c.name AS customer_name, c.phone AS customer_phone, c.loyalty_points,
-            b.name AS branch_name, u.name AS sold_by_name, sc.name AS channel_name
+            b.name AS branch_name, u.name AS sold_by_name, sc.name AS channel_name, os.name AS source_name
      FROM orders o
      LEFT JOIN customers c ON c.id = o.customer_id
      JOIN branches b ON b.id = o.branch_id
      JOIN users u ON u.id = o.sold_by_id
      LEFT JOIN sales_channels sc ON sc.id = o.channel_id
+     LEFT JOIN order_sources os ON os.id = o.source_id
      WHERE o.id = ?'
 );
 $stmt->execute([$id]);
@@ -168,7 +169,7 @@ require_once __DIR__ . '/inc_header.php';
     <h2 style="font-size:14px;font-weight:600;margin:0 0 8px;">Thông tin đơn</h2>
     <p style="margin:2px 0;">Bán tại: <?= e($order['branch_name']) ?></p>
     <p style="margin:2px 0;">Bán bởi: <?= e($order['sold_by_name']) ?></p>
-    <p style="margin:2px 0;">Nguồn: <?= e($order['source']) ?></p>
+    <p style="margin:2px 0;">Nguồn: <?= e($order['source_name'] ?: '—') ?></p>
     <p style="margin:2px 0;">Kênh bán: <?= e($order['channel_name'] ?: 'Trực tiếp') ?><?php if ($order['external_order_code']): ?> <span class="muted">(mã: <?= e($order['external_order_code']) ?>)</span><?php endif; ?></p>
     <?php if ($order['coupon_code']): ?><p style="margin:2px 0;">Mã giảm giá: <span style="font-family:monospace;"><?= e($order['coupon_code']) ?></span></p><?php endif; ?>
     <?php if ($promotionName): ?><p style="margin:2px 0;">Khuyến mại tự động: <?= e($promotionName) ?></p><?php endif; ?>

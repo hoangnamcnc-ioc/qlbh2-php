@@ -1217,3 +1217,33 @@ trên giao diện là chuyện thường gặp), không phải suy đoán theo S
 sang" liên tiếp tới "Hoàn thành" → xác nhận phiếu bảo hành được tạo và khách được cộng đúng 9 điểm;
 bấm "Lùi về: Xuất kho" → đơn về đúng trạng thái trước đó, phiếu bảo hành bị xóa đúng, điểm khách về
 đúng 0, lịch sử đơn ghi đúng dòng "Lùi bước xử lý". Đã xóa sạch dữ liệu test.
+
+## Vòng rà soát module Nguồn/Kênh bán hàng
+
+Trang "Kênh bán hàng" thật của Sapo truy cập được (không bị chặn quyền như nhiều trang khác) — hóa
+ra đây là danh sách **ứng dụng kết nối** (GrabMart, Sàn TMĐT Shopee/Lazada/Tiki/Sendo, Social
+Facebook/Instagram, Sapo Web, Sapo POS, và **Kênh Đặt hàng Online** đã "Truy cập kênh"/"Tắt kênh"
+được) — xác nhận đúng cách tiếp cận đã chọn ở vòng trước khi xây `shop.php` như 1 "kênh Đặt hàng
+Online" độc lập là hợp lý. Trang "Nguồn bán hàng" (`/admin/settings/order_sources`) tiếp tục bị
+chặn quyền nên chuyển sang rà soát nội bộ.
+
+`channels.php` và `order_sources.php` của QLBH2 đã đầy đủ CRUD + toggle. Nhưng phát hiện gap thực
+chất: cả 2 bảng `sales_channels`/`order_sources` **chỉ được gán vào đơn hàng qua `order_edit.php`**
+— tức nhân viên phải bán hàng xong rồi vào sửa đơn riêng mới gắn được "khách đặt qua Zalo"/"Gọi
+điện thoại". `pos_checkout.php` — nơi tạo ra tuyệt đại đa số đơn hàng — **chưa bao giờ set
+`source_id`**, nên tính năng "Nguồn bán hàng" trong thực tế gần như không có dữ liệu nào (không ai
+nhớ vào sửa lại từng đơn sau khi bán). Ngoài ra `order_view.php` hiển thị nhầm "Nguồn:" bằng cột
+ENUM nội bộ `source` (POS/ONLINE) thay vì tên nguồn bán hàng thật (`order_sources.name`) — nên dù
+có gán nguồn qua `order_edit.php` thì trang xem đơn cũng không hiện đúng.
+
+Đã bổ sung:
+- `pos.php`: thêm ô chọn "Nguồn đơn hàng" (chỉ hiện khi đã khai báo ít nhất 1 nguồn đang dùng) ngay
+  trong màn hình bán hàng, lưu theo từng tab đơn giống các trường khác.
+- `pos_checkout.php`: nhận `source_id`, xác thực tồn tại và đang active, lưu đúng vào đơn hàng mới.
+- `order_view.php`: sửa lại đúng — "Nguồn:" giờ hiện tên nguồn bán hàng thật (join `order_sources`)
+  thay vì giá trị ENUM nội bộ.
+- `orders.php`: thêm bộ lọc theo nguồn bán hàng vào danh sách đơn, giống bộ lọc kênh bán đã có.
+
+Đã test trên app.kt-soft.vn: tạo nguồn test "Nhắn tin Zalo" → hiện đúng trong ô chọn tại POS; bán 1
+đơn chọn nguồn này → trang chi tiết đơn hiện đúng "Nguồn: Nhắn tin Zalo"; lọc danh sách đơn theo
+nguồn này → ra đúng đơn vừa tạo. Đã xóa sạch dữ liệu test.

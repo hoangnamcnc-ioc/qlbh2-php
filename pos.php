@@ -5,6 +5,7 @@ $pdo = db();
 $branchId = effectiveBranchId($currentUser);
 $canSwitchBranch = hasRole('ADMIN', 'MANAGER');
 $allBranches = $canSwitchBranch ? $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll() : [];
+$orderSources = $pdo->query('SELECT id, name FROM order_sources WHERE is_active = 1 ORDER BY id')->fetchAll();
 $showColStt = getSetting('show_column_stt', '1') === '1';
 $showColSku = getSetting('show_column_sku', '0') === '1';
 $qa = fn(string $key) => getSetting($key, '1') === '1';
@@ -149,6 +150,18 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       </div>
     </div>
 
+    <?php if ($orderSources): ?>
+    <div class="field">
+      <label>Nguồn đơn hàng (khách đặt qua đâu)</label>
+      <select id="order-source" class="input">
+        <option value="">— Không chọn —</option>
+        <?php foreach ($orderSources as $s): ?>
+          <option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <?php endif; ?>
+
     <div class="field">
       <label>Ghi chú đơn hàng</label>
       <input type="text" id="order-note" class="input" placeholder="Ghi chú cho đơn hàng này...">
@@ -292,7 +305,7 @@ function makeEmptyOrder() {
     cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, loyaltyDiscountPercent: 0, paymentMethod: 'CASH',
     manualDiscountType: defaultDiscountUnit, manualDiscountValue: '', appliedCoupon: null, couponInput: '',
     isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', tags: '', cashGiven: '',
-    partialPayment: false, paidAmount: '',
+    partialPayment: false, paidAmount: '', sourceId: '',
   };
 }
 
@@ -317,6 +330,7 @@ function saveCurrentOrderState() {
   o.shippingFee = document.getElementById('shipping-fee').value;
   o.note = document.getElementById('order-note').value;
   o.tags = document.getElementById('order-tags').value;
+  o.sourceId = document.getElementById('order-source') ? document.getElementById('order-source').value : '';
   o.cashGiven = document.getElementById('cash-given').value;
   o.partialPayment = document.getElementById('partial-payment-toggle').checked;
   o.paidAmount = document.getElementById('paid-amount').value;
@@ -344,6 +358,7 @@ function loadOrderState(idx) {
   document.getElementById('shipping-fee').value = o.shippingFee;
   document.getElementById('order-note').value = o.note;
   document.getElementById('order-tags').value = o.tags;
+  if (document.getElementById('order-source')) document.getElementById('order-source').value = o.sourceId || '';
   document.getElementById('cash-given').value = o.cashGiven;
   document.getElementById('partial-payment-toggle').checked = o.partialPayment;
   document.getElementById('paid-amount').value = o.paidAmount;
@@ -653,6 +668,7 @@ function buildCheckoutPayload() {
     shipping_fee: getShippingFee(),
     note: document.getElementById('order-note').value,
     tags: document.getElementById('order-tags').value,
+    source_id: document.getElementById('order-source') ? (parseInt(document.getElementById('order-source').value, 10) || null) : null,
     paid_amount: document.getElementById('partial-payment-toggle').checked
       ? (parseFloat(document.getElementById('paid-amount').value) || 0)
       : null,
