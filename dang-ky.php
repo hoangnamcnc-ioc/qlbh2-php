@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             try {
                 $pdo->prepare(
-                    "INSERT INTO tenants (name, owner_email, plan, trial_ends_at, is_active) VALUES (?, ?, 'TRIAL', DATE_ADD(NOW(), INTERVAL 14 DAY), 1)"
+                    "INSERT INTO tenants (name, owner_email, plan, trial_ends_at, is_active) VALUES (?, ?, 'TRIAL', DATE_ADD(NOW(), INTERVAL 12 MONTH), 1)"
                 )->execute([$companyName, $email]);
                 $tenantId = (int) $pdo->lastInsertId();
 
@@ -97,11 +97,11 @@ $pageTitle = 'Đăng ký dùng thử QLBH2';
 <body>
   <div class="box">
     <h1>Dùng thử QLBH2</h1>
-    <p class="lead">Tạo tài khoản quản trị cho cửa hàng của bạn — dùng thử miễn phí 14 ngày.</p>
+    <p class="lead">Tạo tài khoản quản trị cho cửa hàng của bạn — miễn phí sử dụng 12 tháng.</p>
 
     <div class="trial-note">
-      🎁 Dùng thử <b>14 ngày</b> đầy đủ tính năng, dữ liệu của bạn hoàn toàn riêng biệt, không ảnh
-      hưởng đến cửa hàng khác. Hết hạn có thể liên hệ nâng cấp để tiếp tục sử dụng.
+      🎁 Sử dụng miễn phí <b>12 tháng</b> đầy đủ tính năng, dữ liệu của bạn hoàn toàn riêng biệt,
+      không ảnh hưởng đến cửa hàng khác. Hết hạn có thể yêu cầu gia hạn thêm để tiếp tục sử dụng.
     </div>
 
     <?php if ($error): ?><div class="alert-error"><?= e($error) ?></div><?php endif; ?>

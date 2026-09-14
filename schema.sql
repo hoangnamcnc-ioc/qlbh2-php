@@ -780,3 +780,15 @@ ALTER TABLE store_settings ADD CONSTRAINT fk_store_settings_tenant FOREIGN KEY (
 
 INSERT INTO tenants (id, name, plan, is_active) VALUES (1, 'KT-SOFT (chủ sở hữu)', 'PAID', 1)
   ON DUPLICATE KEY UPDATE name = name;
+
+-- ===== Yêu cầu gia hạn (khách tự gửi từ trong app khi sắp/đã hết hạn dùng thử) =====
+CREATE TABLE IF NOT EXISTS renewal_requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  contact_name VARCHAR(255) NOT NULL,
+  contact_phone VARCHAR(50) NOT NULL,
+  message VARCHAR(1000) NULL,
+  status ENUM('PENDING','DONE') NOT NULL DEFAULT 'PENDING',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

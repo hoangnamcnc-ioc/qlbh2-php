@@ -23,14 +23,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("UPDATE tenants SET plan = 'PAID', trial_ends_at = NULL WHERE id = ?")->execute([$id]);
         logActivity('SUPER_ADMIN_TENANT_UPGRADE', 'tenant_id=' . $id);
     } elseif ($action === 'extend_trial') {
-        $days = max(1, (int) ($_POST['days'] ?? 14));
+        $days = max(1, (int) ($_POST['days'] ?? 365));
         $pdo->prepare(
             "UPDATE tenants SET plan = 'TRIAL', trial_ends_at = DATE_ADD(GREATEST(COALESCE(trial_ends_at, NOW()), NOW()), INTERVAL ? DAY) WHERE id = ?"
         )->execute([$days, $id]);
         logActivity('SUPER_ADMIN_TENANT_EXTEND', "tenant_id=$id days=$days");
+    } elseif ($action === 'resolve_renewal') {
+        $reqId = (int) ($_POST['req_id'] ?? 0);
+        $pdo->prepare("UPDATE renewal_requests SET status = 'DONE' WHERE id = ? AND tenant_id = ?")->execute([$reqId, $id]);
+        logActivity('SUPER_ADMIN_RENEWAL_RESOLVE', "tenant_id=$id req_id=$reqId");
     }
     redirect('super_admin_tenants.php');
 }
+
+$pendingRenewals = $pdo->query(
+    "SELECT r.*, t.name AS tenant_name
+     FROM renewal_requests r JOIN tenants t ON t.id = r.tenant_id
+     WHERE r.status = 'PENDING'
+     ORDER BY r.created_at DESC"
+)->fetchAll();
 
 $tenants = $pdo->query(
     "SELECT t.*,
@@ -74,6 +85,35 @@ require_once __DIR__ . '/inc_header.php';
     <div style="font-size:22px;font-weight:700;color:#2563eb;"><?= $totalActiveUsers ?></div>
   </div>
 </div>
+
+<?php if ($pendingRenewals): ?>
+<div class="card" style="margin-bottom:24px;">
+  <div style="font-weight:600;margin-bottom:12px;">📩 Yêu cầu gia hạn đang chờ (<?= count($pendingRenewals) ?>)</div>
+  <table>
+    <thead><tr><th>Cửa hàng</th><th>Người liên hệ</th><th>SĐT/Zalo</th><th>Ghi chú</th><th>Thời gian gửi</th><th></th></tr></thead>
+    <tbody>
+      <?php foreach ($pendingRenewals as $r): ?>
+        <tr>
+          <td><b><?= e($r['tenant_name']) ?></b></td>
+          <td><?= e($r['contact_name']) ?></td>
+          <td style="font-family:monospace;"><?= e($r['contact_phone']) ?></td>
+          <td class="muted"><?= e($r['message'] ?: '—') ?></td>
+          <td class="muted" style="font-size:12px;"><?= date('d/m/Y H:i', strtotime($r['created_at'])) ?></td>
+          <td>
+            <form method="post" style="display:inline;">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="id" value="<?= (int) $r['tenant_id'] ?>">
+              <input type="hidden" name="req_id" value="<?= (int) $r['id'] ?>">
+              <input type="hidden" name="action" value="resolve_renewal">
+              <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;">Đã liên hệ</button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
@@ -133,8 +173,8 @@ require_once __DIR__ . '/inc_header.php';
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
                 <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
                 <input type="hidden" name="action" value="extend_trial">
-                <input type="hidden" name="days" value="14">
-                <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;">+14 ngày</button>
+                <input type="hidden" name="days" value="365">
+                <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;">+1 năm</button>
               </form>
               <form method="post" style="display:inline;">
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">

@@ -30,11 +30,14 @@ if (!$user) {
     <div class="icon">⏳</div>
     <h1>Đã hết hạn dùng thử QLBH2</h1>
     <p>
-      Cảm ơn <?= e($user['name']) ?> đã trải nghiệm QLBH2! Thời gian dùng thử 14 ngày đã kết
-      thúc. Dữ liệu của bạn vẫn được giữ nguyên — liên hệ KT-SOFT để nâng cấp lên gói chính
-      thức và tiếp tục sử dụng.
+      Cảm ơn <?= e($user['name']) ?> đã trải nghiệm QLBH2! Thời gian sử dụng miễn phí 12 tháng đã
+      kết thúc. Dữ liệu của bạn vẫn được giữ nguyên — gửi yêu cầu gia hạn để KT-SOFT liên hệ và
+      tiếp tục cho bạn sử dụng (gia hạn tính theo năm).
     </p>
-    <a class="btn" href="https://kt-soft.vn/lien-he.php" target="_blank" rel="noopener">Liên hệ nâng cấp</a>
+    <a class="btn" href="gia_han.php">Yêu cầu gia hạn</a>
+    <p style="font-size:12px;color:#94a3b8;margin-top:14px;">
+      Hoặc liên hệ trực tiếp: ĐT/Zalo <b>0945289666</b> — Email <b>hoangnamcnc@gmail.com</b>
+    </p>
     <a class="logout-link" href="logout.php">Đăng xuất</a>
   </div>
 </body>

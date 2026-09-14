@@ -67,7 +67,7 @@ function checkTrialExpiry(): void
     $checked = true;
 
     $currentFile = basename($_SERVER['SCRIPT_NAME']);
-    if (in_array($currentFile, ['trial_expired.php', 'logout.php'], true)) {
+    if (in_array($currentFile, ['trial_expired.php', 'logout.php', 'gia_han.php'], true)) {
         return;
     }
 
