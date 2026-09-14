@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $typeLabels = ['OUTPUT' => 'Thuế đầu ra (bán hàng)', 'INPUT' => 'Thuế đầu vào (mua hàng)'];
 
@@ -13,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE tax_rates SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE tax_rates SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('TAX_RATE_TOGGLE', 'id=' . $id);
         redirect('tax_rates.php');
     } else {
@@ -24,14 +25,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập tên mức thuế';
         } else {
-            $pdo->prepare('INSERT INTO tax_rates (name, rate_percent, type) VALUES (?,?,?)')->execute([$name, $rate, $type]);
+            $pdo->prepare('INSERT INTO tax_rates (name, rate_percent, type, tenant_id) VALUES (?,?,?,?)')->execute([$name, $rate, $type, $tenantId]);
             logActivity('TAX_RATE_CREATE', $name);
             redirect('tax_rates.php');
         }
     }
 }
 
-$taxRates = $pdo->query('SELECT * FROM tax_rates ORDER BY type, rate_percent')->fetchAll();
+$taxRatesStmt = $pdo->prepare('SELECT * FROM tax_rates WHERE tenant_id = ? ORDER BY type, rate_percent');
+$taxRatesStmt->execute([$tenantId]);
+$taxRates = $taxRatesStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

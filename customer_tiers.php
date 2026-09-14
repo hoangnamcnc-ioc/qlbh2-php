@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE customer_tiers SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE customer_tiers SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('CUSTOMER_TIER_TOGGLE', 'id=' . $id);
         redirect('customer_tiers.php');
     } else {
@@ -23,15 +24,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập tên hạng thẻ';
         } else {
-            $pdo->prepare('INSERT INTO customer_tiers (name, min_spend, discount_percent) VALUES (?,?,?)')
-                ->execute([$name, $minSpend, $discountPercent]);
+            $pdo->prepare('INSERT INTO customer_tiers (name, min_spend, discount_percent, tenant_id) VALUES (?,?,?,?)')
+                ->execute([$name, $minSpend, $discountPercent, $tenantId]);
             logActivity('CUSTOMER_TIER_CREATE', $name);
             redirect('customer_tiers.php');
         }
     }
 }
 
-$tiers = $pdo->query('SELECT * FROM customer_tiers ORDER BY min_spend')->fetchAll();
+$tiersStmt = $pdo->prepare('SELECT * FROM customer_tiers WHERE tenant_id = ? ORDER BY min_spend');
+$tiersStmt->execute([$tenantId]);
+$tiers = $tiersStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

@@ -15,9 +15,7 @@ $bankOptions = [
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     foreach ($fields as $key) {
-        $value = post($key);
-        $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-            ->execute([$key, $value]);
+        setSetting($key, post($key));
     }
     logActivity('PAYMENT_SETTINGS_UPDATE');
     redirect('payment_settings.php?saved=1');

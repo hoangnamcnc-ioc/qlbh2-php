@@ -8,8 +8,7 @@ $pdo = db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $enabled = isset($_POST['enabled']) ? '1' : '0';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['online_shop_enabled', $enabled]);
+    setSetting('online_shop_enabled', $enabled);
     logActivity('ONLINE_SHOP_SETTINGS_UPDATE');
     redirect('online_shop_settings.php?saved=1');
 }

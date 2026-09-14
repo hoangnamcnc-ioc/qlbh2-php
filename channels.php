@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE sales_channels SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE sales_channels SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('CHANNEL_TOGGLE', 'id=' . $id);
         redirect('channels.php');
     } else {
@@ -25,18 +26,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập tên kênh bán hàng';
         } else {
-            $pdo->prepare('INSERT INTO sales_channels (name, type, shop_name, note) VALUES (?,?,?,?)')
-                ->execute([$name, $type, $shopName, $note]);
+            $pdo->prepare('INSERT INTO sales_channels (name, type, shop_name, note, tenant_id) VALUES (?,?,?,?,?)')
+                ->execute([$name, $type, $shopName, $note, $tenantId]);
             logActivity('CHANNEL_CREATE', $name);
             redirect('channels.php');
         }
     }
 }
 
-$channels = $pdo->query(
+$channelsStmt = $pdo->prepare(
     'SELECT sc.*, (SELECT COUNT(*) FROM orders o WHERE o.channel_id = sc.id) AS order_count
-     FROM sales_channels sc ORDER BY sc.created_at DESC'
-)->fetchAll();
+     FROM sales_channels sc WHERE sc.tenant_id = ? ORDER BY sc.created_at DESC'
+);
+$channelsStmt->execute([$tenantId]);
+$channels = $channelsStmt->fetchAll();
 
 $typeLabels = [
     'SHOPEE' => 'Shopee', 'LAZADA' => 'Lazada', 'TIKTOK' => 'TikTok Shop',

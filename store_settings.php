@@ -10,9 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $pdo->beginTransaction();
     foreach ($fields as $key) {
-        $value = post($key);
-        $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-            ->execute([$key, $value]);
+        setSetting($key, post($key));
     }
 
     if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
@@ -28,8 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (move_uploaded_file($tmpPath, $dir . '/' . $filename)) {
                 $oldLogo = getSetting('store_logo', '');
-                $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-                    ->execute(['store_logo', $filename]);
+                setSetting('store_logo', $filename);
                 if ($oldLogo && is_file($dir . '/' . $oldLogo)) {
                     unlink($dir . '/' . $oldLogo);
                 }

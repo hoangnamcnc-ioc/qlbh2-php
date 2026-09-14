@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -17,13 +18,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '' || $percent <= 0 || $percent > 100) {
         $error = 'Vui lòng nhập tên chương trình và % giảm hợp lệ (1-100)';
     } else {
-        $pdo->prepare('INSERT INTO promotions (name, min_order_amount, discount_percent, start_date, end_date) VALUES (?,?,?,?,?)')
-            ->execute([$name, $minOrder, $percent, $startDate, $endDate]);
+        $pdo->prepare('INSERT INTO promotions (name, min_order_amount, discount_percent, start_date, end_date, tenant_id) VALUES (?,?,?,?,?,?)')
+            ->execute([$name, $minOrder, $percent, $startDate, $endDate, $tenantId]);
         redirect('promotions.php');
     }
 }
 
-$promotions = $pdo->query('SELECT * FROM promotions ORDER BY created_at DESC')->fetchAll();
+$promotionsStmt = $pdo->prepare('SELECT * FROM promotions WHERE tenant_id = ? ORDER BY created_at DESC');
+$promotionsStmt->execute([$tenantId]);
+$promotions = $promotionsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

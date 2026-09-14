@@ -166,22 +166,36 @@ function darkenColor(string $hex, int $percent = 15): string
 function logActivity(string $action, string $detail = ''): void
 {
     $user = currentUser();
-    db()->prepare('INSERT INTO activity_logs (user_id, user_name, action, detail) VALUES (?,?,?,?)')
-        ->execute([$user['id'] ?? null, $user['name'] ?? 'Hệ thống', $action, $detail]);
+    db()->prepare('INSERT INTO activity_logs (user_id, user_name, action, detail, tenant_id) VALUES (?,?,?,?,?)')
+        ->execute([$user['id'] ?? null, $user['name'] ?? 'Hệ thống', $action, $detail, $user['tenant_id'] ?? null]);
 }
 
-/** Đọc 1 giá trị cấu hình chung của cửa hàng (bảng store_settings, dạng key-value). */
+/** Đọc 1 giá trị cấu hình chung của cửa hàng (bảng store_settings, dạng key-value, theo tenant). */
 function getSetting(string $key, string $default = ''): string
 {
-    static $cache = null;
-    if ($cache === null) {
-        $cache = [];
-        $stmt = db()->query('SELECT setting_key, setting_value FROM store_settings');
+    static $cache = [];
+    // Trang đặt hàng online công khai (shop.php) không có phiên đăng nhập nên không biết
+    // tenant nào — tạm mặc định về tenant #1 (chủ sở hữu) cho tới khi trang shop hỗ trợ multi-
+    // tenant thật (vd theo subdomain riêng từng cửa hàng).
+    $tenantId = currentTenantId() ?: 1;
+    if (!isset($cache[$tenantId])) {
+        $cache[$tenantId] = [];
+        $stmt = db()->prepare('SELECT setting_key, setting_value FROM store_settings WHERE tenant_id = ?');
+        $stmt->execute([$tenantId]);
         foreach ($stmt->fetchAll() as $row) {
-            $cache[$row['setting_key']] = $row['setting_value'];
+            $cache[$tenantId][$row['setting_key']] = $row['setting_value'];
         }
     }
-    return $cache[$key] ?? $default;
+    return $cache[$tenantId][$key] ?? $default;
+}
+
+/** Ghi 1 giá trị cấu hình cho tenant hiện tại (bảng store_settings, PRIMARY KEY (tenant_id, setting_key)). */
+function setSetting(string $key, string $value): void
+{
+    db()->prepare(
+        'INSERT INTO store_settings (tenant_id, setting_key, setting_value) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
+    )->execute([currentTenantId(), $key, $value]);
 }
 
 /** Tự động tạo phiếu bảo hành cho các dòng sản phẩm có bật has_warranty trong 1 đơn hàng đã hoàn thành. */

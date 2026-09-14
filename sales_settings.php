@@ -9,13 +9,10 @@ $checkboxFields = ['require_customer_phone', 'auto_print_receipt', 'round_total'
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     foreach ($checkboxFields as $key) {
-        $value = isset($_POST[$key]) ? '1' : '0';
-        $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-            ->execute([$key, $value]);
+        setSetting($key, isset($_POST[$key]) ? '1' : '0');
     }
     $discountUnit = ($_POST['default_discount_unit'] ?? '') === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['default_discount_unit', $discountUnit]);
+    setSetting('default_discount_unit', $discountUnit);
     logActivity('SALES_SETTINGS_UPDATE');
     redirect('sales_settings.php?saved=1');
 }

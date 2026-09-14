@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -15,13 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '' || $duration <= 0) {
         $error = 'Vui lòng nhập tên chính sách và số tháng bảo hành hợp lệ';
     } else {
-        $pdo->prepare('INSERT INTO warranty_policies (name, duration_months, note) VALUES (?,?,?)')
-            ->execute([$name, $duration, $note]);
+        $pdo->prepare('INSERT INTO warranty_policies (name, duration_months, note, tenant_id) VALUES (?,?,?,?)')
+            ->execute([$name, $duration, $note, $tenantId]);
         redirect('warranty_policies.php');
     }
 }
 
-$policies = $pdo->query('SELECT * FROM warranty_policies ORDER BY created_at DESC')->fetchAll();
+$policiesStmt = $pdo->prepare('SELECT * FROM warranty_policies WHERE tenant_id = ? ORDER BY created_at DESC');
+$policiesStmt->execute([$tenantId]);
+$policies = $policiesStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $appliesLabels = ['CANCEL' => 'Chỉ hủy đơn', 'RETURN' => 'Chỉ trả hàng', 'BOTH' => 'Cả hủy và trả hàng'];
 
@@ -13,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE cancel_reasons SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE cancel_reasons SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('CANCEL_REASON_TOGGLE', 'id=' . $id);
         redirect('cancel_reasons.php');
     } else {
@@ -23,14 +24,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập lý do';
         } else {
-            $pdo->prepare('INSERT INTO cancel_reasons (name, applies_to) VALUES (?,?)')->execute([$name, $appliesTo]);
+            $pdo->prepare('INSERT INTO cancel_reasons (name, applies_to, tenant_id) VALUES (?,?,?)')->execute([$name, $appliesTo, $tenantId]);
             logActivity('CANCEL_REASON_CREATE', $name);
             redirect('cancel_reasons.php');
         }
     }
 }
 
-$reasons = $pdo->query('SELECT * FROM cancel_reasons ORDER BY id')->fetchAll();
+$reasonsStmt = $pdo->prepare('SELECT * FROM cancel_reasons WHERE tenant_id = ? ORDER BY id');
+$reasonsStmt->execute([$tenantId]);
+$reasons = $reasonsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

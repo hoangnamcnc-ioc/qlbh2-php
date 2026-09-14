@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -19,20 +20,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($code === '' || $value <= 0) {
         $error = 'Vui lòng nhập mã và giá trị giảm hợp lệ';
     } else {
-        $check = $pdo->prepare('SELECT id FROM coupons WHERE code = ?');
-        $check->execute([$code]);
+        $check = $pdo->prepare('SELECT id FROM coupons WHERE code = ? AND tenant_id = ?');
+        $check->execute([$code, $tenantId]);
         if ($check->fetch()) {
             $error = 'Mã giảm giá này đã tồn tại';
         } else {
             $pdo->prepare(
-                'INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_uses, start_date, end_date) VALUES (?,?,?,?,?,?,?)'
-            )->execute([$code, $type, $value, $minOrder, $maxUses, $startDate, $endDate]);
+                'INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_uses, start_date, end_date, tenant_id) VALUES (?,?,?,?,?,?,?,?)'
+            )->execute([$code, $type, $value, $minOrder, $maxUses, $startDate, $endDate, $tenantId]);
             redirect('coupons.php');
         }
     }
 }
 
-$coupons = $pdo->query('SELECT * FROM coupons ORDER BY created_at DESC')->fetchAll();
+$couponsStmt = $pdo->prepare('SELECT * FROM coupons WHERE tenant_id = ? ORDER BY created_at DESC');
+$couponsStmt->execute([$tenantId]);
+$coupons = $couponsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

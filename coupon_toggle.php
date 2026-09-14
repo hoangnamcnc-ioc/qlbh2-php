@@ -8,7 +8,7 @@ checkCsrf();
 
 $pdo = db();
 $id = (int) ($_POST['id'] ?? 0);
-$pdo->prepare('UPDATE coupons SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+$pdo->prepare('UPDATE coupons SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, currentTenantId()]);
 logActivity('COUPON_TOGGLE', "id=$id");
 
 redirect('coupons.php');

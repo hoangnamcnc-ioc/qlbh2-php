@@ -4,7 +4,10 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$groups = $pdo->query('SELECT * FROM customer_groups ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$groupsStmt = $pdo->prepare('SELECT * FROM customer_groups WHERE tenant_id = ? ORDER BY name');
+$groupsStmt->execute([$tenantId]);
+$groups = $groupsStmt->fetchAll();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -13,19 +16,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $channel = in_array($_POST['channel'] ?? '', ['SMS', 'EMAIL', 'OTHER'], true) ? $_POST['channel'] : 'SMS';
     $message = post('message');
     $groupId = (int) ($_POST['target_group_id'] ?? 0) ?: null;
+    if ($groupId && !in_array($groupId, array_column($groups, 'id'), true)) {
+        $groupId = null;
+    }
 
     if ($name === '' || $message === '') {
         $error = 'Vui lòng nhập tên chiến dịch và nội dung';
     } else {
-        $pdo->prepare('INSERT INTO campaigns (name, channel, message, target_group_id, created_by_id) VALUES (?,?,?,?,?)')
-            ->execute([$name, $channel, $message, $groupId, currentUser()['id']]);
+        $pdo->prepare('INSERT INTO campaigns (name, channel, message, target_group_id, created_by_id, tenant_id) VALUES (?,?,?,?,?,?)')
+            ->execute([$name, $channel, $message, $groupId, currentUser()['id'], $tenantId]);
         redirect('campaigns.php');
     }
 }
 
-$campaigns = $pdo->query(
-    'SELECT c.*, g.name AS group_name FROM campaigns c LEFT JOIN customer_groups g ON g.id = c.target_group_id ORDER BY c.created_at DESC'
-)->fetchAll();
+$campaignsStmt = $pdo->prepare(
+    'SELECT c.*, g.name AS group_name FROM campaigns c LEFT JOIN customer_groups g ON g.id = c.target_group_id WHERE c.tenant_id = ? ORDER BY c.created_at DESC'
+);
+$campaignsStmt->execute([$tenantId]);
+$campaigns = $campaignsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

@@ -27,33 +27,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $brandColor = post('brand_color') ?: '#2563eb';
     if (!preg_match('/^#[0-9a-fA-F]{6}$/', $brandColor)) $brandColor = '#2563eb';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['brand_color', $brandColor]);
+    setSetting('brand_color', $brandColor);
 
     $sortOrder = in_array($_POST['product_sort_order'] ?? '', ['name_asc', 'name_desc', 'newest'], true)
         ? $_POST['product_sort_order'] : 'name_asc';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['product_sort_order', $sortOrder]);
+    setSetting('product_sort_order', $sortOrder);
 
-    $splitLines = isset($_POST['print_split_lines']) ? '1' : '0';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['print_split_lines', $splitLines]);
+    setSetting('print_split_lines', isset($_POST['print_split_lines']) ? '1' : '0');
 
     $paperWidth = in_array($_POST['print_paper_width'] ?? '', ['58', '80'], true) ? $_POST['print_paper_width'] : '80';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['print_paper_width', $paperWidth]);
+    setSetting('print_paper_width', $paperWidth);
 
-    $showSTT = isset($_POST['show_column_stt']) ? '1' : '0';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['show_column_stt', $showSTT]);
-    $showSku = isset($_POST['show_column_sku']) ? '1' : '0';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['show_column_sku', $showSku]);
+    setSetting('show_column_stt', isset($_POST['show_column_stt']) ? '1' : '0');
+    setSetting('show_column_sku', isset($_POST['show_column_sku']) ? '1' : '0');
 
     foreach ($quickActions as $key => $label) {
-        $value = isset($_POST[$key]) ? '1' : '0';
-        $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-            ->execute([$key, $value]);
+        setSetting($key, isset($_POST[$key]) ? '1' : '0');
     }
 
     logActivity('DISPLAY_SETTINGS_UPDATE');

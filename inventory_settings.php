@@ -8,8 +8,7 @@ $pdo = db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $value = isset($_POST['allow_negative_stock']) ? '1' : '0';
-    $pdo->prepare('INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
-        ->execute(['allow_negative_stock', $value]);
+    setSetting('allow_negative_stock', $value);
     logActivity('INVENTORY_SETTINGS_UPDATE', 'allow_negative_stock=' . $value);
     redirect('inventory_settings.php?saved=1');
 }
