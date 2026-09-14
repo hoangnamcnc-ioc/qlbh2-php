@@ -57,11 +57,12 @@ if ($isManagerUp) {
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = [
         'settings.php' => 'Cấu hình',
-        'backup.php' => 'Sao lưu dữ liệu',
+        'tenant_export.php' => 'Xuất dữ liệu của tôi',
     ];
-    // Chi ADMIN cua tenant #1 (chu so huu KT-SOFT) moi thay muc quan tri he thong - day la cong
-    // cu van hanh nen tang, khong phai nghiep vu cua 1 cua hang thong thuong.
+    // Chi ADMIN cua tenant #1 (chu so huu KT-SOFT) moi thay muc quan tri he thong va sao luu toan
+    // bo DB - day la cong cu van hanh nen tang, khong phai nghiep vu cua 1 cua hang thong thuong.
     if ((int) ($currentUser['tenant_id'] ?? 0) === 1) {
+        $navGroups['Cấu hình']['backup.php'] = 'Sao lưu dữ liệu (toàn hệ thống)';
         $navGroups['Cấu hình']['super_admin_tenants.php'] = 'Quản trị hệ thống (KT-SOFT)';
     }
 }

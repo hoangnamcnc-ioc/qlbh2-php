@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN');
+requireSuperAdmin();
 
 $name = basename($_GET['f'] ?? '');
 if (!preg_match('/^backup_\d{8}_\d{6}\.sql\.gz$/', $name)) {

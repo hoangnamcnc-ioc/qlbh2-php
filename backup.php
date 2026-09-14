@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN');
+requireSuperAdmin();
 
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
