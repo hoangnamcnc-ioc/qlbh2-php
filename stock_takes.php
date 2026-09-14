@@ -1,23 +1,49 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
-$takes = $pdo->query(
-    'SELECT t.*, b.name AS branch_name, u.name AS created_by_name,
+
+// MANAGER chỉ xem được phiếu kiểm hàng của chi nhánh mình — tránh lộ số liệu tồn kho/chênh
+// lệch kiểm kho của chi nhánh khác, giống các trang Đơn hàng/Tồn kho đã chặn theo chi nhánh.
+$branchId = hasRole('ADMIN') ? (int) ($_GET['branch_id'] ?? 0) : effectiveBranchId($currentUser);
+$where = $branchId ? ' WHERE t.branch_id = ?' : '';
+$params = $branchId ? [$branchId] : [];
+
+$takesStmt = $pdo->prepare(
+    "SELECT t.*, b.name AS branch_name, u.name AS created_by_name,
             (SELECT COUNT(*) FROM stock_take_items i WHERE i.take_id = t.id AND i.counted_qty != i.system_qty) AS diff_count
      FROM stock_takes t
      JOIN branches b ON b.id = t.branch_id
      JOIN users u ON u.id = t.created_by_id
-     ORDER BY t.created_at DESC LIMIT 100'
-)->fetchAll();
+     $where
+     ORDER BY t.created_at DESC LIMIT 100"
+);
+$takesStmt->execute($params);
+$takes = $takesStmt->fetchAll();
+
+if (hasRole('ADMIN')) {
+    $branches = $pdo->query('SELECT id, name FROM branches ORDER BY name')->fetchAll();
+}
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
   <h1 style="font-size:24px;font-weight:600;">Danh sách phiếu kiểm hàng</h1>
-  <a href="stock_take_form.php" class="btn">+ Tạo phiếu kiểm hàng</a>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <?php if (hasRole('ADMIN')): ?>
+      <form method="get">
+        <select name="branch_id" class="input" style="width:auto;" onchange="this.form.submit()">
+          <option value="0">Tất cả chi nhánh</option>
+          <?php foreach ($branches as $b): ?>
+            <option value="<?= (int) $b['id'] ?>" <?= $branchId === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </form>
+    <?php endif; ?>
+    <a href="stock_take_form.php" class="btn">+ Tạo phiếu kiểm hàng</a>
+  </div>
 </div>
 
 <div class="card" style="padding:0;overflow-x:auto;">

@@ -1461,3 +1461,41 @@ doanh thu 80.000đ); lọc chi nhánh B ra đúng (20 SL, 1.000.000đ, doanh thu
 đúng 1; "Top sản phẩm bán chạy" hiện đúng sản phẩm/số lượng/doanh thu. Đăng nhập bằng tài khoản
 CASHIER test gắn chi nhánh A → không thấy dropdown chọn chi nhánh, số liệu tự động đúng bằng số của
 chi nhánh A (không lộ tổng công ty). Đã xóa sạch chi nhánh, sản phẩm, đơn hàng, tài khoản test.
+
+## Vòng rà soát module Kiểm hàng (đối chiếu trang "Kiểm hàng" thực tế của Sapo)
+
+Đối chiếu `stock_takes.php`/`stock_take_form.php`/`stock_take_view.php`/`stock_take_balance.php` với
+trang Kiểm hàng thật trên Sapo (danh sách phiếu kiểm có cột Trạng thái/Ngày cân bằng/Nhân viên
+tạo/Nhân viên kiểm/Nhân viên cân bằng + bộ lọc Trạng thái/Chi nhánh/Ngày tạo). Phát hiện 1 lỗi sai số
+liệu nghiêm trọng (không phải chỉ là thiếu tính năng) cộng gap bảo mật cùng loại các vòng trước:
+
+1. **Lỗi dữ liệu nghiêm trọng ở `stock_take_balance.php`**: khi bấm "Cân bằng kho", code cũ **ghi đè
+   thẳng** `inventory.quantity = counted_qty` (số đếm lúc lập phiếu nháp). Phiếu kiểm hàng thường ở
+   trạng thái nháp một thời gian trước khi được cân bằng — nếu trong lúc đó có bán hàng/nhập hàng
+   khác làm thay đổi tồn kho, ghi đè thẳng sẽ **xóa mất** các thay đổi đó mà không ai biết, vì hệ
+   thống không hề kiểm tra tồn kho đã trôi đi bao nhiêu kể từ lúc lập phiếu.
+2. **MANAGER không bị giới hạn theo chi nhánh** ở toàn bộ luồng kiểm hàng (danh sách, tạo phiếu, xem
+   phiếu, cân bằng, tìm sản phẩm) — dropdown chi nhánh khi tạo phiếu hiện tất cả chi nhánh, danh sách
+   phiếu hiện tất cả chi nhánh — cùng loại gap đã sửa ở Đơn hàng/Tồn kho/Dashboard các vòng trước
+   nhưng bị bỏ sót ở Kiểm hàng.
+
+Đã sửa:
+- `stock_take_balance.php`: đổi từ ghi đè `quantity = counted_qty` sang cộng dồn **chênh lệch**
+  (`quantity = quantity + (counted_qty - system_qty)`) vào tồn kho hiện tại — giữ nguyên mọi thay đổi
+  tồn kho phát sinh giữa lúc lập phiếu nháp và lúc cân bằng, chỉ áp phần chênh lệch thực sự do kiểm
+  đếm phát hiện ra. Đồng thời khóa dòng (`FOR UPDATE`) khi đọc tồn kho hiện tại để tránh xung đột khi
+  có thao tác đồng thời.
+- `stock_takes.php`, `stock_take_form.php`, `stock_take_view.php`, `stock_take_balance.php`,
+  `stock_take_search.php`: MANAGER chỉ xem/tạo/cân bằng được phiếu kiểm hàng của chi nhánh mình
+  (`effectiveBranchId($currentUser)`) — dropdown chi nhánh trong form bị khóa cứng, xem trực tiếp
+  phiếu của chi nhánh khác bằng ID bị chặn (403). ADMIN vẫn xem được tất cả, có thêm dropdown lọc
+  theo chi nhánh trên trang danh sách (giống Sapo).
+
+Đã test trên app.kt-soft.vn: tạo sản phẩm test tồn kho 100 tại 1 chi nhánh, lập phiếu kiểm ghi nhận
+đếm thực tế 95 (system_qty=100 lúc lập phiếu) → mô phỏng có 1 đơn bán hàng trừ thêm 10 đơn vị *sau
+khi* lập phiếu (tồn kho DB lúc này = 90) → bấm "Cân bằng kho" qua đúng endpoint thật → tồn kho sau
+cân bằng = **85** (90 + (95-100) = 85), đúng bằng kỳ vọng của công thức chênh lệch — xác nhận không
+còn xóa mất đơn bán hàng phát sinh giữa lúc lập phiếu và lúc cân bằng như code cũ. Tạo tài khoản
+MANAGER test gắn chi nhánh B → xem phiếu kiểm của chi nhánh A bằng ID → HTTP 403; danh sách phiếu chỉ
+hiện phiếu chi nhánh B (0 phiếu); dropdown chi nhánh trong form tạo phiếu bị khóa cứng về chi nhánh B
+(disabled). Đã xóa sạch phiếu kiểm, sản phẩm, chi nhánh, tài khoản test.

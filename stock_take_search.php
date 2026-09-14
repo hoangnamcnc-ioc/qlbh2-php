@@ -1,11 +1,16 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 header('Content-Type: application/json; charset=utf-8');
 
 $q = trim($_GET['q'] ?? '');
 $branchId = (int) ($_GET['branch_id'] ?? 0);
+// MANAGER chỉ được tra tồn kho của chi nhánh mình khi tạo phiếu kiểm hàng.
+if (!hasRole('ADMIN') && $branchId !== effectiveBranchId($currentUser)) {
+    echo '[]';
+    exit;
+}
 if ($q === '' || !$branchId) { echo '[]'; exit; }
 
 $like = '%' . $q . '%';

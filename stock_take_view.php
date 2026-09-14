@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
@@ -14,6 +14,15 @@ $stmt = $pdo->prepare(
 $stmt->execute([$id]);
 $take = $stmt->fetch();
 if (!$take) redirect('stock_takes.php');
+
+// MANAGER chỉ được xem phiếu kiểm hàng của chi nhánh mình.
+if (!hasRole('ADMIN') && (int) $take['branch_id'] !== effectiveBranchId($currentUser)) {
+    http_response_code(403);
+    require_once __DIR__ . '/inc_header.php';
+    echo '<div class="alert alert-error">Bạn không có quyền xem phiếu kiểm hàng của chi nhánh khác.</div>';
+    require_once __DIR__ . '/inc_footer.php';
+    exit;
+}
 
 $items = $pdo->prepare(
     'SELECT i.*, p.name AS product_name, v.name AS variant_name

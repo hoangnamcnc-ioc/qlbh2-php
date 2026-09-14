@@ -7,9 +7,16 @@ $pdo = db();
 $branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
 $error = null;
 
+// MANAGER chỉ được tạo phiếu kiểm hàng cho chi nhánh mình quản lý — tránh sửa/xem nhầm tồn
+// kho chi nhánh khác (giống các trang Đơn hàng/Tồn kho đã chặn theo chi nhánh).
+$lockedBranchId = hasRole('ADMIN') ? 0 : effectiveBranchId($currentUser);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $branchId = (int) ($_POST['branch_id'] ?? 0);
+    if ($lockedBranchId && $branchId !== $lockedBranchId) {
+        $branchId = $lockedBranchId;
+    }
     $note = post('note') ?: null;
     $productIds = $_POST['product_id'] ?? [];
     $variantIds = $_POST['variant_id'] ?? [];
@@ -73,12 +80,18 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card" style="max-width:640px;margin-bottom:16px;">
     <div class="field">
       <label>Chi nhánh *</label>
-      <select class="input" name="branch_id" id="branch-select" required>
-        <option value="">— Chọn chi nhánh —</option>
-        <?php foreach ($branches as $b): ?>
-          <option value="<?= (int) $b['id'] ?>" <?= (int) ($currentUser['branch_id'] ?? 0) === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
+      <?php if ($lockedBranchId): ?>
+        <?php $lockedBranch = array_values(array_filter($branches, fn ($b) => (int) $b['id'] === $lockedBranchId))[0] ?? null; ?>
+        <input type="hidden" name="branch_id" id="branch-select" value="<?= $lockedBranchId ?>">
+        <input class="input" value="<?= e($lockedBranch['name'] ?? '') ?>" disabled>
+      <?php else: ?>
+        <select class="input" name="branch_id" id="branch-select" required>
+          <option value="">— Chọn chi nhánh —</option>
+          <?php foreach ($branches as $b): ?>
+            <option value="<?= (int) $b['id'] ?>" <?= (int) ($currentUser['branch_id'] ?? 0) === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      <?php endif; ?>
     </div>
     <div class="field"><label>Ghi chú</label><input class="input" name="note"></div>
   </div>

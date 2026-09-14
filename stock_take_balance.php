@@ -13,6 +13,11 @@ $stmt = $pdo->prepare('SELECT * FROM stock_takes WHERE id = ?');
 $stmt->execute([$takeId]);
 $take = $stmt->fetch();
 
+// MANAGER chỉ được cân bằng phiếu kiểm hàng của chi nhánh mình.
+if ($take && !hasRole('ADMIN') && (int) $take['branch_id'] !== effectiveBranchId($currentUser)) {
+    $take = null;
+}
+
 if ($take && $take['status'] === 'DRAFT') {
     $pdo->beginTransaction();
     try {
@@ -21,18 +26,25 @@ if ($take && $take['status'] === 'DRAFT') {
 
         foreach ($items->fetchAll() as $it) {
             if ($it['variant_id']) {
-                $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
+                $inv = $pdo->prepare('SELECT id, quantity FROM inventory WHERE branch_id = ? AND variant_id = ? FOR UPDATE');
                 $inv->execute([$take['branch_id'], $it['variant_id']]);
             } else {
-                $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                $inv = $pdo->prepare('SELECT id, quantity FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL FOR UPDATE');
                 $inv->execute([$take['branch_id'], $it['product_id']]);
             }
             $invRow = $inv->fetch();
+
+            // Áp dụng CHÊNH LỆCH (counted_qty - system_qty lúc lập phiếu) vào tồn kho HIỆN TẠI,
+            // thay vì ghi đè thẳng thành counted_qty. Giữa lúc tạo phiếu nháp và lúc bấm "Cân
+            // bằng kho" có thể đã phát sinh bán hàng/nhập hàng khác làm tồn kho thay đổi — ghi
+            // đè thẳng sẽ xóa mất các thay đổi đó; cộng dồn chênh lệch mới không làm mất chúng.
+            $delta = round((float) $it['counted_qty'] - (float) $it['system_qty'], 3);
+
             if ($invRow) {
-                $pdo->prepare('UPDATE inventory SET quantity = ? WHERE id = ?')->execute([$it['counted_qty'], $invRow['id']]);
+                $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')->execute([$delta, $invRow['id']]);
             } else {
                 $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
-                    ->execute([$take['branch_id'], $it['product_id'], $it['variant_id'], $it['counted_qty']]);
+                    ->execute([$take['branch_id'], $it['product_id'], $it['variant_id'], max(0, $delta)]);
             }
         }
 
