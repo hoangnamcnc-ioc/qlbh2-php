@@ -173,6 +173,7 @@ $brandColorDark = darkenColor($brandColor, 15);
   <div class="main">
     <div class="topbar">
       <span><?= e($currentUser['name']) ?> · <span class="muted"><?= e($currentUser['role']) ?></span></span>
+      <a href="lock.php" style="color:#64748b;">🔒 Khóa màn hình</a>
       <a href="change_password.php" style="color:#64748b;">Đổi mật khẩu</a>
       <a href="logout.php" style="color:#64748b;">Đăng xuất</a>
     </div>

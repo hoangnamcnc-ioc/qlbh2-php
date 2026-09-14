@@ -1332,3 +1332,26 @@ doanh thu tính TNCN = 500.000.000đ (1,5 tỷ − 1 tỷ), thuế TNCN = 2.500.
 17.500.000đ — khớp tính tay; sổ doanh thu hiển thị đúng mẫu S2a-HKD, nhóm theo danh mục, tổng nhóm
 và tổng tất cả nhóm khớp số tiền đơn hàng test. Đã xóa sạch đơn hàng, sản phẩm, danh mục test và
 toàn bộ script `fix_*.php` tạm dùng để test.
+
+## Bổ sung tính năng Khóa màn hình (theo mẫu tham khảo từ QLBH-SOFT)
+
+Theo yêu cầu người dùng, port tính năng khóa màn hình của QLBH-SOFT (`src/routes/auth.js`, endpoint
+`verify-password`) — dùng cho máy tính bán hàng dùng chung, nhân viên tạm rời máy không cần đăng
+xuất hẳn mà chỉ khóa lại, nhập đúng mật khẩu của chính mình để mở lại, không mất phiên làm việc.
+
+Đã bổ sung:
+- `inc_auth.php`: thêm cờ `$_SESSION['locked']`; `requireLogin()` kiểm tra cờ này sau khi đồng bộ
+  session — nếu đang khóa và trang hiện tại không phải `lock.php`/`logout.php` thì chuyển hướng sang
+  `lock.php`. Nhờ đặt trong `requireLogin()` (hàm mọi trang đều gọi qua `requireRole()`), cờ khóa có
+  hiệu lực trên toàn bộ trang mà không cần sửa từng trang riêng lẻ.
+- `lock.php`: trang khóa màn hình độc lập (không dùng chung layout sidebar, tránh lộ nội dung khi đã
+  khóa) — hiển thị tên nhân viên đang đăng nhập, ô nhập mật khẩu, xác thực lại đúng mật khẩu của
+  chính tài khoản đó qua `password_verify()`; đúng thì bỏ cờ khóa và quay lại `index.php`; sai thì
+  báo lỗi và giữ nguyên trạng thái khóa. Có link "Đăng xuất tài khoản khác" làm lối thoát nếu người
+  mở khóa không phải chủ phiên.
+- `inc_header.php`: thêm nút "🔒 Khóa màn hình" trên thanh topbar, cạnh tên người dùng.
+
+Đã test trên app.kt-soft.vn: truy cập `lock.php` → session chuyển sang trạng thái khóa; thử vào
+`index.php` → bị chuyển hướng ngược lại `lock.php` (xác nhận qua header `Location`); nhập sai mật
+khẩu → báo lỗi "Mật khẩu không đúng", vẫn ở màn hình khóa; nhập đúng mật khẩu (`Admin@123`) → chuyển
+hướng về `index.php` và tải được bình thường (HTTP 200), không cần đăng nhập lại.

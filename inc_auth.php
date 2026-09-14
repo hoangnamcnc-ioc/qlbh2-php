@@ -47,6 +47,12 @@ function requireLogin(): array
         redirect('login.php');
     }
     refreshUserSession();
+
+    $currentFile = basename($_SERVER['SCRIPT_NAME']);
+    if (!empty($_SESSION['locked']) && !in_array($currentFile, ['lock.php', 'logout.php'], true)) {
+        redirect('lock.php');
+    }
+
     return currentUser();
 }
 
