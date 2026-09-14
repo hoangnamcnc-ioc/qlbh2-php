@@ -1612,3 +1612,22 @@ test; tạo 1 tenant + tài khoản ADMIN test khác (không phải tenant #1) �
 Phát hiện thêm khi dọn dữ liệu test: `activity_logs.tenant_id` có ràng buộc khóa ngoại tới `tenants`
 — xóa tenant test phải xóa `activity_logs` liên quan trước, nếu không sẽ báo lỗi khóa ngoại (đã ghi
 chú lại để các lần dọn dữ liệu test sau không gặp lại).
+
+## Multi-tenant: cảnh báo đếm ngược hạn dùng thử ngay trong app
+
+`checkTrialExpiry()` chỉ chặn truy cập khi hết hạn hẳn — người dùng không có cảnh báo trước, dễ bị
+bất ngờ khi tự nhiên không vào được app nữa. Cần hiện cảnh báo "còn X ngày" ngay trong giao diện
+trước khi bị khóa.
+
+Đã thêm vào `inc_header.php` (chỉ tính toán và hiện với ADMIN/MANAGER — `$isManagerUp`):
+- Truy vấn `plan`, `trial_ends_at` của tenant hiện tại, tính `trialDaysLeft` (số ngày còn lại, làm
+  tròn lên) — chỉ tính khi `plan = 'TRIAL'`.
+- Banner nằm giữa `.topbar` và `.content`, 3 mức nội dung: hết hạn hôm nay, còn 1 ngày, còn N ngày.
+- Style: nền xanh nhạt bình thường, chuyển sang nền đỏ nhạt (`trial-banner-urgent`) khi còn ≤ 3
+  ngày để tạo cảm giác khẩn cấp hơn. Có link "Liên hệ nâng cấp →" trỏ sang `kt-soft.vn/lien-he.php`.
+- Tenant gói `PAID` (kể cả tenant #1 chủ sở hữu) không thấy banner này.
+
+Đã test trên app.kt-soft.vn: tạo 2 tenant TRIAL test song song (còn 2 ngày và còn 10 ngày) — tenant
+còn 2 ngày hiện đúng banner đỏ "còn 2 ngày"; tenant còn 10 ngày hiện đúng banner xanh "còn 10 ngày"
+kèm link nâng cấp; tài khoản chủ sở hữu (gói PAID) không hiện banner nào. Đã dọn sạch 2 tenant test
+sau khi xác nhận.
