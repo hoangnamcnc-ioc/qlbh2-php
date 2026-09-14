@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
@@ -11,15 +11,34 @@ $stmt->execute([$id]);
 $supplier = $stmt->fetch();
 if (!$supplier) redirect('suppliers.php');
 
+$branches = $pdo->query('SELECT id, name FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
+
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $amount = postFloat('amount');
+    $branchId = hasRole('ADMIN') ? (int) ($_POST['branch_id'] ?? 0) : effectiveBranchId($currentUser);
+
     if ($amount <= 0 || $amount > (float) $supplier['debt']) {
         $error = 'Số tiền không hợp lệ';
+    } elseif (!$branchId) {
+        $error = 'Vui lòng chọn chi nhánh chi tiền';
     } else {
-        $pdo->prepare('UPDATE suppliers SET debt = debt - ? WHERE id = ?')->execute([$amount, $id]);
-        redirect('supplier_view.php?id=' . $id);
+        // Trả nợ NCC là tiền mặt/chuyển khoản đi RA khỏi 1 chi nhánh cụ thể — phải ghi vào sổ
+        // quỹ chi nhánh đó (khoản PAYMENT), giống hệt cách stock_receipt_form.php đã ghi sổ quỹ
+        // khi trả tiền NCC ngay lúc nhập hàng. Nếu không, sổ quỹ sẽ không khớp với tiền mặt thực
+        // tế đã chi ra để trả nợ.
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('UPDATE suppliers SET debt = debt - ? WHERE id = ?')->execute([$amount, $id]);
+            recordCashbookEntry($branchId, 'PAYMENT', $amount, 'Trả nợ NCC ' . $supplier['name'], 'CASH', $currentUser['id']);
+            $pdo->commit();
+            logActivity('SUPPLIER_DEBT_PAY', "supplier_id=$id amount=$amount");
+            redirect('supplier_view.php?id=' . $id);
+        } catch (Throwable $ex) {
+            $pdo->rollBack();
+            $error = 'Không thể ghi nhận trả nợ, vui lòng thử lại';
+        }
     }
 }
 
@@ -56,8 +75,18 @@ require_once __DIR__ . '/inc_header.php';
 <div class="card" style="margin-bottom:24px;max-width:480px;">
   <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Ghi nhận trả nợ nhà cung cấp</h2>
   <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
-  <form method="post" style="display:flex;align-items:end;gap:12px;">
+  <form method="post" style="display:flex;align-items:end;gap:12px;flex-wrap:wrap;">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <?php if (hasRole('ADMIN')): ?>
+      <div>
+        <label style="font-size:12px;">Chi từ chi nhánh</label>
+        <select name="branch_id" class="input" style="width:180px;" required>
+          <?php foreach ($branches as $b): ?>
+            <option value="<?= (int) $b['id'] ?>"><?= e($b['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    <?php endif; ?>
     <div>
       <label style="font-size:12px;">Số tiền trả</label>
       <input type="number" name="amount" min="1" max="<?= (float) $supplier['debt'] ?>" required style="width:200px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;">

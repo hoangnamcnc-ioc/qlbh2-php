@@ -1559,3 +1559,29 @@ cùng nhóm.
 Đã test trên app.kt-soft.vn: tạo tài khoản CASHIER test → truy cập trực tiếp `supplier_returns.php`
 → HTTP 403 "Bạn không có quyền truy cập trang này." (trước khi sửa sẽ trả về HTTP 200 kèm toàn bộ dữ
 liệu); ADMIN vẫn truy cập bình thường (HTTP 200). Đã xóa tài khoản test.
+
+## Vòng rà soát module Nhà cung cấp (phát hiện: trả nợ NCC không ghi sổ quỹ)
+
+Đối chiếu `supplier_view.php` (màn ghi nhận trả nợ NCC) với luồng thu nợ khách hàng tương ứng
+(`order_pay.php`, đã có `recordCashbookEntry()`) và với luồng chi tiền lúc nhập hàng
+(`stock_receipt_form.php`, cũng gọi `recordCashbookEntry($branchId, 'PAYMENT', ...)`) — cùng loại gap
+đã phát hiện ở vòng rà soát Sổ quỹ trước đây ("sổ quỹ tách rời hoàn toàn khỏi dòng tiền bán hàng"),
+lần này ở phía chi tiền cho nhà cung cấp:
+
+- **`supplier_view.php` khi ghi nhận trả nợ NCC chỉ trừ `suppliers.debt`, không ghi bất kỳ khoản chi
+  nào vào sổ quỹ** — trong khi đây rõ ràng là tiền mặt/chuyển khoản chi RA khỏi 1 chi nhánh cụ thể.
+  Hậu quả: sổ quỹ không bao giờ khớp với tiền mặt thực tế đã chi ra để trả nợ NCC, y hệt vấn đề đã
+  sửa cho thu nợ khách hàng nhưng bị bỏ sót ở chiều ngược lại.
+- Do màn hình cũ không có khái niệm chi nhánh (nợ NCC là công nợ chung, không gắn 1 chi nhánh), cũng
+  không có cách xác định tiền được chi ra từ quỹ chi nhánh nào để ghi sổ quỹ.
+
+Đã sửa `supplier_view.php`:
+- Thêm dropdown "Chi từ chi nhánh" (chỉ ADMIN thấy, có nhiều chi nhánh để chọn); MANAGER tự động
+  dùng `effectiveBranchId($currentUser)`, không cần chọn.
+- Bọc việc trừ `suppliers.debt` và gọi `recordCashbookEntry($branchId, 'PAYMENT', $amount, 'Trả nợ
+  NCC ' . tên NCC, 'CASH', ...)` trong 1 transaction — đúng mẫu đã dùng ở `stock_receipt_form.php`.
+
+Đã test trên app.kt-soft.vn: tạo NCC test với công nợ 500.000đ → ghi nhận trả 200.000đ qua đúng form
+thật → công nợ còn lại đúng 300.000đ; kiểm tra DB thấy đã tạo 1 dòng `cashbook_entries` loại
+`PAYMENT`, đúng số tiền 200.000đ, đúng chi nhánh; xác nhận dòng này **hiển thị đúng trên trang Sổ
+quỹ** (`cashbook.php`) như mọi khoản chi khác. Đã xóa sạch NCC và dòng sổ quỹ test.
