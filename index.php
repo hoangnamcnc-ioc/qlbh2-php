@@ -138,6 +138,13 @@ $lowStockStmt->execute($lowStockParam);
 $lowStock = $lowStockStmt->fetchAll();
 ?>
 
+<?php if (isset($_GET['welcome'])): ?>
+  <div class="alert alert-success" style="margin-bottom:16px;">
+    🎉 Chào mừng bạn đến với QLBH2! Tài khoản dùng thử 14 ngày đã sẵn sàng — bắt đầu bằng cách thêm
+    chi nhánh, sản phẩm và bán hàng thử ngay.
+  </div>
+<?php endif; ?>
+
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
   <h1 style="font-size:24px;font-weight:600;margin:0;">Tổng quan</h1>
   <?php if (hasRole('ADMIN', 'MANAGER')): ?>
