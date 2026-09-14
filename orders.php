@@ -51,6 +51,11 @@ if ($sourceId) {
     $where[] = 'o.source_id = ?';
     $params[] = $sourceId;
 }
+// Thu ngan (CASHIER) chi thay danh sach don hang cua chi nhanh minh.
+if (!hasRole('ADMIN', 'MANAGER')) {
+    $where[] = 'o.branch_id = ?';
+    $params[] = effectiveBranchId($currentUser);
+}
 if ($where) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
 }

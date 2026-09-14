@@ -23,6 +23,11 @@ if ($q !== '') {
 
     if (!$order) {
         $error = 'Không tìm thấy đơn hàng với mã "' . $q . '"';
+    } elseif (!hasRole('ADMIN', 'MANAGER') && (int) $order['branch_id'] !== effectiveBranchId($currentUser)) {
+        // Thu ngan (CASHIER) khong duoc tao tra hang cho don cua chi nhanh khac - tranh
+        // dieu chinh nham ton kho/so quy cua chi nhanh minh khong quan ly.
+        $order = null;
+        $error = 'Đơn hàng "' . $q . '" không thuộc chi nhánh của bạn.';
     } else {
         $stmt = $pdo->prepare(
             'SELECT oi.*, p.name AS product_name, v.name AS variant_name,
@@ -54,6 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$orderRow) {
         $error = 'Đơn hàng không hợp lệ';
+    } elseif (!hasRole('ADMIN', 'MANAGER') && (int) $orderRow['branch_id'] !== effectiveBranchId($currentUser)) {
+        $error = 'Bạn không có quyền tạo trả hàng cho đơn của chi nhánh khác';
     } else {
         $hasQty = false;
         foreach ($quantities as $qty) {

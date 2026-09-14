@@ -1384,3 +1384,43 @@ tiếp `backups/<file>.sql.gz` qua URL → HTTP 403 (bị `.htaccess` chặn); t
 với session ADMIN → HTTP 200, file gzip hợp lệ; truy cập `backup.php`/`backup_download.php` khi chưa
 đăng nhập → chuyển hướng về trang đăng nhập (HTTP 302), không lộ dữ liệu. Đã xóa file sao lưu test
 sau khi xác nhận.
+
+## Hoàn thiện các vá bảo mật đang làm dở (đăng nhập, phiên, phân quyền chi nhánh, tồn kho)
+
+Phát hiện một loạt sửa đổi bảo mật đã viết sẵn trong working directory nhưng chưa deploy/test/commit
+— hoàn thiện nốt theo đúng quy trình: deploy lên app.kt-soft.vn, test thật, dọn dữ liệu test, ghi lại
+đây rồi mới commit.
+
+**Đăng nhập và phiên làm việc** (`inc_auth.php`, `login.php`, `seed.php`):
+- Đặt tên cookie session riêng theo từng deployment (`qlbh2_<hash từ AUTH_SALT>`) thay vì tên mặc
+  định `PHPSESSID` — tránh xung đột/dễ đoán khi hosting chia sẻ chạy nhiều app PHP trên cùng domain.
+- Bật cờ `secure` cho cookie session khi truy cập qua HTTPS.
+- Chống dò mật khẩu: khóa tạm 15 phút sau 5 lần đăng nhập sai liên tiếp cho từng email (lưu trong
+  session PHP, không cần bảng DB riêng).
+- Đổi session ID mới khi đăng nhập thành công (`session_regenerate_id`) — chặn tấn công session
+  fixation.
+- `seed.php`: không còn mật khẩu admin cố định trong code — sinh mật khẩu ngẫu nhiên, chỉ hiển thị 1
+  lần duy nhất, và tự khóa lại bằng file `seed.lock` ngay sau khi chạy xong (chạy lại sẽ báo lỗi thay
+  vì reset mật khẩu admin về giá trị có thể đoán được).
+
+**Phân quyền theo chi nhánh cho CASHIER** (`orders.php`, `order_view.php`, `order_pay.php`,
+`order_return_form.php`, `order_returns.php`, `shipment_form.php`, `shipments.php`, `inventory.php`):
+trước đây nhân viên thu ngân (CASHIER) xem được đơn hàng/trả hàng/vận chuyển/tồn kho của **mọi** chi
+nhánh dù tài khoản chỉ gắn với 1 chi nhánh — lộ dữ liệu khách hàng, giá bán, doanh thu của chi nhánh
+khác. Đã chặn theo `effectiveBranchId($currentUser)`: danh sách tự lọc theo chi nhánh, xem/thao tác
+trực tiếp bằng ID đơn của chi nhánh khác bị chặn (403), bộ lọc chi nhánh trên `inventory.php` chỉ
+hiện với ADMIN/MANAGER.
+
+**Tồn kho khi trả hàng NCC** (`supplier_return_form.php`): thêm khóa dòng (`FOR UPDATE`) và kiểm tra
+đủ số lượng tồn trước khi trừ kho khi tạo phiếu trả hàng nhà cung cấp — tránh tồn kho âm khi có nhiều
+thao tác đồng thời trên cùng 1 dòng tồn kho.
+
+Đã test trên app.kt-soft.vn:
+- Đăng nhập sai 5 lần liên tiếp → lần thứ 5 trở đi báo "Đăng nhập sai quá nhiều lần" dù mật khẩu có
+  đúng hay sai; đăng nhập đúng từ 1 phiên trình duyệt khác (chưa bị khóa) vẫn thành công bình thường
+  (khóa theo từng session/email, không khóa toàn hệ thống).
+- Tạo tài khoản CASHIER test gắn chi nhánh A + 2 đơn hàng test ở chi nhánh A và B → đăng nhập bằng
+  tài khoản này: `orders.php` chỉ liệt kê đơn của chi nhánh A; mở trực tiếp đơn chi nhánh B bằng ID
+  → HTTP 403 "Bạn không có quyền xem đơn hàng của chi nhánh khác"; mở đơn chi nhánh A → xem bình
+  thường; `inventory.php` không hiện dropdown chọn chi nhánh (so với ADMIN vẫn hiện đầy đủ). Đã xóa
+  sạch tài khoản, chi nhánh và đơn hàng test.

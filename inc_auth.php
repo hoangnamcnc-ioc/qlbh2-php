@@ -2,7 +2,18 @@
 require_once __DIR__ . '/config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_set_cookie_params(['httponly' => true, 'samesite' => 'Lax']);
+    // Dat ten cookie session rieng theo tung deployment (dua tren AUTH_SALT) thay vi dung
+    // ten mac dinh PHPSESSID - tranh xung dot/de doan ten cookie khi hosting chia se co
+    // nhieu app PHP khac chay chung 1 domain/subdomain.
+    session_name('qlbh2_' . substr(hash('sha256', AUTH_SALT), 0, 12));
+    session_set_cookie_params([
+        'httponly' => true,
+        'samesite' => 'Lax',
+        // Bat co 'secure' khi truy cap qua HTTPS (deploy that len app.kt-soft.vn se luon la
+        // HTTPS) - tren local/HTTP (vd dang test) van hoat dong binh thuong vi co dieu kien.
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'),
+    ]);
     session_start();
 }
 
@@ -76,17 +87,42 @@ function hasRole(string ...$roles): bool
     return $user && in_array($user['role'], $roles, true);
 }
 
+// Chong do mat khau: khoa tam 15 phut sau 5 lan sai lien tiep cho tung email. Luu trong
+// session PHP (khong can bang DB rieng) - moi tien trinh PHP-FPM/session file la doc lap
+// theo tung nguoi dung/trinh duyet nen du de chan bot do mat khau tu 1 nguon.
+function loginLockedUntil(string $email): int
+{
+    return (int) ($_SESSION['login_lock'][$email]['until'] ?? 0);
+}
+
 function attemptLogin(string $email, string $password): ?array
 {
+    if (!isset($_SESSION['login_lock'][$email]) || !is_array($_SESSION['login_lock'][$email])) {
+        $_SESSION['login_lock'][$email] = ['count' => 0, 'until' => 0];
+    }
+    if ($_SESSION['login_lock'][$email]['until'] > time()) {
+        return null;
+    }
+
     $stmt = db()->prepare('SELECT * FROM users WHERE email = ? AND is_active = 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
+        $count = $_SESSION['login_lock'][$email]['count'] + 1;
+        $_SESSION['login_lock'][$email]['count'] = $count;
+        if ($count >= 5) {
+            $_SESSION['login_lock'][$email]['until'] = time() + 15 * 60;
+        }
         return null;
     }
 
+    unset($_SESSION['login_lock'][$email]);
     unset($user['password_hash']);
+    // Doi session ID moi khi dang nhap thanh cong - chan "session fixation" (ke tan cong dat
+    // truoc 1 session ID roi du nan nhan dang nhap bang chinh ID do de chiem phien sau khi
+    // dang nhap thanh cong).
+    session_regenerate_id(true);
     $_SESSION['user'] = $user;
     require_once __DIR__ . '/inc_functions.php';
     logActivity('LOGIN', $user['email']);

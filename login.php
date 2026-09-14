@@ -20,10 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($email === '' || $password === '') {
         $error = 'Vui lòng nhập email và mật khẩu';
+    } elseif (loginLockedUntil($email) > time()) {
+        $minutesLeft = (int) ceil((loginLockedUntil($email) - time()) / 60);
+        $error = "Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau {$minutesLeft} phút.";
     } else {
         $user = attemptLogin($email, $password);
         if (!$user) {
-            $error = 'Email hoặc mật khẩu không đúng';
+            $error = loginLockedUntil($email) > time()
+                ? 'Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+                : 'Email hoặc mật khẩu không đúng';
         } else {
             redirect('index.php');
         }

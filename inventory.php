@@ -3,7 +3,10 @@ require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
 $branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
-$branchId = (int) ($_GET['branch_id'] ?? 0);
+// Thu ngan (CASHIER) chi duoc xem ton kho chi nhanh cua minh, khong duoc xem/loc sang chi
+// nhanh khac qua tham so branch_id tren URL - tranh lo du lieu ton kho toan chuoi cho nhan
+// vien cap thap nhat. ADMIN/MANAGER van xem duoc toan bo hoac loc theo tung chi nhanh.
+$branchId = hasRole('ADMIN', 'MANAGER') ? (int) ($_GET['branch_id'] ?? 0) : effectiveBranchId($currentUser);
 $q = trim($_GET['q'] ?? '');
 $lowOnly = isset($_GET['low_only']);
 
@@ -43,12 +46,14 @@ $inventories = $stmt->fetchAll();
 
 <form style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
   <input type="text" name="q" class="input" style="max-width:260px;" placeholder="Tìm theo tên sản phẩm hoặc SKU..." value="<?= e($q) ?>">
+  <?php if (hasRole('ADMIN', 'MANAGER')): ?>
   <select name="branch_id" class="input" style="max-width:240px;">
     <option value="">Tất cả chi nhánh</option>
     <?php foreach ($branches as $b): ?>
       <option value="<?= (int) $b['id'] ?>" <?= $branchId === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
     <?php endforeach; ?>
   </select>
+  <?php endif; ?>
   <label style="font-weight:400;font-size:13px;"><input type="checkbox" name="low_only" value="1" <?= $lowOnly ? 'checked' : '' ?>> Chỉ hiện dưới định mức</label>
   <button type="submit" class="btn btn-secondary">Lọc</button>
 </form>

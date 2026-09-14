@@ -4,13 +4,20 @@ require_once __DIR__ . '/inc_header.php';
 $pdo = db();
 $created = $_GET['created'] ?? null;
 
-$returns = $pdo->query(
-    'SELECT r.*, o.code AS order_code, c.name AS customer_name
+$returnsSql = 'SELECT r.*, o.code AS order_code, c.name AS customer_name
      FROM order_returns r
      JOIN orders o ON o.id = r.order_id
-     LEFT JOIN customers c ON c.id = r.customer_id
-     ORDER BY r.created_at DESC LIMIT 100'
-)->fetchAll();
+     LEFT JOIN customers c ON c.id = r.customer_id';
+$returnsParams = [];
+// Thu ngan (CASHIER) chi thay don tra hang cua chi nhanh minh.
+if (!hasRole('ADMIN', 'MANAGER')) {
+    $returnsSql .= ' WHERE o.branch_id = ?';
+    $returnsParams[] = effectiveBranchId($currentUser);
+}
+$returnsSql .= ' ORDER BY r.created_at DESC LIMIT 100';
+$returnsStmt = $pdo->prepare($returnsSql);
+$returnsStmt->execute($returnsParams);
+$returns = $returnsStmt->fetchAll();
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">

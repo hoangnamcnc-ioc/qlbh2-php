@@ -13,19 +13,46 @@ $sql = 'SELECT s.*, o.code AS order_code, c.name AS customer_name
         FROM shipments s
         JOIN orders o ON o.id = s.order_id
         LEFT JOIN customers c ON c.id = o.customer_id';
+$where = [];
+$params = [];
 if ($filter === 'unreconciled') {
-    $sql .= " WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL";
+    $where[] = 's.cod_amount > 0 AND s.reconciled_at IS NULL';
 } elseif ($filter === 'reconciled') {
-    $sql .= ' WHERE s.reconciled_at IS NOT NULL';
+    $where[] = 's.reconciled_at IS NOT NULL';
+}
+// Thu ngan (CASHIER) chi thay van chuyen cua don hang thuoc chi nhanh minh.
+if (!hasRole('ADMIN', 'MANAGER')) {
+    $where[] = 'o.branch_id = ?';
+    $params[] = effectiveBranchId($currentUser);
+}
+if ($where) {
+    $sql .= ' WHERE ' . implode(' AND ', $where);
 }
 $sql .= ' ORDER BY s.created_at DESC LIMIT 100';
-$shipments = $pdo->query($sql)->fetchAll();
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$shipments = $stmt->fetchAll();
 
-$totalUnreconciled = $pdo->query('SELECT COALESCE(SUM(cod_amount),0) AS s FROM shipments WHERE cod_amount > 0 AND reconciled_at IS NULL')->fetch()['s'];
-$totalNetUnreconciled = $pdo->query(
-    "SELECT COALESCE(SUM(CASE WHEN fee_payer = 'CUSTOMER' THEN cod_amount - shipping_fee ELSE cod_amount END),0) AS s
-     FROM shipments WHERE cod_amount > 0 AND reconciled_at IS NULL"
-)->fetch()['s'];
+$branchScopeSql = '';
+$branchScopeParams = [];
+if (!hasRole('ADMIN', 'MANAGER')) {
+    $branchScopeSql = ' AND o.branch_id = ?';
+    $branchScopeParams[] = effectiveBranchId($currentUser);
+}
+$totalUnreconciledStmt = $pdo->prepare(
+    'SELECT COALESCE(SUM(s.cod_amount),0) AS s FROM shipments s JOIN orders o ON o.id = s.order_id
+     WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL' . $branchScopeSql
+);
+$totalUnreconciledStmt->execute($branchScopeParams);
+$totalUnreconciled = $totalUnreconciledStmt->fetch()['s'];
+
+$totalNetUnreconciledStmt = $pdo->prepare(
+    "SELECT COALESCE(SUM(CASE WHEN s.fee_payer = 'CUSTOMER' THEN s.cod_amount - s.shipping_fee ELSE s.cod_amount END),0) AS s
+     FROM shipments s JOIN orders o ON o.id = s.order_id
+     WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL" . $branchScopeSql
+);
+$totalNetUnreconciledStmt->execute($branchScopeParams);
+$totalNetUnreconciled = $totalNetUnreconciledStmt->fetch()['s'];
 $feePayerLabels = ['CUSTOMER' => 'Khách trả', 'SHOP' => 'Shop trả'];
 ?>
 

@@ -94,18 +94,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $refundTotal += $lineTotal;
                     $lineData[] = [$item['product_id'], $item['variant_id'], $qty, $item['cost_price'], $lineTotal];
 
-                    // Trừ tồn kho vì hàng đã trả lại nhà cung cấp
+                    // Tru ton kho vi hang da tra lai nha cung cap. Khoa dong (FOR UPDATE) va
+                    // kiem tra du so luong truoc khi tru, tranh am kho khi co nhieu thao tac
+                    // dong thoi tren cung 1 dong ton kho.
                     if ($item['variant_id']) {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
+                        $inv = $pdo->prepare('SELECT id, quantity FROM inventory WHERE branch_id = ? AND variant_id = ? FOR UPDATE');
                         $inv->execute([$receiptRow['branch_id'], $item['variant_id']]);
                     } else {
-                        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                        $inv = $pdo->prepare('SELECT id, quantity FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL FOR UPDATE');
                         $inv->execute([$receiptRow['branch_id'], $item['product_id']]);
                     }
                     $invRow = $inv->fetch();
-                    if ($invRow) {
-                        $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')->execute([$qty, $invRow['id']]);
+                    if (!$invRow) {
+                        throw new RuntimeException('Không tìm thấy tồn kho tương ứng để trừ khi trả hàng - vui lòng kiểm tra lại tồn kho trước khi trả');
                     }
+                    if ((float) $invRow['quantity'] < $qty) {
+                        throw new RuntimeException('Tồn kho hiện tại không đủ để trả (còn ' . fmtQty($invRow['quantity']) . ')');
+                    }
+                    $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')->execute([$qty, $invRow['id']]);
                 }
 
                 $code = 'SRT' . substr((string) (int) round(microtime(true) * 1000), -8);

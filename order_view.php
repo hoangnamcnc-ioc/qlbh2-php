@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireLogin();
+$currentUser = requireLogin();
 
 $statusLabels = [
     'DRAFT' => 'Đặt hàng', 'APPROVED' => 'Duyệt', 'PACKED' => 'Đóng gói',
@@ -28,6 +28,15 @@ $stmt = $pdo->prepare(
 $stmt->execute([$id]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
+// Thu ngan (CASHIER) chi duoc xem don hang cua chinh chi nhanh minh - tranh lo thong tin
+// khach hang/gia ban cua chi nhanh khac cho nhan vien cap thap nhat.
+if (!hasRole('ADMIN', 'MANAGER') && (int) $order['branch_id'] !== effectiveBranchId($currentUser)) {
+    http_response_code(403);
+    require_once __DIR__ . '/inc_header.php';
+    echo '<div class="alert alert-error">Bạn không có quyền xem đơn hàng của chi nhánh khác.</div>';
+    require_once __DIR__ . '/inc_footer.php';
+    exit;
+}
 
 $items = $pdo->prepare(
     'SELECT oi.*, p.name AS product_name, v.name AS variant_name

@@ -14,6 +14,11 @@ $stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
 $stmt->execute([$orderId]);
 $order = $stmt->fetch();
 
+// Thu ngan (CASHIER) khong duoc ghi nhan thu no cho don cua chi nhanh khac.
+if ($order && !hasRole('ADMIN', 'MANAGER') && (int) $order['branch_id'] !== effectiveBranchId($currentUser)) {
+    $order = null;
+}
+
 if ($order && $order['customer_id'] && $amount > 0) {
     $remaining = (float) $order['total_amount'] - (float) $order['paid_amount'];
     $amount = min($amount, $remaining);

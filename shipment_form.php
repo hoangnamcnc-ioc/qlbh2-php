@@ -12,6 +12,14 @@ $stmt = $pdo->prepare(
 $stmt->execute([$orderId]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
+// Thu ngan (CASHIER) khong duoc tao/sua van don cho chi nhanh khac.
+if (!hasRole('ADMIN', 'MANAGER') && (int) $order['branch_id'] !== effectiveBranchId($currentUser)) {
+    http_response_code(403);
+    require_once __DIR__ . '/inc_header.php';
+    echo '<div class="alert alert-error">Bạn không có quyền tạo vận đơn cho đơn hàng của chi nhánh khác.</div>';
+    require_once __DIR__ . '/inc_footer.php';
+    exit;
+}
 
 $existing = $pdo->prepare('SELECT * FROM shipments WHERE order_id = ?');
 $existing->execute([$orderId]);
