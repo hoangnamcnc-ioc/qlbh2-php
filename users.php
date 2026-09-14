@@ -4,23 +4,36 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
-$branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
 $roleLabels = ['ADMIN' => 'Quản trị viên', 'MANAGER' => 'Quản lý', 'CASHIER' => 'Thu ngân'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $action = $_POST['action'] ?? 'create';
 
-    if ($action === 'toggle') {
+    // Moi thao tac tren 1 user co san (toggle/reset_password/update_role) BAT BUOC xac nhan
+    // user do thuoc dung tenant hien tai - neu khong, ADMIN cua tenant nay co the khoa/doi mat
+    // khau/doi quyen tai khoan cua tenant khac (chiem quyen hoan toan) chi bang cach doan id.
+    if (in_array($action, ['toggle', 'reset_password', 'update_role'], true)) {
         $id = (int) ($_POST['id'] ?? 0);
+        $ownUser = $pdo->prepare('SELECT id FROM users WHERE id = ? AND tenant_id = ?');
+        $ownUser->execute([$id, $tenantId]);
+        if (!$ownUser->fetch()) {
+            redirect('users.php');
+        }
+    }
+
+    if ($action === 'toggle') {
         if ($id !== (int) $currentUser['id']) {
             $pdo->prepare('UPDATE users SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
             logActivity('USER_TOGGLE', 'user_id=' . $id);
         }
         redirect('users.php');
     } elseif ($action === 'reset_password') {
-        $id = (int) ($_POST['id'] ?? 0);
         $newPassword = post('new_password');
         if (strlen($newPassword) < 6) {
             $error = 'Mật khẩu mới phải có ít nhất 6 ký tự';
@@ -31,9 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('users.php?reset=1');
         }
     } elseif ($action === 'update_role') {
-        $id = (int) ($_POST['id'] ?? 0);
         $role = in_array($_POST['role'] ?? '', ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $_POST['role'] : 'CASHIER';
         $branchId = (int) ($_POST['branch_id'] ?? 0) ?: null;
+        if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+            $branchId = null;
+        }
         if ($id === (int) $currentUser['id'] && $role !== 'ADMIN') {
             $error = 'Không thể tự hạ quyền tài khoản đang đăng nhập';
         } else {
@@ -47,18 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = post('password');
         $role = in_array($_POST['role'] ?? '', ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $_POST['role'] : 'CASHIER';
         $branchId = (int) ($_POST['branch_id'] ?? 0) ?: null;
+        if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+            $branchId = null;
+        }
 
         if ($name === '' || $email === '' || strlen($password) < 6) {
             $error = 'Vui lòng nhập đủ Tên, Email và Mật khẩu (tối thiểu 6 ký tự)';
         } else {
+            // Email dang nhap la duy nhat toan he thong (khong gioi han theo tenant), vi dang
+            // nhap chi dua vao email - giu nguyen kiem tra toan cuc nay.
             $check = $pdo->prepare('SELECT id FROM users WHERE email = ?');
             $check->execute([$email]);
             if ($check->fetch()) {
                 $error = 'Email này đã được sử dụng';
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                $pdo->prepare('INSERT INTO users (name, email, password_hash, role, branch_id) VALUES (?,?,?,?,?)')
-                    ->execute([$name, $email, $hash, $role, $branchId]);
+                $pdo->prepare('INSERT INTO users (name, email, password_hash, role, branch_id, tenant_id) VALUES (?,?,?,?,?,?)')
+                    ->execute([$name, $email, $hash, $role, $branchId, $tenantId]);
                 logActivity('USER_CREATE', $email);
                 redirect('users.php?created=1');
             }
@@ -66,9 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$users = $pdo->query(
-    'SELECT u.*, b.name AS branch_name FROM users u LEFT JOIN branches b ON b.id = u.branch_id ORDER BY u.created_at'
-)->fetchAll();
+$usersStmt = $pdo->prepare(
+    'SELECT u.*, b.name AS branch_name FROM users u LEFT JOIN branches b ON b.id = u.branch_id WHERE u.tenant_id = ? ORDER BY u.created_at'
+);
+$usersStmt->execute([$tenantId]);
+$users = $usersStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>
