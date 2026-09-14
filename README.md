@@ -1541,3 +1541,21 @@ không chỉ ẩn nút). Manager A (chi nhánh chuyển) xem được phiếu, c
 "Xác nhận nhận hàng" (đúng quyền). Manager B (chi nhánh nhận) gọi đúng luồng "Xác nhận nhận hàng" →
 phiếu chuyển thành `COMPLETED`, tồn kho chi nhánh B tăng đúng 10 đơn vị. Đã xóa sạch chi nhánh, sản
 phẩm, phiếu chuyển, tài khoản test.
+
+## Vòng rà soát module Trả hàng nhà cung cấp (phát hiện thiếu kiểm tra quyền)
+
+Rà soát chéo toàn bộ nhóm trang "Sản phẩm/Nhập hàng" (`stock_receipts.php`, `purchase_orders.php`,
+`suppliers.php`, `categories.php`, `brands.php`, `price_adjustments.php`, `supplier_returns.php`) để
+xem trang nào thiếu `requireRole('ADMIN','MANAGER')` — phát hiện **duy nhất** `supplier_returns.php`
+(danh sách trả hàng NCC) bị bỏ sót, trong khi mọi trang cùng nhóm đều có. Hậu quả: bất kỳ tài khoản
+đã đăng nhập nào, kể cả CASHIER, truy cập trực tiếp URL `supplier_returns.php` đều xem được toàn bộ
+lịch sử trả hàng nhà cung cấp — tên NCC, lý do trả, **giá trị hoàn tiền** — dữ liệu tài chính lẽ ra
+chỉ dành cho MANAGER/ADMIN (menu cũng chỉ hiện link này với MANAGER/ADMIN nhưng URL không có gì chặn
+truy cập trực tiếp).
+
+Đã sửa: thêm `requireRole('ADMIN', 'MANAGER')` vào đầu `supplier_returns.php`, đúng mẫu các trang
+cùng nhóm.
+
+Đã test trên app.kt-soft.vn: tạo tài khoản CASHIER test → truy cập trực tiếp `supplier_returns.php`
+→ HTTP 403 "Bạn không có quyền truy cập trang này." (trước khi sửa sẽ trả về HTTP 200 kèm toàn bộ dữ
+liệu); ADMIN vẫn truy cập bình thường (HTTP 200). Đã xóa tài khoản test.
