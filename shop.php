@@ -3,7 +3,14 @@ require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 
 $pdo = db();
-$branch = $pdo->query("SELECT id, name FROM branches WHERE is_active = 1 ORDER BY id LIMIT 1")->fetch();
+// shop.php la trang cong khai, khong dang nhap nen khong biet dang xem cua hang cua tenant nao.
+// Tam thoi CHI phuc vu tenant #1 (chu so huu KT-SOFT) cho toi khi xay dung storefront rieng theo
+// subdomain/slug cho tung tenant - khoa cung nhu vay de tranh lo du lieu san pham/gia/ton kho cua
+// cac tenant dang ky dung thu khac.
+$shopTenantId = 1;
+$branch = $pdo->prepare("SELECT id, name FROM branches WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 1");
+$branch->execute([$shopTenantId]);
+$branch = $branch->fetch();
 $storeName = getSetting('store_name', 'Cửa hàng');
 $storeLogo = getSetting('store_logo', '');
 $enabled = getSetting('online_shop_enabled', '1') === '1';
@@ -16,10 +23,10 @@ if ($branch && $enabled) {
                 (SELECT filename FROM product_images WHERE product_id = p.id ORDER BY sort_order LIMIT 1) AS image
          FROM products p
          LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
-         WHERE p.is_active = 1 AND p.product_type = 'PRODUCT' AND COALESCE(i.quantity, 0) > 0
+         WHERE p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT' AND COALESCE(i.quantity, 0) > 0
          ORDER BY p.name"
     );
-    $products->execute([$branch['id']]);
+    $products->execute([$branch['id'], $shopTenantId]);
     $products = $products->fetchAll();
 }
 ?>

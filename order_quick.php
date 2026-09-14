@@ -8,11 +8,14 @@ $id = (int) ($_GET['id'] ?? 0);
 
 $items = $pdo->prepare(
     'SELECT oi.quantity, oi.line_total, p.name AS product_name, v.name AS variant_name
-     FROM order_items oi JOIN products p ON p.id = oi.product_id
+     FROM order_items oi
+     JOIN orders o ON o.id = oi.order_id
+     JOIN branches b ON b.id = o.branch_id AND b.tenant_id = ?
+     JOIN products p ON p.id = oi.product_id
      LEFT JOIN product_variants v ON v.id = oi.variant_id
      WHERE oi.order_id = ?'
 );
-$items->execute([$id]);
+$items->execute([currentTenantId(), $id]);
 $items = $items->fetchAll();
 
 if (!$items) {

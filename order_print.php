@@ -14,9 +14,9 @@ $stmt = $pdo->prepare(
      LEFT JOIN customers c ON c.id = o.customer_id
      JOIN branches b ON b.id = o.branch_id
      JOIN users u ON u.id = o.sold_by_id
-     WHERE o.id = ?'
+     WHERE o.id = ? AND b.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $order = $stmt->fetch();
 if (!$order) { http_response_code(404); exit('Không tìm thấy đơn hàng'); }
 

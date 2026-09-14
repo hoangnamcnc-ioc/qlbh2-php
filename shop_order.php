@@ -9,8 +9,12 @@ if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) {
 }
 
 $pdo = db();
+// Phai khop voi tenant cong khai duy nhat ma shop.php dang phuc vu - xem ghi chu trong shop.php.
+$shopTenantId = 1;
 $enabled = getSetting('online_shop_enabled', '1') === '1';
-$branch = $pdo->query("SELECT id FROM branches WHERE is_active = 1 ORDER BY id LIMIT 1")->fetch();
+$branch = $pdo->prepare("SELECT id FROM branches WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 1");
+$branch->execute([$shopTenantId]);
+$branch = $branch->fetch();
 
 $customerName = post('customer_name');
 $customerPhone = preg_replace('/\D/', '', post('customer_phone'));
@@ -30,7 +34,9 @@ if (!is_array($qtyInput)) {
 
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
 $branchId = (int) $branch['id'];
-$systemUserId = (int) $pdo->query("SELECT id FROM users WHERE is_active = 1 ORDER BY id LIMIT 1")->fetchColumn();
+$systemUserStmt = $pdo->prepare("SELECT id FROM users WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 1");
+$systemUserStmt->execute([$shopTenantId]);
+$systemUserId = (int) $systemUserStmt->fetchColumn();
 if (!$systemUserId) {
     redirect('shop.php?err=' . urlencode('Cửa hàng chưa sẵn sàng nhận đơn online.'));
 }
@@ -49,10 +55,10 @@ try {
             "SELECT p.id, p.name, p.sell_price, i.quantity AS stock, i.id AS inventory_id
              FROM products p
              LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
-             WHERE p.id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'
+             WHERE p.id = ? AND p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'
              FOR UPDATE"
         );
-        $stmt->execute([$branchId, $productId]);
+        $stmt->execute([$branchId, $productId, $shopTenantId]);
         $product = $stmt->fetch();
         if (!$product) continue;
 
@@ -72,19 +78,20 @@ try {
     }
 
     $customerId = null;
-    $custStmt = $pdo->prepare('SELECT id FROM customers WHERE phone = ?');
-    $custStmt->execute([$customerPhone]);
+    $custStmt = $pdo->prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?');
+    $custStmt->execute([$customerPhone, $shopTenantId]);
     $existingCustomer = $custStmt->fetch();
     if ($existingCustomer) {
         $customerId = (int) $existingCustomer['id'];
     } else {
         $custCode = genCode('CUZN');
-        $pdo->prepare('INSERT INTO customers (code, name, phone) VALUES (?,?,?)')
-            ->execute([$custCode, $customerName, $customerPhone]);
+        $pdo->prepare('INSERT INTO customers (code, name, phone, tenant_id) VALUES (?,?,?,?)')
+            ->execute([$custCode, $customerName, $customerPhone, $shopTenantId]);
         $customerId = (int) $pdo->lastInsertId();
     }
 
-    $channelStmt = $pdo->query("SELECT id FROM sales_channels WHERE type = 'WEBSITE' AND is_active = 1 ORDER BY id LIMIT 1");
+    $channelStmt = $pdo->prepare("SELECT id FROM sales_channels WHERE tenant_id = ? AND type = 'WEBSITE' AND is_active = 1 ORDER BY id LIMIT 1");
+    $channelStmt->execute([$shopTenantId]);
     $channelId = $channelStmt->fetchColumn() ?: null;
 
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
