@@ -12,9 +12,9 @@ $stmt = $pdo->prepare(
      LEFT JOIN suppliers s ON s.id = r.supplier_id
      JOIN branches b ON b.id = r.branch_id
      JOIN users u ON u.id = r.created_by_id
-     WHERE r.id = ?'
+     WHERE r.id = ? AND b.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $receipt = $stmt->fetch();
 if (!$receipt) redirect('stock_receipts.php');
 

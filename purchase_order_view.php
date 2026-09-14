@@ -15,9 +15,9 @@ $stmt = $pdo->prepare(
      JOIN branches b ON b.id = po.branch_id
      JOIN users u ON u.id = po.created_by_id
      LEFT JOIN users a ON a.id = po.assigned_staff_id
-     WHERE po.id = ?'
+     WHERE po.id = ? AND b.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $po = $stmt->fetch();
 if (!$po) redirect('purchase_orders.php');
 

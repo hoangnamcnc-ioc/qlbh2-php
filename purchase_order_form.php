@@ -4,18 +4,29 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$suppliers = $pdo->query('SELECT * FROM suppliers ORDER BY name')->fetchAll();
-$staffList = $pdo->query('SELECT id, name FROM users WHERE is_active = 1 ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$suppliersStmt = $pdo->prepare('SELECT * FROM suppliers WHERE tenant_id = ? ORDER BY name');
+$suppliersStmt->execute([$tenantId]);
+$suppliers = $suppliersStmt->fetchAll();
+$staffStmt = $pdo->prepare('SELECT id, name FROM users WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$staffStmt->execute([$tenantId]);
+$staffList = $staffStmt->fetchAll();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $branchId = (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
+    if ($supplierId && !in_array($supplierId, array_column($suppliers, 'id'), true)) {
+        $supplierId = null;
+    }
     $note = post('note') ?: null;
     $expectedDeliveryDate = post('expected_delivery_date') ?: null;
     $referenceNo = post('reference_no') ?: null;
     $assignedStaffId = (int) ($_POST['assigned_staff_id'] ?? 0) ?: null;
+    if ($assignedStaffId && !in_array($assignedStaffId, array_column($staffList, 'id'), true)) {
+        $assignedStaffId = null;
+    }
     $productIds = $_POST['product_id'] ?? [];
     $variantIds = $_POST['variant_id'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
@@ -30,7 +41,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $vid = (int) ($variantIds[$i] ?? 0) ?: null;
             $qty = round((float) ($quantities[$i] ?? 0), 3);
             $cost = (float) ($costPrices[$i] ?? 0);
-            if ($pid > 0 && $qty > 0) $lines[] = [$pid, $vid, $qty, $cost];
+            if ($pid > 0 && $qty > 0) {
+                $ownCheck = $pdo->prepare('SELECT id FROM products WHERE id = ? AND tenant_id = ?');
+                $ownCheck->execute([$pid, $tenantId]);
+                if ($ownCheck->fetch()) {
+                    $lines[] = [$pid, $vid, $qty, $cost];
+                }
+            }
         }
 
         if (!$lines) {

@@ -4,13 +4,19 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$suppliers = $pdo->query('SELECT * FROM suppliers ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$suppliersStmt = $pdo->prepare('SELECT * FROM suppliers WHERE tenant_id = ? ORDER BY name');
+$suppliersStmt->execute([$tenantId]);
+$suppliers = $suppliersStmt->fetchAll();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $branchId = (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
+    if ($supplierId && !in_array($supplierId, array_column($suppliers, 'id'), true)) {
+        $supplierId = null;
+    }
     $note = post('note') ?: null;
     $invoiceDate = post('invoice_date') ?: null;
     $referenceNo = post('reference_no') ?: null;
@@ -25,6 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$branchId) {
         $error = 'Tài khoản chưa được gán chi nhánh';
     } else {
+        // Chi chap nhan san pham/bien the thuc su thuoc tenant hien tai - tranh nhap kho
+        // gia mao cho product_id cua tenant khac qua request thu cong.
         $lines = [];
         foreach ($productIds as $i => $pid) {
             $pid = (int) $pid;
@@ -32,6 +40,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $qty = round((float) ($quantities[$i] ?? 0), 3);
             $cost = (float) ($costPrices[$i] ?? 0);
             if ($pid > 0 && $qty > 0 && $cost >= 0) {
+                $ownCheck = $pdo->prepare('SELECT id FROM products WHERE id = ? AND tenant_id = ?');
+                $ownCheck->execute([$pid, $tenantId]);
+                if (!$ownCheck->fetch()) {
+                    continue;
+                }
+                if ($vid) {
+                    $ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
+                    $ownVariant->execute([$vid, $pid, $tenantId]);
+                    if (!$ownVariant->fetch()) {
+                        continue;
+                    }
+                }
                 $lines[] = [$pid, $vid, $qty, $cost];
             }
         }

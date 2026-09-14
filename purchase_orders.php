@@ -7,14 +7,18 @@ require_once __DIR__ . '/inc_header.php';
 $statusLabels = ['PENDING' => 'Chờ nhập', 'RECEIVED' => 'Đã nhập', 'CANCELLED' => 'Đã hủy'];
 
 $pdo = db();
-$pos = $pdo->query(
+$posStmt = $pdo->prepare(
     'SELECT po.*, s.name AS supplier_name, u.name AS created_by_name,
             (SELECT COALESCE(SUM(quantity*cost_price),0) FROM purchase_order_items WHERE po_id = po.id) AS total_amount
      FROM purchase_orders po
+     JOIN branches b ON b.id = po.branch_id
      LEFT JOIN suppliers s ON s.id = po.supplier_id
      JOIN users u ON u.id = po.created_by_id
+     WHERE b.tenant_id = ?
      ORDER BY po.created_at DESC LIMIT 100'
-)->fetchAll();
+);
+$posStmt->execute([currentTenantId()]);
+$pos = $posStmt->fetchAll();
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
