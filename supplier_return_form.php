@@ -4,20 +4,26 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $receipt = null;
 $items = [];
-$returnReasons = $pdo->query("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('RETURN','BOTH') ORDER BY id")->fetchAll();
+$reasonsStmt = $pdo->prepare("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('RETURN','BOTH') AND tenant_id = ? ORDER BY id");
+$reasonsStmt->execute([$tenantId]);
+$returnReasons = $reasonsStmt->fetchAll();
 
 $q = trim($_GET['q'] ?? '');
 
 if ($q !== '') {
+    // Loc theo tenant qua JOIN branches - phieu nhap cua tenant khac coi nhu khong ton tai,
+    // tranh doan ma phieu de xem/tao tra hang gia mao anh huong ton kho/cong no tenant khac.
     $stmt = $pdo->prepare(
         'SELECT sr.*, s.name AS supplier_name FROM stock_receipts sr
+         JOIN branches b ON b.id = sr.branch_id
          LEFT JOIN suppliers s ON s.id = sr.supplier_id
-         WHERE sr.code = ?'
+         WHERE sr.code = ? AND b.tenant_id = ?'
     );
-    $stmt->execute([$q]);
+    $stmt->execute([$q, $tenantId]);
     $receipt = $stmt->fetch();
 
     if (!$receipt) {
@@ -51,8 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $quantities = $_POST['qty'] ?? [];
 
-    $stmt = $pdo->prepare('SELECT * FROM stock_receipts WHERE id = ?');
-    $stmt->execute([$receiptId]);
+    $stmt = $pdo->prepare(
+        'SELECT sr.* FROM stock_receipts sr JOIN branches b ON b.id = sr.branch_id WHERE sr.id = ? AND b.tenant_id = ?'
+    );
+    $stmt->execute([$receiptId, $tenantId]);
     $receiptRow = $stmt->fetch();
 
     if (!$receiptRow || !$receiptRow['supplier_id']) {

@@ -5,13 +5,17 @@ requireRole('ADMIN', 'MANAGER');
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
-$returns = $pdo->query(
+$returnsStmt = $pdo->prepare(
     "SELECT sr.*, s.name AS supplier_name, u.name AS created_by_name
      FROM supplier_returns sr
+     JOIN branches b ON b.id = sr.branch_id
      JOIN suppliers s ON s.id = sr.supplier_id
      JOIN users u ON u.id = sr.created_by_id
+     WHERE b.tenant_id = ?
      ORDER BY sr.created_at DESC LIMIT 100"
-)->fetchAll();
+);
+$returnsStmt->execute([currentTenantId()]);
+$returns = $returnsStmt->fetchAll();
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
