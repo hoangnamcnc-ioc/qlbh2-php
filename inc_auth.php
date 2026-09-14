@@ -36,7 +36,7 @@ function refreshUserSession(): void
     }
     $checked = true;
 
-    $stmt = db()->prepare('SELECT role, branch_id, is_active, name FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT role, branch_id, tenant_id, is_active, name FROM users WHERE id = ?');
     $stmt->execute([$_SESSION['user']['id']]);
     $fresh = $stmt->fetch();
 
@@ -48,7 +48,42 @@ function refreshUserSession(): void
 
     $_SESSION['user']['role'] = $fresh['role'];
     $_SESSION['user']['branch_id'] = $fresh['branch_id'];
+    $_SESSION['user']['tenant_id'] = $fresh['tenant_id'];
     $_SESSION['user']['name'] = $fresh['name'];
+}
+
+/**
+ * Chặn truy cập nếu tenant (công ty) của user đang dùng thử đã hết hạn — không xóa dữ liệu,
+ * chỉ khóa vào app cho tới khi nâng cấp lên PAID. Chỉ kiểm tra 1 lần/request giống
+ * refreshUserSession(), và luôn cho qua trang trial_expired.php/logout.php để tránh vòng lặp
+ * chuyển hướng.
+ */
+function checkTrialExpiry(): void
+{
+    static $checked = false;
+    if ($checked || empty($_SESSION['user'])) {
+        return;
+    }
+    $checked = true;
+
+    $currentFile = basename($_SERVER['SCRIPT_NAME']);
+    if (in_array($currentFile, ['trial_expired.php', 'logout.php'], true)) {
+        return;
+    }
+
+    $stmt = db()->prepare('SELECT plan, trial_ends_at, is_active FROM tenants WHERE id = ?');
+    $stmt->execute([$_SESSION['user']['tenant_id']]);
+    $tenant = $stmt->fetch();
+
+    if (!$tenant || !$tenant['is_active']) {
+        $_SESSION = [];
+        session_destroy();
+        redirect('login.php?locked=1');
+    }
+
+    if ($tenant['plan'] === 'TRIAL' && $tenant['trial_ends_at'] !== null && strtotime($tenant['trial_ends_at']) < time()) {
+        redirect('trial_expired.php');
+    }
 }
 
 function requireLogin(): array
@@ -58,6 +93,7 @@ function requireLogin(): array
         redirect('login.php');
     }
     refreshUserSession();
+    checkTrialExpiry();
 
     $currentFile = basename($_SERVER['SCRIPT_NAME']);
     if (!empty($_SESSION['locked']) && !in_array($currentFile, ['lock.php', 'logout.php'], true)) {

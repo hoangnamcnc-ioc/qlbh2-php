@@ -715,3 +715,68 @@ ALTER TABLE combo_items MODIFY COLUMN quantity DECIMAL(12,3) NOT NULL DEFAULT 1;
 
 -- Tài khoản admin: chạy seed.php một lần sau khi import schema này để tạo
 -- admin@qlbh2.local / Admin@123 với mật khẩu băm đúng chuẩn (rồi xóa seed.php).
+
+-- ===== MULTI-TENANT =====
+-- Cho phép nhiều công ty/cửa hàng dùng chung 1 database, dữ liệu tách biệt hoàn toàn theo
+-- tenant_id. Chỉ thêm tenant_id vào các bảng "gốc" (danh mục/cấu hình cấp công ty, không có
+-- branch_id) — các bảng nghiệp vụ theo chi nhánh (orders, inventory, stock_*...) và bảng con
+-- (order_items, stock_receipt_items...) KHÔNG cần tenant_id riêng vì đã tự cách ly qua JOIN
+-- với branches/orders (đã lọc đúng tenant) hoặc qua branch_id (chỉ thuộc về đúng 1 tenant).
+-- Trên DB đã có dữ liệu, dùng fix_multitenant_migrate.php (xem README) thay vì chạy tay các
+-- lệnh dưới đây, vì cần DROP INDEX theo tên thật đang tồn tại và có thể khác giữa các bản cài.
+
+CREATE TABLE IF NOT EXISTS tenants (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  owner_email VARCHAR(255) NULL,
+  plan ENUM('TRIAL','PAID') NOT NULL DEFAULT 'TRIAL',
+  trial_ends_at DATETIME NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE branches ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_branches_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE users ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE categories ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_categories_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE suppliers ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_suppliers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE customer_tiers ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_customer_tiers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE campaigns ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_campaigns_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE promotions ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_promotions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE warranty_policies ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_warranty_policies_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE tax_rates ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_tax_rates_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE cancel_reasons ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_cancel_reasons_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE order_sources ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_order_sources_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE sales_channels ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_sales_channels_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE gifts ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_gifts_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE price_lists ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_price_lists_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE activity_logs ADD COLUMN tenant_id INT NULL, ADD CONSTRAINT fk_activity_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+-- Bảng có UNIQUE toàn cục cần đổi thành UNIQUE theo (tenant_id, cột) để 2 tenant khác nhau
+-- vẫn dùng được cùng 1 SKU/mã/tên (rất hay gặp trong thực tế).
+ALTER TABLE products DROP INDEX sku, DROP INDEX barcode,
+  ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_products_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  ADD UNIQUE KEY uniq_products_tenant_sku (tenant_id, sku), ADD UNIQUE KEY uniq_products_tenant_barcode (tenant_id, barcode);
+ALTER TABLE product_variants DROP INDEX sku,
+  ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_variants_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  ADD UNIQUE KEY uniq_variants_tenant_sku (tenant_id, sku);
+ALTER TABLE brands DROP INDEX name,
+  ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_brands_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  ADD UNIQUE KEY uniq_brands_tenant_name (tenant_id, name);
+ALTER TABLE customers DROP INDEX phone, DROP INDEX code,
+  ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_customers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  ADD UNIQUE KEY uniq_customers_tenant_phone (tenant_id, phone), ADD UNIQUE KEY uniq_customers_tenant_code (tenant_id, code);
+ALTER TABLE customer_groups DROP INDEX name, DROP INDEX code,
+  ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_customer_groups_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  ADD UNIQUE KEY uniq_cg_tenant_name (tenant_id, name), ADD UNIQUE KEY uniq_cg_tenant_code (tenant_id, code);
+ALTER TABLE coupons DROP INDEX code,
+  ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_coupons_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  ADD UNIQUE KEY uniq_coupons_tenant_code (tenant_id, code);
+
+-- store_settings trước đây PRIMARY KEY (setting_key) dùng chung 1 bộ cấu hình cho cả hệ
+-- thống — đổi sang PRIMARY KEY (tenant_id, setting_key) để mỗi tenant có cấu hình riêng.
+ALTER TABLE store_settings ADD COLUMN tenant_id INT NOT NULL DEFAULT 1;
+ALTER TABLE store_settings DROP PRIMARY KEY, ADD PRIMARY KEY (tenant_id, setting_key);
+ALTER TABLE store_settings ADD CONSTRAINT fk_store_settings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+INSERT INTO tenants (id, name, plan, is_active) VALUES (1, 'KT-SOFT (chủ sở hữu)', 'PAID', 1)
+  ON DUPLICATE KEY UPDATE name = name;

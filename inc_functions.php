@@ -141,6 +141,14 @@ function effectiveBranchId(array $user): int
     return (int) ($user['branch_id'] ?? 0);
 }
 
+/** Tenant (công ty/cửa hàng) của tài khoản đang đăng nhập — dùng để lọc mọi bảng "gốc"
+ * (sản phẩm, khách hàng, NCC, danh mục...) sao cho các tenant khác nhau không thấy dữ liệu
+ * của nhau. Bắt buộc phải có, vì mọi user đều thuộc đúng 1 tenant kể từ khi migrate. */
+function currentTenantId(): int
+{
+    return (int) (currentUser()['tenant_id'] ?? 0);
+}
+
 /** Làm tối 1 màu hex đi $percent% (dùng cho trạng thái hover của màu chủ đạo tùy chỉnh). */
 function darkenColor(string $hex, int $percent = 15): string
 {
