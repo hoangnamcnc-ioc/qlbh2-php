@@ -1659,3 +1659,35 @@ tạo và tải được file chứa dữ liệu của **mọi khách hàng khá
 `tenant_export.php` xác nhận file tải về chỉ có đúng 4 dòng `INSERT` (tenant/branch/user/product
 của chính tenant đó), grep toàn bộ file không thấy id của bất kỳ tenant nào khác. Đã dọn sạch dữ
 liệu test.
+
+## Multi-tenant: rà soát tổng thể sau lỗ hổng backup — tìm và vá thêm 3 lỗ hổng nữa
+
+Sau khi vá lỗ hổng backup.php, người dùng lo ngại còn sót lỗ hổng khác nên yêu cầu rà soát toàn bộ
+codebase (grep-sweep có hệ thống mọi file dùng `hasRole('ADMIN'...)` bypass, mọi endpoint nhận `id`
+từ GET/POST, mọi trang export/print/download, mọi trang công khai không cần đăng nhập). Kiểm tra
+sâu khoảng 45 file, tìm thêm 3 lỗ hổng nghiêm trọng:
+
+1. **`order_print.php`, `order_quick.php`** — chỉ kiểm tra `requireLogin()`, không lọc theo tenant.
+   Bất kỳ tài khoản nào (kể cả tự đăng ký dùng thử) chỉ cần đổi `?id=` tăng dần là xem được hóa đơn
+   đầy đủ (tên/SĐT khách hàng, sản phẩm, giá, chi nhánh...) của **tenant bất kỳ**. Đã vá:
+   `order_print.php` thêm điều kiện `b.tenant_id = ?` vào JOIN branches có sẵn; `order_quick.php`
+   thêm JOIN qua `orders`/`branches` để lọc tenant (bảng `order_items` không có cột tenant/branch
+   trực tiếp).
+2. **`shop.php`, `shop_order.php`** — trang đặt hàng online công khai (không đăng nhập) chọn "chi
+   nhánh đầu tiên đang hoạt động" và tra cứu/tạo khách hàng theo SĐT **không lọc theo tenant nào
+   cả** — lộ toàn bộ sản phẩm/giá/tồn kho của bất kỳ tenant nào có chi nhánh id nhỏ nhất trong toàn
+   hệ thống, và có thể trộn lẫn dữ liệu khách hàng giữa các tenant khác nhau (2 tenant có khách cùng
+   SĐT sẽ dùng chung 1 dòng `customers`). Trang này chưa có cách xác định "đang xem cửa hàng của
+   tenant nào" khi không đăng nhập (cần subdomain/slug riêng từng cửa hàng — làm sau). Tạm thời khóa
+   cứng cả 2 file chỉ phục vụ đúng **tenant #1** (KT-SOFT, cửa hàng thật duy nhất đang dùng tính
+   năng này hiện nay) cho tới khi xây storefront riêng theo từng tenant.
+
+Đã test bằng kịch bản tấn công thật: tạo tenant A (victim, có 1 đơn hàng) và tenant B (attacker)
+song song → đăng nhập tenant B, thử đổi id sang đơn hàng tenant A qua `order_print.php` và
+`order_quick.php` → đều bị chặn đúng (không thấy dữ liệu); tenant A vẫn xem được đơn hàng của chính
+mình bình thường; `shop.php` vẫn hiển thị đúng sản phẩm của tenant #1 như trước khi vá. Đã dọn sạch
+dữ liệu test.
+
+`fix_multitenant_migrate.php` (script migrate DDL không có auth) cũng được rà lại — xác nhận đã bị
+xóa khỏi server production từ lúc chạy xong (trả về 404), chỉ còn lưu trong git để tham khảo, không
+phải rủi ro đang tồn tại.
