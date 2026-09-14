@@ -55,7 +55,10 @@ if ($isManagerUp) {
     ];
 }
 if (hasRole('ADMIN')) {
-    $navGroups['Cấu hình'] = ['settings.php' => 'Cấu hình'];
+    $navGroups['Cấu hình'] = [
+        'settings.php' => 'Cấu hình',
+        'backup.php' => 'Sao lưu dữ liệu',
+    ];
 }
 
 $groupIcons = [

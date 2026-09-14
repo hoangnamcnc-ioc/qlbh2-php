@@ -1355,3 +1355,32 @@ xuất hẳn mà chỉ khóa lại, nhập đúng mật khẩu của chính mìn
 `index.php` → bị chuyển hướng ngược lại `lock.php` (xác nhận qua header `Location`); nhập sai mật
 khẩu → báo lỗi "Mật khẩu không đúng", vẫn ở màn hình khóa; nhập đúng mật khẩu (`Admin@123`) → chuyển
 hướng về `index.php` và tải được bình thường (HTTP 200), không cần đăng nhập lại.
+
+## Bổ sung tính năng Sao lưu 1-click (theo mẫu tham khảo từ QLBH-SOFT)
+
+Theo yêu cầu người dùng, port tính năng sao lưu của QLBH-SOFT (`src/routes/backup.js`, dùng SQLite
+`VACUUM INTO`). Hosting của QLBH2 là MySQL trên hosting chia sẻ **không có SSH/shell** nên không thể
+gọi `mysqldump` thật — thay vào đó dump SQL bằng PHP thuần (đọc `SHOW CREATE TABLE` + dữ liệu từng
+bảng theo lô 500 dòng để tránh tràn bộ nhớ với bảng lớn), nén gzip, giữ lại 20 bản gần nhất giống
+policy của QLBH-SOFT.
+
+Đã bổ sung:
+- `inc_functions.php`: `backupDir()` (tạo `backups/` cùng `.htaccess` chặn truy cập trực tiếp nếu
+  chưa có), `createBackup()` (dump toàn bộ bảng thành `.sql.gz`, tự xóa bản cũ hơn 20 bản gần nhất),
+  `listBackups()`.
+- `backup.php` (chỉ ADMIN): nút "Tạo sao lưu mới" (POST + CSRF), danh sách bản sao lưu kèm thời
+  gian/dung lượng/link tải.
+- `backup_download.php` (chỉ ADMIN): broker tải file — validate tên file theo đúng định dạng
+  `backup_YYYYMMDD_HHMMSS.sql.gz` và tồn tại trong thư mục `backups/` trước khi `readfile()`, tránh
+  path traversal.
+- `inc_header.php`: thêm mục "Sao lưu dữ liệu" vào nhóm "Cấu hình" (chỉ ADMIN thấy).
+- `backups/.htaccess` (tự tạo khi chạy lần đầu): `Deny from all` / `Require all denied` — chặn truy
+  cập trực tiếp file `.sql.gz` qua URL, chỉ tải được qua `backup_download.php` (đã qua xác thực
+  quyền ADMIN).
+
+Đã test trên app.kt-soft.vn: bấm "Tạo sao lưu mới" → tạo thành công file thật (~6KB) chứa đúng cấu
+trúc + dữ liệu (xác nhận `zcat` ra đúng `INSERT INTO` với dữ liệu bảng `users` thật); truy cập trực
+tiếp `backups/<file>.sql.gz` qua URL → HTTP 403 (bị `.htaccess` chặn); tải qua `backup_download.php`
+với session ADMIN → HTTP 200, file gzip hợp lệ; truy cập `backup.php`/`backup_download.php` khi chưa
+đăng nhập → chuyển hướng về trang đăng nhập (HTTP 302), không lộ dữ liệu. Đã xóa file sao lưu test
+sau khi xác nhận.

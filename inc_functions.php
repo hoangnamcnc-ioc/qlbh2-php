@@ -9,6 +9,74 @@ function e(?string $s): string
     return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+function backupDir(): string
+{
+    $dir = __DIR__ . '/backups';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    if (!file_exists($dir . '/.htaccess')) {
+        file_put_contents($dir . '/.htaccess', "Require all denied\nDeny from all\n");
+    }
+    return $dir;
+}
+
+/**
+ * Sao lưu 1-click bằng PHP thuần (dump SQL + nén gzip) vì hosting chia sẻ không có SSH/shell
+ * để dùng mysqldump thật. Dump từng bảng theo lô 500 dòng để tránh tràn bộ nhớ với bảng lớn.
+ * Giữ lại tối đa 20 bản sao lưu gần nhất, tự xóa bản cũ hơn.
+ */
+function createBackup(): string
+{
+    $pdo = db();
+    $dir = backupDir();
+    $filename = 'backup_' . date('Ymd_His') . '.sql.gz';
+    $gz = gzopen($dir . '/' . $filename, 'wb9');
+
+    gzwrite($gz, "-- QLBH2 backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
+
+    $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($tables as $table) {
+        $create = $pdo->query("SHOW CREATE TABLE `$table`")->fetch();
+        gzwrite($gz, "DROP TABLE IF EXISTS `$table`;\n" . $create['Create Table'] . ";\n\n");
+
+        $count = (int) $pdo->query("SELECT COUNT(*) FROM `$table`")->fetchColumn();
+        $chunk = 500;
+        for ($offset = 0; $offset < $count; $offset += $chunk) {
+            $rows = $pdo->query("SELECT * FROM `$table` LIMIT $chunk OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
+            if (!$rows) {
+                break;
+            }
+            $colList = '`' . implode('`,`', array_keys($rows[0])) . '`';
+            $valueGroups = [];
+            foreach ($rows as $row) {
+                $vals = array_map(fn ($v) => $v === null ? 'NULL' : $pdo->quote($v), $row);
+                $valueGroups[] = '(' . implode(',', $vals) . ')';
+            }
+            gzwrite($gz, "INSERT INTO `$table` ($colList) VALUES " . implode(',', $valueGroups) . ";\n");
+        }
+        gzwrite($gz, "\n");
+    }
+
+    gzwrite($gz, "SET FOREIGN_KEY_CHECKS=1;\n");
+    gzclose($gz);
+
+    $files = glob($dir . '/backup_*.sql.gz');
+    usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+    foreach (array_slice($files, 20) as $old) {
+        unlink($old);
+    }
+
+    return $filename;
+}
+
+function listBackups(): array
+{
+    $files = glob(backupDir() . '/backup_*.sql.gz');
+    usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+    return array_map(fn ($f) => ['name' => basename($f), 'size' => filesize($f), 'time' => filemtime($f)], $files);
+}
+
 function redirect(string $to): void
 {
     header('Location: ' . $to);
