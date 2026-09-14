@@ -2,9 +2,44 @@
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 
-// Nếu đã đăng nhập rồi thì vào thẳng app, không cần đăng ký lại.
-if (currentUser()) {
-    redirect('index.php');
+// Neu da dang nhap roi thi hoi ro: vao he thong tiep hay dang ky tai khoan (cua hang) moi -
+// tranh nguoi dung bam "Dung thu" tren kt-soft.vn nhung trinh duyet dang co san phien dang nhap
+// cu bi tu dong day vao thang tai khoan cu ma khong ro vi sao.
+$loggedInUser = currentUser();
+if ($loggedInUser && !isset($_GET['new'])) {
+    $pageTitle = 'Đăng ký dùng thử QLBH2';
+    ?>
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= e($pageTitle) ?></title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0f172a; font-family: -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; box-sizing: border-box; }
+      .box { background: #fff; border-radius: 12px; padding: 36px; width: 100%; max-width: 420px; text-align: center; }
+      h1 { font-size: 19px; margin: 0 0 10px; color: #1e293b; }
+      p { color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 22px; }
+      p b { color: #1e293b; }
+      .choice-btn { display: block; width: 100%; box-sizing: border-box; border-radius: 8px; padding: 13px; font-size: 14.5px; font-weight: 600; text-decoration: none; margin-bottom: 12px; }
+      .choice-btn:hover { text-decoration: none; }
+      .choice-primary { background: #2563eb; color: #fff; }
+      .choice-primary:hover { background: #1d4ed8; }
+      .choice-secondary { background: #fff; color: #2563eb; border: 1.5px solid #2563eb; }
+      .choice-secondary:hover { background: #eff6ff; }
+    </style>
+    </head>
+    <body>
+      <div class="box">
+        <h1>Bạn đang đăng nhập</h1>
+        <p>Trình duyệt này đang đăng nhập tài khoản <b><?= e($loggedInUser['email']) ?></b> (<?= e($loggedInUser['name']) ?>). Bạn muốn tiếp tục vào hệ thống với tài khoản này, hay đăng ký một tài khoản/cửa hàng mới?</p>
+        <a class="choice-btn choice-primary" href="index.php">Tiếp tục vào hệ thống</a>
+        <a class="choice-btn choice-secondary" href="dang-ky.php?new=1">Đăng ký tài khoản mới</a>
+      </div>
+    </body>
+    </html>
+    <?php
+    exit;
 }
 
 $pdo = db();
