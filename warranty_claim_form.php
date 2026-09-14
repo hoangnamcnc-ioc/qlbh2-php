@@ -6,8 +6,8 @@ $currentUser = requireLogin();
 $pdo = db();
 $cardId = (int) ($_GET['card_id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT w.*, p.name AS product_name FROM warranty_cards w JOIN products p ON p.id = w.product_id WHERE w.id = ?');
-$stmt->execute([$cardId]);
+$stmt = $pdo->prepare('SELECT w.*, p.name AS product_name FROM warranty_cards w JOIN products p ON p.id = w.product_id WHERE w.id = ? AND p.tenant_id = ?');
+$stmt->execute([$cardId, currentTenantId()]);
 $card = $stmt->fetch();
 if (!$card) redirect('warranty_cards.php');
 

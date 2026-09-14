@@ -7,9 +7,10 @@ $pdo = db();
 $orderId = (int) ($_GET['order_id'] ?? 0);
 $stmt = $pdo->prepare(
     'SELECT o.*, c.name AS customer_name, c.phone AS customer_phone FROM orders o
-     LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?'
+     JOIN branches b ON b.id = o.branch_id
+     LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ? AND b.tenant_id = ?'
 );
-$stmt->execute([$orderId]);
+$stmt->execute([$orderId, currentTenantId()]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
 // Thu ngan (CASHIER) khong duoc tao/sua van don cho chi nhanh khac.

@@ -9,7 +9,9 @@ checkCsrf();
 $pdo = db();
 $shipmentId = (int) ($_POST['shipment_id'] ?? 0);
 
-$pdo->prepare('UPDATE shipments SET reconciled_at = NOW() WHERE id = ? AND reconciled_at IS NULL')
-    ->execute([$shipmentId]);
+$pdo->prepare(
+    'UPDATE shipments s JOIN orders o ON o.id = s.order_id JOIN branches b ON b.id = o.branch_id
+     SET s.reconciled_at = NOW() WHERE s.id = ? AND s.reconciled_at IS NULL AND b.tenant_id = ?'
+)->execute([$shipmentId, currentTenantId()]);
 
 redirect('shipments.php');

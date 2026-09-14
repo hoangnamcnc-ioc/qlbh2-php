@@ -8,13 +8,15 @@ $statusLabels = [
 
 $filter = $_GET['filter'] ?? 'all';
 $pdo = db();
+$tenantId = currentTenantId();
 
 $sql = 'SELECT s.*, o.code AS order_code, c.name AS customer_name
         FROM shipments s
         JOIN orders o ON o.id = s.order_id
+        JOIN branches b ON b.id = o.branch_id
         LEFT JOIN customers c ON c.id = o.customer_id';
-$where = [];
-$params = [];
+$where = ['b.tenant_id = ?'];
+$params = [$tenantId];
 if ($filter === 'unreconciled') {
     $where[] = 's.cod_amount > 0 AND s.reconciled_at IS NULL';
 } elseif ($filter === 'reconciled') {
@@ -34,22 +36,22 @@ $stmt->execute($params);
 $shipments = $stmt->fetchAll();
 
 $branchScopeSql = '';
-$branchScopeParams = [];
+$branchScopeParams = [$tenantId];
 if (!hasRole('ADMIN', 'MANAGER')) {
     $branchScopeSql = ' AND o.branch_id = ?';
     $branchScopeParams[] = effectiveBranchId($currentUser);
 }
 $totalUnreconciledStmt = $pdo->prepare(
-    'SELECT COALESCE(SUM(s.cod_amount),0) AS s FROM shipments s JOIN orders o ON o.id = s.order_id
-     WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL' . $branchScopeSql
+    'SELECT COALESCE(SUM(s.cod_amount),0) AS s FROM shipments s JOIN orders o ON o.id = s.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL AND b.tenant_id = ?' . $branchScopeSql
 );
 $totalUnreconciledStmt->execute($branchScopeParams);
 $totalUnreconciled = $totalUnreconciledStmt->fetch()['s'];
 
 $totalNetUnreconciledStmt = $pdo->prepare(
     "SELECT COALESCE(SUM(CASE WHEN s.fee_payer = 'CUSTOMER' THEN s.cod_amount - s.shipping_fee ELSE s.cod_amount END),0) AS s
-     FROM shipments s JOIN orders o ON o.id = s.order_id
-     WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL" . $branchScopeSql
+     FROM shipments s JOIN orders o ON o.id = s.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE s.cod_amount > 0 AND s.reconciled_at IS NULL AND b.tenant_id = ?" . $branchScopeSql
 );
 $totalNetUnreconciledStmt->execute($branchScopeParams);
 $totalNetUnreconciled = $totalNetUnreconciledStmt->fetch()['s'];

@@ -13,9 +13,9 @@ $stmt = $pdo->prepare(
      FROM warranty_claims c
      JOIN warranty_cards w ON w.id = c.warranty_card_id
      JOIN products p ON p.id = w.product_id
-     WHERE c.id = ?'
+     WHERE c.id = ? AND p.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $claim = $stmt->fetch();
 if (!$claim) redirect('warranty_cards.php');
 

@@ -7,11 +7,13 @@ $created = $_GET['created'] ?? null;
 $returnsSql = 'SELECT r.*, o.code AS order_code, c.name AS customer_name
      FROM order_returns r
      JOIN orders o ON o.id = r.order_id
-     LEFT JOIN customers c ON c.id = r.customer_id';
-$returnsParams = [];
+     JOIN branches b ON b.id = o.branch_id
+     LEFT JOIN customers c ON c.id = r.customer_id
+     WHERE b.tenant_id = ?';
+$returnsParams = [currentTenantId()];
 // Thu ngan (CASHIER) chi thay don tra hang cua chi nhanh minh.
 if (!hasRole('ADMIN', 'MANAGER')) {
-    $returnsSql .= ' WHERE o.branch_id = ?';
+    $returnsSql .= ' AND o.branch_id = ?';
     $returnsParams[] = effectiveBranchId($currentUser);
 }
 $returnsSql .= ' ORDER BY r.created_at DESC LIMIT 100';
