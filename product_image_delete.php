@@ -10,8 +10,11 @@ $pdo = db();
 $imageId = (int) ($_POST['image_id'] ?? 0);
 $productId = (int) ($_POST['product_id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT * FROM product_images WHERE id = ? AND product_id = ?');
-$stmt->execute([$imageId, $productId]);
+$stmt = $pdo->prepare(
+    'SELECT pi.* FROM product_images pi JOIN products p ON p.id = pi.product_id
+     WHERE pi.id = ? AND pi.product_id = ? AND p.tenant_id = ?'
+);
+$stmt->execute([$imageId, $productId, currentTenantId()]);
 $image = $stmt->fetch();
 
 if ($image) {

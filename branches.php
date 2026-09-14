@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE branches SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE branches SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('BRANCH_TOGGLE', 'id=' . $id);
         redirect('branches.php');
     } elseif ($action === 'update') {
@@ -23,8 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập tên chi nhánh';
         } else {
-            $pdo->prepare('UPDATE branches SET name = ?, address = ?, phone = ? WHERE id = ?')
-                ->execute([$name, $address, $phone, $id]);
+            $pdo->prepare('UPDATE branches SET name = ?, address = ?, phone = ? WHERE id = ? AND tenant_id = ?')
+                ->execute([$name, $address, $phone, $id, $tenantId]);
             logActivity('BRANCH_UPDATE', $name);
             redirect('branches.php');
         }
@@ -36,15 +37,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập tên chi nhánh';
         } else {
-            $pdo->prepare('INSERT INTO branches (name, address, phone) VALUES (?,?,?)')
-                ->execute([$name, $address, $phone]);
+            $pdo->prepare('INSERT INTO branches (name, address, phone, tenant_id) VALUES (?,?,?,?)')
+                ->execute([$name, $address, $phone, $tenantId]);
             logActivity('BRANCH_CREATE', $name);
             redirect('branches.php');
         }
     }
 }
 
-$branches = $pdo->query('SELECT * FROM branches ORDER BY id')->fetchAll();
+$stmt = $pdo->prepare('SELECT * FROM branches WHERE tenant_id = ? ORDER BY id');
+$stmt->execute([$tenantId]);
+$branches = $stmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

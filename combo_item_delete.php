@@ -13,7 +13,10 @@ $comboItemId = (int) ($_POST['combo_item_id'] ?? 0);
 $productId = (int) ($_POST['product_id'] ?? 0);
 
 if ($comboItemId) {
-    $pdo->prepare('DELETE FROM combo_items WHERE id = ? AND combo_product_id = ?')->execute([$comboItemId, $productId]);
+    $pdo->prepare(
+        'DELETE ci FROM combo_items ci JOIN products p ON p.id = ci.combo_product_id
+         WHERE ci.id = ? AND ci.combo_product_id = ? AND p.tenant_id = ?'
+    )->execute([$comboItemId, $productId, currentTenantId()]);
 }
 
 redirect('product_form.php?id=' . $productId);

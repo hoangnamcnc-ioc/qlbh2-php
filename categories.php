@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -11,19 +12,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = post('name');
     $parentId = (int) ($_POST['parent_id'] ?? 0) ?: null;
 
+    if ($parentId) {
+        $checkParent = $pdo->prepare('SELECT id FROM categories WHERE id = ? AND tenant_id = ?');
+        $checkParent->execute([$parentId, $tenantId]);
+        if (!$checkParent->fetch()) {
+            $parentId = null;
+        }
+    }
+
     if ($name === '') {
         $error = 'Vui lòng nhập tên danh mục';
     } else {
-        $pdo->prepare('INSERT INTO categories (name, parent_id) VALUES (?,?)')->execute([$name, $parentId]);
+        $pdo->prepare('INSERT INTO categories (name, parent_id, tenant_id) VALUES (?,?,?)')->execute([$name, $parentId, $tenantId]);
         redirect('categories.php');
     }
 }
 
-$categories = $pdo->query(
-    'SELECT c.*, p.name AS parent_name, (SELECT COUNT(*) FROM products WHERE category_id = c.id) AS product_count
-     FROM categories c LEFT JOIN categories p ON p.id = c.parent_id ORDER BY c.name'
-)->fetchAll();
-$allCategories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
+$categoriesStmt = $pdo->prepare(
+    'SELECT c.*, p.name AS parent_name, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND tenant_id = ?) AS product_count
+     FROM categories c LEFT JOIN categories p ON p.id = c.parent_id WHERE c.tenant_id = ? ORDER BY c.name'
+);
+$categoriesStmt->execute([$tenantId, $tenantId]);
+$categories = $categoriesStmt->fetchAll();
+$allCategoriesStmt = $pdo->prepare('SELECT * FROM categories WHERE tenant_id = ? ORDER BY name');
+$allCategoriesStmt->execute([$tenantId]);
+$allCategories = $allCategoriesStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

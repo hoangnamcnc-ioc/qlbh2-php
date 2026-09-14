@@ -4,13 +4,14 @@ require_once __DIR__ . '/inc_header.php';
 $q = trim($_GET['q'] ?? '');
 $categoryId = (int) ($_GET['category_id'] ?? 0);
 $pdo = db();
+$tenantId = currentTenantId();
 
 $sql = 'SELECT p.*, cat.name AS category_name, COALESCE(SUM(i.quantity),0) AS total_qty
         FROM products p
         LEFT JOIN inventory i ON i.product_id = p.id
         LEFT JOIN categories cat ON cat.id = p.category_id';
-$where = [];
-$params = [];
+$where = ['p.tenant_id = ?'];
+$params = [$tenantId];
 if ($q !== '') {
     $where[] = '(p.name LIKE ? OR p.sku LIKE ?)';
     $like = '%' . $q . '%';
@@ -30,7 +31,9 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $products = $stmt->fetchAll();
 
-$categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
+$categoriesStmt = $pdo->prepare('SELECT * FROM categories WHERE tenant_id = ? ORDER BY name');
+$categoriesStmt->execute([$tenantId]);
+$categories = $categoriesStmt->fetchAll();
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">

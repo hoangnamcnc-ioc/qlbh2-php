@@ -4,7 +4,9 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$products = $pdo->query('SELECT sku, barcode, name, unit, cost_price, sell_price, is_active FROM products ORDER BY created_at DESC')->fetchAll();
+$productsStmt = $pdo->prepare('SELECT sku, barcode, name, unit, cost_price, sell_price, is_active FROM products WHERE tenant_id = ? ORDER BY created_at DESC');
+$productsStmt->execute([currentTenantId()]);
+$products = $productsStmt->fetchAll();
 logActivity('EXPORT_PRODUCTS', count($products) . ' sản phẩm');
 
 header('Content-Type: text/csv; charset=utf-8');

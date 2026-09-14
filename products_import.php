@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $result = null;
 
@@ -33,8 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $name = trim((string) $name);
                 if ($sku === '' || $name === '') { $skipped++; continue; }
 
-                $check = $pdo->prepare('SELECT id FROM products WHERE sku = ?');
-                $check->execute([$sku]);
+                $check = $pdo->prepare('SELECT id FROM products WHERE sku = ? AND tenant_id = ?');
+                $check->execute([$sku, $tenantId]);
                 $existing = $check->fetch();
 
                 if ($existing) {
@@ -42,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ->execute([$barcode ?: null, $name, $unit ?: null, (float) $costPrice, (float) $sellPrice, $existing['id']]);
                     $updated++;
                 } else {
-                    $pdo->prepare('INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price) VALUES (?,?,?,?,?,?)')
-                        ->execute([$sku, $barcode ?: null, $name, $unit ?: null, (float) $costPrice, (float) $sellPrice]);
+                    $pdo->prepare('INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, tenant_id) VALUES (?,?,?,?,?,?,?)')
+                        ->execute([$sku, $barcode ?: null, $name, $unit ?: null, (float) $costPrice, (float) $sellPrice, $tenantId]);
                     $created++;
                 }
             }

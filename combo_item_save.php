@@ -9,9 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 checkCsrf();
 
 $pdo = db();
+$tenantId = currentTenantId();
 $productId = (int) ($_POST['product_id'] ?? 0);
 $componentId = (int) ($_POST['component_product_id'] ?? 0);
 $quantity = max(0.001, round((float) ($_POST['quantity'] ?? 1), 3));
+
+$ownProducts = $pdo->prepare('SELECT id FROM products WHERE id IN (?, ?) AND tenant_id = ?');
+$ownProducts->execute([$productId, $componentId, $tenantId]);
+if (count($ownProducts->fetchAll()) !== 2) {
+    redirect('product_form.php?id=' . $productId);
+}
 
 if ($productId && $componentId && $productId !== $componentId) {
     $check = $pdo->prepare('SELECT id, quantity FROM combo_items WHERE combo_product_id = ? AND component_product_id = ?');

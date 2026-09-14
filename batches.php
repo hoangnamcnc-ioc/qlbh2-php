@@ -4,9 +4,14 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
-$branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
-$products = $pdo->query("SELECT id, sku, name FROM products WHERE is_active = 1 AND product_type = 'PRODUCT' ORDER BY name")->fetchAll();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
+$productsStmt = $pdo->prepare("SELECT id, sku, name FROM products WHERE tenant_id = ? AND is_active = 1 AND product_type = 'PRODUCT' ORDER BY name");
+$productsStmt->execute([$tenantId]);
+$products = $productsStmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
@@ -14,7 +19,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'delete') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('DELETE FROM product_batches WHERE id = ?')->execute([$id]);
+        // Xoa lo hang qua JOIN kiem tra chi nhanh thuoc dung tenant - tranh xoa nham lo
+        // hang cua tenant khac neu doan duoc id.
+        $pdo->prepare(
+            'DELETE b FROM product_batches b JOIN branches br ON br.id = b.branch_id WHERE b.id = ? AND br.tenant_id = ?'
+        )->execute([$id, $tenantId]);
         logActivity('BATCH_DELETE', 'id=' . $id);
         redirect('batches.php');
     } else {
@@ -27,22 +36,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$productId || !$branchId || $lotNumber === '' || $quantity <= 0) {
             $error = 'Vui lòng chọn sản phẩm, chi nhánh, nhập số lô và số lượng lớn hơn 0';
         } else {
-            $pdo->prepare('INSERT INTO product_batches (product_id, branch_id, lot_number, expiry_date, quantity) VALUES (?,?,?,?,?)')
-                ->execute([$productId, $branchId, $lotNumber, $expiryDate, $quantity]);
-            logActivity('BATCH_CREATE', "product_id=$productId lot=$lotNumber qty=$quantity");
-            redirect('batches.php');
+            // Xac nhan san pham + chi nhanh chon thuc su thuoc tenant hien tai truoc khi ghi -
+            // tranh gan lo hang vao product_id/branch_id cua tenant khac qua request thu cong.
+            $ownProduct = $pdo->prepare('SELECT id FROM products WHERE id = ? AND tenant_id = ?');
+            $ownProduct->execute([$productId, $tenantId]);
+            $ownBranch = $pdo->prepare('SELECT id FROM branches WHERE id = ? AND tenant_id = ?');
+            $ownBranch->execute([$branchId, $tenantId]);
+
+            if (!$ownProduct->fetch() || !$ownBranch->fetch()) {
+                $error = 'Sản phẩm hoặc chi nhánh không hợp lệ';
+            } else {
+                $pdo->prepare('INSERT INTO product_batches (product_id, branch_id, lot_number, expiry_date, quantity) VALUES (?,?,?,?,?)')
+                    ->execute([$productId, $branchId, $lotNumber, $expiryDate, $quantity]);
+                logActivity('BATCH_CREATE', "product_id=$productId lot=$lotNumber qty=$quantity");
+                redirect('batches.php');
+            }
         }
     }
 }
 
-$batches = $pdo->query(
+$batchesStmt = $pdo->prepare(
     "SELECT b.*, p.name AS product_name, p.sku, br.name AS branch_name
      FROM product_batches b
      JOIN products p ON p.id = b.product_id
      JOIN branches br ON br.id = b.branch_id
-     WHERE b.quantity > 0
+     WHERE b.quantity > 0 AND br.tenant_id = ?
      ORDER BY (b.expiry_date IS NULL), b.expiry_date"
-)->fetchAll();
+);
+$batchesStmt->execute([$tenantId]);
+$batches = $batchesStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

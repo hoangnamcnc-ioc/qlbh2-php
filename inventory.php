@@ -2,11 +2,17 @@
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
-$branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
 // Thu ngan (CASHIER) chi duoc xem ton kho chi nhanh cua minh, khong duoc xem/loc sang chi
 // nhanh khac qua tham so branch_id tren URL - tranh lo du lieu ton kho toan chuoi cho nhan
 // vien cap thap nhat. ADMIN/MANAGER van xem duoc toan bo hoac loc theo tung chi nhanh.
 $branchId = hasRole('ADMIN', 'MANAGER') ? (int) ($_GET['branch_id'] ?? 0) : effectiveBranchId($currentUser);
+if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+    $branchId = 0;
+}
 $q = trim($_GET['q'] ?? '');
 $lowOnly = isset($_GET['low_only']);
 
@@ -16,8 +22,10 @@ $sql = 'SELECT i.*, p.name AS product_name, p.sku, v.name AS variant_name, b.nam
         JOIN products p ON p.id = i.product_id
         LEFT JOIN product_variants v ON v.id = i.variant_id
         JOIN branches b ON b.id = i.branch_id';
-$where = [];
-$params = [];
+// Luon gioi han trong dung cac chi nhanh cua tenant hien tai, ke ca khi xem "Tat ca chi
+// nhanh" (branchId=0) - khong duoc lo ton kho cua tenant khac.
+$where = ['b.tenant_id = ?'];
+$params = [$tenantId];
 if ($branchId) {
     $where[] = 'i.branch_id = ?';
     $params[] = $branchId;

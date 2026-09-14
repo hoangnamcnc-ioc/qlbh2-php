@@ -16,8 +16,8 @@ $branchFilter = (int) ($_GET['branch_id'] ?? 0);
 $paymentFilter = $_GET['payment_method'] ?? '';
 $staffFilter = (int) ($_GET['staff_id'] ?? 0);
 
-$where = ['ce.created_at BETWEEN ? AND ?'];
-$params = [$fromDt, $toDt];
+$where = ['ce.created_at BETWEEN ? AND ?', 'b.tenant_id = ?'];
+$params = [$fromDt, $toDt, currentTenantId()];
 if ($typeFilter === 'RECEIPT' || $typeFilter === 'PAYMENT') {
     $where[] = 'ce.type = ?';
     $params[] = $typeFilter;

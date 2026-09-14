@@ -11,7 +11,7 @@ $variantId = (int) ($_POST['variant_id'] ?? 0);
 $productId = (int) ($_POST['product_id'] ?? 0);
 $barcode = post('barcode') ?: null;
 
-$pdo->prepare('UPDATE product_variants SET barcode = ? WHERE id = ? AND product_id = ?')
-    ->execute([$barcode, $variantId, $productId]);
+$pdo->prepare('UPDATE product_variants SET barcode = ? WHERE id = ? AND product_id = ? AND tenant_id = ?')
+    ->execute([$barcode, $variantId, $productId, currentTenantId()]);
 
 redirect('product_form.php?id=' . $productId);

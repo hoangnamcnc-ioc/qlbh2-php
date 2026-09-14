@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản', 'CARD' => 'Quẹt thẻ', 'QR_CODE' => 'Quét mã QR'];
 
@@ -41,19 +42,25 @@ $branchFilter = (int) ($_GET['branch_id'] ?? 0);
 $paymentFilter = $_GET['payment_method'] ?? '';
 $staffFilter = (int) ($_GET['staff_id'] ?? 0);
 
-$branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
-$staffList = $pdo->query('SELECT id, name FROM users ORDER BY name')->fetchAll();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
+$staffStmt = $pdo->prepare('SELECT id, name FROM users WHERE tenant_id = ? ORDER BY name');
+$staffStmt->execute([$tenantId]);
+$staffList = $staffStmt->fetchAll();
 
-// Số dư đầu kỳ: tổng thu - chi của mọi phiếu trước ngày bắt đầu lọc.
+// Số dư đầu kỳ: tổng thu - chi của mọi phiếu trước ngày bắt đầu lọc (chỉ tính các chi nhánh
+// thuộc tenant hiện tại — cashbook_entries không có tenant_id riêng, phải JOIN qua branches).
 $opening = $pdo->prepare(
-    "SELECT COALESCE(SUM(CASE WHEN type='RECEIPT' THEN amount ELSE -amount END),0) AS bal
-     FROM cashbook_entries WHERE created_at < ?"
+    "SELECT COALESCE(SUM(CASE WHEN ce.type='RECEIPT' THEN ce.amount ELSE -ce.amount END),0) AS bal
+     FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+     WHERE ce.created_at < ? AND b.tenant_id = ?"
 );
-$opening->execute([$fromDt]);
+$opening->execute([$fromDt, $tenantId]);
 $openingBalance = (float) $opening->fetch()['bal'];
 
-$where = ['ce.created_at BETWEEN ? AND ?'];
-$params = [$fromDt, $toDt];
+$where = ['ce.created_at BETWEEN ? AND ?', 'b.tenant_id = ?'];
+$params = [$fromDt, $toDt, $tenantId];
 if ($typeFilter === 'RECEIPT' || $typeFilter === 'PAYMENT') {
     $where[] = 'ce.type = ?';
     $params[] = $typeFilter;
@@ -73,9 +80,9 @@ if ($staffFilter) {
 $whereSql = implode(' AND ', $where);
 
 $totals = $pdo->prepare(
-    "SELECT COALESCE(SUM(CASE WHEN type = 'RECEIPT' THEN amount ELSE 0 END), 0) AS total_receipt,
-            COALESCE(SUM(CASE WHEN type = 'PAYMENT' THEN amount ELSE 0 END), 0) AS total_payment
-     FROM cashbook_entries ce WHERE $whereSql"
+    "SELECT COALESCE(SUM(CASE WHEN ce.type = 'RECEIPT' THEN ce.amount ELSE 0 END), 0) AS total_receipt,
+            COALESCE(SUM(CASE WHEN ce.type = 'PAYMENT' THEN ce.amount ELSE 0 END), 0) AS total_payment
+     FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id WHERE $whereSql"
 );
 $totals->execute($params);
 $totals = $totals->fetch();

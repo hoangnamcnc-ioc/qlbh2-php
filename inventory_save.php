@@ -24,6 +24,23 @@ if ($redirectTo === '' || !preg_match('/^[a-zA-Z0-9_.\\-]+\\.php(\\?[a-zA-Z0-9_=
 
 if ($productId && $branchId) {
     $pdo = db();
+    $tenantId = currentTenantId();
+
+    // Xac nhan chi nhanh + san pham (va bien the neu co) thuc su thuoc tenant hien tai truoc
+    // khi ghi ton kho - tranh ghi nham/co y ghi de ton kho cua tenant khac qua request thu cong.
+    $ownBranch = $pdo->prepare('SELECT id FROM branches WHERE id = ? AND tenant_id = ?');
+    $ownBranch->execute([$branchId, $tenantId]);
+    $ownProduct = $pdo->prepare('SELECT id FROM products WHERE id = ? AND tenant_id = ?');
+    $ownProduct->execute([$productId, $tenantId]);
+    $ownVariantOk = true;
+    if ($variantId) {
+        $ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND tenant_id = ?');
+        $ownVariant->execute([$variantId, $tenantId]);
+        $ownVariantOk = (bool) $ownVariant->fetch();
+    }
+    if (!$ownBranch->fetch() || !$ownProduct->fetch() || !$ownVariantOk) {
+        redirect($redirectTo);
+    }
 
     if ($variantId) {
         $stmt = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');

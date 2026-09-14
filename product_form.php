@@ -4,26 +4,39 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $id = (int) ($_GET['id'] ?? 0);
 $product = null;
 $images = [];
 $inventories = [];
 $variants = [];
 $variantInventories = [];
-$branches = $pdo->query('SELECT * FROM branches ORDER BY name')->fetchAll();
-$categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
-$brands = $pdo->query('SELECT * FROM brands ORDER BY name')->fetchAll();
-$priceLists = $pdo->query('SELECT * FROM price_lists ORDER BY name')->fetchAll();
-$taxRates = $pdo->query("SELECT * FROM tax_rates WHERE is_active = 1 AND type = 'OUTPUT' ORDER BY rate_percent")->fetchAll();
-$warrantyPolicies = $pdo->query('SELECT * FROM warranty_policies ORDER BY name')->fetchAll();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
+$categoriesStmt = $pdo->prepare('SELECT * FROM categories WHERE tenant_id = ? ORDER BY name');
+$categoriesStmt->execute([$tenantId]);
+$categories = $categoriesStmt->fetchAll();
+$brandsStmt = $pdo->prepare('SELECT * FROM brands WHERE tenant_id = ? ORDER BY name');
+$brandsStmt->execute([$tenantId]);
+$brands = $brandsStmt->fetchAll();
+$priceListsStmt = $pdo->prepare('SELECT * FROM price_lists WHERE tenant_id = ? ORDER BY name');
+$priceListsStmt->execute([$tenantId]);
+$priceLists = $priceListsStmt->fetchAll();
+$taxRatesStmt = $pdo->prepare("SELECT * FROM tax_rates WHERE is_active = 1 AND type = 'OUTPUT' AND tenant_id = ? ORDER BY rate_percent");
+$taxRatesStmt->execute([$tenantId]);
+$taxRates = $taxRatesStmt->fetchAll();
+$warrantyPoliciesStmt = $pdo->prepare('SELECT * FROM warranty_policies WHERE tenant_id = ? ORDER BY name');
+$warrantyPoliciesStmt->execute([$tenantId]);
+$warrantyPolicies = $warrantyPoliciesStmt->fetchAll();
 $comboItems = [];
 $productPrices = [];
 $allProducts = [];
 $error = null;
 
 if ($id) {
-    $stmt = $pdo->prepare('SELECT * FROM products WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $pdo->prepare('SELECT * FROM products WHERE id = ? AND tenant_id = ?');
+    $stmt->execute([$id, $tenantId]);
     $product = $stmt->fetch();
     if (!$product) {
         redirect('products.php');
@@ -61,8 +74,8 @@ if ($id) {
         );
         $stmt->execute([$id]);
         $comboItems = $stmt->fetchAll();
-        $allProducts = $pdo->prepare("SELECT id, sku, name FROM products WHERE id != ? AND product_type != 'COMBO' ORDER BY name");
-        $allProducts->execute([$id]);
+        $allProducts = $pdo->prepare("SELECT id, sku, name FROM products WHERE id != ? AND product_type != 'COMBO' AND tenant_id = ? ORDER BY name");
+        $allProducts->execute([$id, $tenantId]);
         $allProducts = $allProducts->fetchAll();
     }
 
@@ -94,14 +107,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '' || ($id === 0 && $sku === '')) {
         $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
     } else {
+        // Chỉ cho phép gán category/brand/tax_rate/warranty_policy thuộc đúng tenant hiện tại -
+        // tránh gắn nhầm/cố ý gắn sản phẩm sang danh mục của tenant khác qua request thủ công.
+        if ($categoryId && !in_array($categoryId, array_column($categories, 'id'), true)) $categoryId = null;
+        if ($brandId && !in_array($brandId, array_column($brands, 'id'), true)) $brandId = null;
+        if ($taxRateId && !in_array($taxRateId, array_column($taxRates, 'id'), true)) $taxRateId = null;
+        if ($warrantyPolicyId && !in_array($warrantyPolicyId, array_column($warrantyPolicies, 'id'), true)) $warrantyPolicyId = null;
+
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=?, warranty_policy_id=? WHERE id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $id]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=?, warranty_policy_id=? WHERE id=? AND tenant_id=?'
+                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $id, $tenantId]);
 
                 foreach ($_POST['price_list_id'] ?? [] as $plId => $price) {
                     $plId = (int) $plId;
+                    if (!in_array($plId, array_column($priceLists, 'id'), true)) {
+                        continue;
+                    }
                     $price = $price === '' ? null : (float) $price;
                     if ($price === null) {
                         $pdo->prepare('DELETE FROM product_prices WHERE product_id = ? AND price_list_id = ? AND variant_id IS NULL')->execute([$id, $plId]);
@@ -117,14 +140,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             } else {
-                $check = $pdo->prepare('SELECT id FROM products WHERE sku = ?');
-                $check->execute([$sku]);
+                $check = $pdo->prepare('SELECT id FROM products WHERE sku = ? AND tenant_id = ?');
+                $check->execute([$sku, $tenantId]);
                 if ($check->fetch()) {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty, warranty_policy_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId]);
+                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty, warranty_policy_id, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $tenantId]);
                 $id = (int) $pdo->lastInsertId();
 
                 if ($productType === 'PRODUCT') {

@@ -3,18 +3,33 @@ require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
 $today = date('Y-m-d 00:00:00');
-$branches = $pdo->query('SELECT id, name FROM branches ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$branchesStmt = $pdo->prepare('SELECT id, name FROM branches WHERE tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
 
 // CASHIER chỉ xem được số liệu của chi nhánh mình, giống các trang Đơn hàng/Vận chuyển/Tồn
 // kho đã chặn theo chi nhánh — tránh lộ doanh thu/tồn kho toàn chuỗi cho nhân viên cấp thấp.
 // ADMIN/MANAGER được chọn xem "Tất cả chi nhánh" hoặc lọc theo 1 chi nhánh cụ thể (giống Sapo).
 if (hasRole('ADMIN', 'MANAGER')) {
     $branchId = (int) ($_GET['branch_id'] ?? 0);
+    // Nếu chọn 1 chi nhánh cụ thể, xác nhận chi nhánh đó thực sự thuộc tenant hiện tại -
+    // tránh truyền branch_id của tenant khác qua URL để xem lẫn số liệu.
+    if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+        $branchId = 0;
+    }
 } else {
     $branchId = effectiveBranchId($currentUser);
 }
-$branchWhere = $branchId ? ' AND o.branch_id = ?' : '';
-$branchParam = $branchId ? [$branchId] : [];
+// "Tất cả chi nhánh" (branchId=0) vẫn phải giới hạn trong đúng các chi nhánh của tenant hiện
+// tại — không được lộ số liệu tổng hợp của tenant khác.
+if ($branchId) {
+    $branchWhere = ' AND o.branch_id = ?';
+    $branchParam = [$branchId];
+} else {
+    $branchWhere = ' AND o.branch_id IN (SELECT id FROM branches WHERE tenant_id = ?)';
+    $branchParam = [$tenantId];
+}
 
 $revenueToday = $pdo->prepare(
     "SELECT COALESCE(SUM(total_amount),0) AS total FROM orders o WHERE created_at >= ? AND status != 'CANCELLED'$branchWhere"
@@ -36,8 +51,13 @@ $returnedToday = $pdo->prepare(
 $returnedToday->execute([$today, ...$branchParam]);
 $returnedToday = (int) $returnedToday->fetch()['c'];
 
-$stockWhere = $branchId ? ' WHERE i.branch_id = ?' : '';
-$stockParam = $branchId ? [$branchId] : [];
+if ($branchId) {
+    $stockWhere = ' WHERE i.branch_id = ?';
+    $stockParam = [$branchId];
+} else {
+    $stockWhere = ' WHERE i.branch_id IN (SELECT id FROM branches WHERE tenant_id = ?)';
+    $stockParam = [$tenantId];
+}
 $stockStmt = $pdo->prepare("SELECT COALESCE(SUM(i.quantity),0) AS qty, COALESCE(SUM(i.quantity * p.cost_price),0) AS val FROM inventory i JOIN products p ON p.id = i.product_id$stockWhere");
 $stockStmt->execute($stockParam);
 $stockRow = $stockStmt->fetch();
@@ -98,7 +118,13 @@ $topProductsStmt->execute([$from7, ...$branchParam]);
 $topProducts = $topProductsStmt->fetchAll();
 
 // Sản phẩm dưới định mức
-$lowStockWhere = $branchId ? ' AND i.branch_id = ?' : '';
+if ($branchId) {
+    $lowStockWhere = ' AND i.branch_id = ?';
+    $lowStockParam = [$branchId];
+} else {
+    $lowStockWhere = ' AND b.tenant_id = ?';
+    $lowStockParam = [$tenantId];
+}
 $lowStockStmt = $pdo->prepare(
     "SELECT i.quantity, i.min_stock, p.name AS product_name, v.name AS variant_name, b.name AS branch_name
      FROM inventory i
@@ -108,7 +134,7 @@ $lowStockStmt = $pdo->prepare(
      WHERE i.quantity <= i.min_stock$lowStockWhere
      ORDER BY i.quantity ASC LIMIT 10"
 );
-$lowStockStmt->execute($branchId ? [$branchId] : []);
+$lowStockStmt->execute($lowStockParam);
 $lowStock = $lowStockStmt->fetchAll();
 ?>
 

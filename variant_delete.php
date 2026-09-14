@@ -7,8 +7,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('products.php');
 checkCsrf();
 
 $pdo = db();
+$tenantId = currentTenantId();
 $variantId = (int) ($_POST['variant_id'] ?? 0);
 $productId = (int) ($_POST['product_id'] ?? 0);
+
+$ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND tenant_id = ?');
+$ownVariant->execute([$variantId, $tenantId]);
+if (!$ownVariant->fetch()) {
+    redirect('product_form.php?id=' . $productId);
+}
 
 $stmt = $pdo->prepare('SELECT id FROM order_items WHERE variant_id = ? LIMIT 1');
 $stmt->execute([$variantId]);

@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,20 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '') {
         $error = 'Vui lòng nhập tên nhãn hiệu';
     } else {
-        $check = $pdo->prepare('SELECT id FROM brands WHERE name = ?');
-        $check->execute([$name]);
+        $check = $pdo->prepare('SELECT id FROM brands WHERE name = ? AND tenant_id = ?');
+        $check->execute([$name, $tenantId]);
         if ($check->fetch()) {
             $error = 'Nhãn hiệu này đã tồn tại';
         } else {
-            $pdo->prepare('INSERT INTO brands (name) VALUES (?)')->execute([$name]);
+            $pdo->prepare('INSERT INTO brands (name, tenant_id) VALUES (?, ?)')->execute([$name, $tenantId]);
             redirect('brands.php');
         }
     }
 }
 
-$brands = $pdo->query(
-    'SELECT b.*, (SELECT COUNT(*) FROM products WHERE brand_id = b.id) AS product_count FROM brands b ORDER BY name'
-)->fetchAll();
+$brandsStmt = $pdo->prepare(
+    'SELECT b.*, (SELECT COUNT(*) FROM products WHERE brand_id = b.id AND tenant_id = ?) AS product_count
+     FROM brands b WHERE b.tenant_id = ? ORDER BY name'
+);
+$brandsStmt->execute([$tenantId, $tenantId]);
+$brands = $brandsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

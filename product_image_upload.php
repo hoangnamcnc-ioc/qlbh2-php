@@ -9,8 +9,8 @@ checkCsrf();
 $pdo = db();
 $productId = (int) ($_POST['product_id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT id FROM products WHERE id = ?');
-$stmt->execute([$productId]);
+$stmt = $pdo->prepare('SELECT id FROM products WHERE id = ? AND tenant_id = ?');
+$stmt->execute([$productId, currentTenantId()]);
 if (!$stmt->fetch()) redirect('products.php');
 
 if (!empty($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
