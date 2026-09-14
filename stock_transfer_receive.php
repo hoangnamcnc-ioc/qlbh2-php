@@ -14,6 +14,19 @@ $stmt = $pdo->prepare('SELECT * FROM stock_transfers WHERE id = ?');
 $stmt->execute([$transferId]);
 $transfer = $stmt->fetch();
 
+// MANAGER chỉ được xác nhận nhận hàng nếu chi nhánh mình là nơi nhận, và chỉ được hủy nếu
+// chi nhánh mình là 1 trong 2 đầu của phiếu chuyển — chặn việc chi nhánh không liên quan tự
+// ý xác nhận/hủy phiếu chuyển giữa 2 chi nhánh khác.
+if ($transfer && !hasRole('ADMIN')) {
+    $myBranchId = effectiveBranchId($currentUser);
+    $allowed = $action === 'cancel'
+        ? ((int) $transfer['from_branch_id'] === $myBranchId || (int) $transfer['to_branch_id'] === $myBranchId)
+        : ((int) $transfer['to_branch_id'] === $myBranchId);
+    if (!$allowed) {
+        $transfer = null;
+    }
+}
+
 if ($transfer && $transfer['status'] === 'IN_TRANSIT') {
     $pdo->beginTransaction();
     try {

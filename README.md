@@ -1499,3 +1499,45 @@ còn xóa mất đơn bán hàng phát sinh giữa lúc lập phiếu và lúc c
 MANAGER test gắn chi nhánh B → xem phiếu kiểm của chi nhánh A bằng ID → HTTP 403; danh sách phiếu chỉ
 hiện phiếu chi nhánh B (0 phiếu); dropdown chi nhánh trong form tạo phiếu bị khóa cứng về chi nhánh B
 (disabled). Đã xóa sạch phiếu kiểm, sản phẩm, chi nhánh, tài khoản test.
+
+## Vòng rà soát module Chuyển hàng (đối chiếu trang "Chuyển hàng" thực tế của Sapo)
+
+Đối chiếu `stock_transfers.php`/`stock_transfer_form.php`/`stock_transfer_view.php`/
+`stock_transfer_receive.php` — phát hiện gap nghiêm trọng hơn các vòng trước: đây không chỉ là lộ
+thông tin, mà là **lỗ hổng cho phép thao tác nghiệp vụ trái phép** vì phiếu chuyển hàng vốn dĩ nối 2
+chi nhánh, nên thiếu kiểm tra quyền ảnh hưởng trực tiếp đến tồn kho thật:
+
+1. **`stock_transfer_receive.php` không kiểm tra quyền theo chi nhánh** — bất kỳ MANAGER nào (dù
+   quản lý chi nhánh hoàn toàn không liên quan) cũng gọi được endpoint này để **xác nhận nhận hàng**
+   (cộng tồn kho vào chi nhánh nhận) hoặc **hủy phiếu** (hoàn tồn kho về chi nhánh chuyển) cho bất kỳ
+   phiếu chuyển nào giữa 2 chi nhánh khác — chỉ cần biết ID phiếu, không cần đứng tên ở 1 trong 2 chi
+   nhánh liên quan. Nút bấm trên `stock_transfer_view.php` cũng hiện ra cho mọi MANAGER bất kể có
+   liên quan hay không.
+2. **`stock_transfer_form.php` không giới hạn "Từ chi nhánh"** — MANAGER chọn được bất kỳ chi nhánh
+   nào làm nơi xuất hàng, kể cả chi nhánh mình không quản lý, tự ý rút tồn kho của chi nhánh khác.
+3. **`stock_transfers.php` (danh sách) không lọc theo chi nhánh** — MANAGER thấy toàn bộ phiếu
+   chuyển hàng giữa mọi cặp chi nhánh, kể cả không liên quan đến mình.
+
+Đã sửa — quy tắc áp dụng: MANAGER chỉ được thao tác khi chi nhánh mình là 1 trong 2 đầu của phiếu
+chuyển (chuyển đi hoặc nhận):
+- `stock_transfer_receive.php`: thêm kiểm tra quyền ngay tại endpoint (không chỉ ẩn nút UI) —
+  "Xác nhận nhận hàng" chỉ cho phép nếu chi nhánh mình là **nơi nhận**; "Hủy chuyển hàng" cho phép
+  nếu chi nhánh mình là nơi chuyển **hoặc** nơi nhận.
+- `stock_transfer_view.php`: chặn xem phiếu (403) nếu chi nhánh mình không liên quan; 2 nút hành
+  động chỉ hiện đúng với quyền tương ứng ở trên.
+- `stock_transfer_form.php`: khóa cứng "Từ chi nhánh" về chi nhánh của MANAGER (giống mẫu đã dùng ở
+  Kiểm hàng); đồng thời gộp các dòng trùng sản phẩm/biến thể trước khi kiểm tra tồn kho, tránh 1
+  request thủ công gửi 2 dòng cùng sản phẩm làm trừ kho 2 lần dù mỗi dòng kiểm tra riêng lẻ đều thấy
+  đủ tồn.
+- `stock_transfers.php`, `stock_transfer_search.php`: lọc/giới hạn theo chi nhánh liên quan, cùng mẫu
+  đã áp dụng ở các module trước.
+
+Đã test trên app.kt-soft.vn: tạo 3 chi nhánh test A/B/C (không liên quan tới C) + 1 phiếu chuyển
+IN_TRANSIT từ A sang B + tài khoản MANAGER riêng cho A, B, C. Manager C (không liên quan) xem phiếu
+bằng ID → HTTP 403; danh sách phiếu của Manager C → 0 kết quả; **giả lập tấn công**: Manager C gửi
+thẳng request POST tới `stock_transfer_receive.php` với `action=receive` (bỏ qua UI hoàn toàn) →
+phiếu vẫn giữ nguyên trạng thái `IN_TRANSIT`, tồn kho chi nhánh B không đổi (bị chặn ở tầng server,
+không chỉ ẩn nút). Manager A (chi nhánh chuyển) xem được phiếu, có nút "Hủy" nhưng không có nút
+"Xác nhận nhận hàng" (đúng quyền). Manager B (chi nhánh nhận) gọi đúng luồng "Xác nhận nhận hàng" →
+phiếu chuyển thành `COMPLETED`, tồn kho chi nhánh B tăng đúng 10 đơn vị. Đã xóa sạch chi nhánh, sản
+phẩm, phiếu chuyển, tài khoản test.

@@ -7,9 +7,16 @@ $pdo = db();
 $branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
 $error = null;
 
+// MANAGER chỉ được tạo phiếu chuyển ĐI từ chi nhánh mình quản lý — tránh tự ý rút hàng từ
+// tồn kho của 1 chi nhánh khác mà mình không phụ trách.
+$lockedFromBranchId = hasRole('ADMIN') ? 0 : effectiveBranchId($currentUser);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $fromBranchId = (int) ($_POST['from_branch_id'] ?? 0);
+    if ($lockedFromBranchId && $fromBranchId !== $lockedFromBranchId) {
+        $fromBranchId = $lockedFromBranchId;
+    }
     $toBranchId = (int) ($_POST['to_branch_id'] ?? 0);
     $note = post('note') ?: null;
     $productIds = $_POST['product_id'] ?? [];
@@ -21,15 +28,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($fromBranchId === $toBranchId) {
         $error = 'Chi nhánh chuyển và chi nhánh nhận phải khác nhau';
     } else {
-        $lines = [];
+        // Gộp các dòng trùng sản phẩm/biến thể lại thành 1 trước khi kiểm tra tồn kho — tránh
+        // trường hợp gửi 2 dòng cùng sản phẩm (vd request POST thủ công) khiến số lượng bị trừ
+        // kho 2 lần dù mỗi dòng kiểm tra riêng lẻ đều thấy đủ tồn.
+        $merged = [];
         foreach ($productIds as $i => $pid) {
             $pid = (int) $pid;
             $vid = (int) ($variantIds[$i] ?? 0) ?: null;
             $qty = round((float) ($quantities[$i] ?? 0), 3);
             if ($pid > 0 && $qty > 0) {
-                $lines[] = [$pid, $vid, $qty];
+                $key = $pid . ':' . ($vid ?? '');
+                $merged[$key] = [$pid, $vid, ($merged[$key][2] ?? 0) + $qty];
             }
         }
+        $lines = array_values($merged);
 
         if (!$lines) {
             $error = 'Vui lòng thêm ít nhất 1 sản phẩm với số lượng hợp lệ';
@@ -108,10 +120,16 @@ require_once __DIR__ . '/inc_header.php';
     <div class="grid-2">
       <div class="field">
         <label>Từ chi nhánh *</label>
-        <select class="input" name="from_branch_id" id="from-branch" required>
-          <option value="">— Chọn —</option>
-          <?php foreach ($branches as $b): ?><option value="<?= (int) $b['id'] ?>"><?= e($b['name']) ?></option><?php endforeach; ?>
-        </select>
+        <?php if ($lockedFromBranchId): ?>
+          <?php $lockedFromBranch = array_values(array_filter($branches, fn ($b) => (int) $b['id'] === $lockedFromBranchId))[0] ?? null; ?>
+          <input type="hidden" name="from_branch_id" id="from-branch" value="<?= $lockedFromBranchId ?>">
+          <input class="input" value="<?= e($lockedFromBranch['name'] ?? '') ?>" disabled>
+        <?php else: ?>
+          <select class="input" name="from_branch_id" id="from-branch" required>
+            <option value="">— Chọn —</option>
+            <?php foreach ($branches as $b): ?><option value="<?= (int) $b['id'] ?>"><?= e($b['name']) ?></option><?php endforeach; ?>
+          </select>
+        <?php endif; ?>
       </div>
       <div class="field">
         <label>Đến chi nhánh *</label>

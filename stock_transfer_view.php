@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
@@ -17,6 +17,19 @@ $stmt = $pdo->prepare(
 $stmt->execute([$id]);
 $transfer = $stmt->fetch();
 if (!$transfer) redirect('stock_transfers.php');
+
+// MANAGER chỉ được xem phiếu chuyển hàng liên quan đến chi nhánh mình (chuyển đi hoặc nhận).
+$myBranchId = effectiveBranchId($currentUser);
+$isInvolved = hasRole('ADMIN') || (int) $transfer['from_branch_id'] === $myBranchId || (int) $transfer['to_branch_id'] === $myBranchId;
+if (!$isInvolved) {
+    http_response_code(403);
+    require_once __DIR__ . '/inc_header.php';
+    echo '<div class="alert alert-error">Bạn không có quyền xem phiếu chuyển hàng này.</div>';
+    require_once __DIR__ . '/inc_footer.php';
+    exit;
+}
+$canReceive = hasRole('ADMIN') || (int) $transfer['to_branch_id'] === $myBranchId;
+$canCancel = hasRole('ADMIN') || (int) $transfer['from_branch_id'] === $myBranchId || (int) $transfer['to_branch_id'] === $myBranchId;
 
 $items = $pdo->prepare(
     'SELECT i.*, p.name AS product_name, v.name AS variant_name
@@ -41,18 +54,22 @@ $statusLabels = ['IN_TRANSIT' => ['Đang vận chuyển', 'badge-gray'], 'COMPLE
   <h1 style="font-size:24px;font-weight:600;font-family:monospace;margin:8px 0 4px;"><?= e($transfer['code']) ?></h1>
   <?php if ($transfer['status'] === 'IN_TRANSIT'): ?>
     <div style="display:flex;gap:8px;">
-      <form method="post" action="stock_transfer_receive.php" onsubmit="return confirm('Xác nhận đã nhận đủ hàng tại chi nhánh nhận?');">
-        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
-        <input type="hidden" name="transfer_id" value="<?= (int) $transfer['id'] ?>">
-        <input type="hidden" name="action" value="receive">
-        <button type="submit" class="btn">Xác nhận đã nhận hàng</button>
-      </form>
-      <form method="post" action="stock_transfer_receive.php" onsubmit="return confirm('Hủy phiếu chuyển hàng này? Tồn kho sẽ hoàn về chi nhánh chuyển.');">
-        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
-        <input type="hidden" name="transfer_id" value="<?= (int) $transfer['id'] ?>">
-        <input type="hidden" name="action" value="cancel">
-        <button type="submit" class="btn btn-danger">Hủy chuyển hàng</button>
-      </form>
+      <?php if ($canReceive): ?>
+        <form method="post" action="stock_transfer_receive.php" onsubmit="return confirm('Xác nhận đã nhận đủ hàng tại chi nhánh nhận?');">
+          <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+          <input type="hidden" name="transfer_id" value="<?= (int) $transfer['id'] ?>">
+          <input type="hidden" name="action" value="receive">
+          <button type="submit" class="btn">Xác nhận đã nhận hàng</button>
+        </form>
+      <?php endif; ?>
+      <?php if ($canCancel): ?>
+        <form method="post" action="stock_transfer_receive.php" onsubmit="return confirm('Hủy phiếu chuyển hàng này? Tồn kho sẽ hoàn về chi nhánh chuyển.');">
+          <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+          <input type="hidden" name="transfer_id" value="<?= (int) $transfer['id'] ?>">
+          <input type="hidden" name="action" value="cancel">
+          <button type="submit" class="btn btn-danger">Hủy chuyển hàng</button>
+        </form>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 </div>

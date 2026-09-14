@@ -1,18 +1,32 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
-$transfers = $pdo->query(
-    'SELECT t.*, fb.name AS from_branch_name, tb.name AS to_branch_name, u.name AS created_by_name
+
+// MANAGER chỉ xem được phiếu chuyển hàng có liên quan đến chi nhánh mình (là nơi chuyển đi
+// hoặc nơi nhận) — tránh lộ việc điều chuyển hàng giữa 2 chi nhánh khác không liên quan.
+$where = '';
+$params = [];
+if (!hasRole('ADMIN')) {
+    $where = ' WHERE t.from_branch_id = ? OR t.to_branch_id = ?';
+    $branchId = effectiveBranchId($currentUser);
+    $params = [$branchId, $branchId];
+}
+
+$transfersStmt = $pdo->prepare(
+    "SELECT t.*, fb.name AS from_branch_name, tb.name AS to_branch_name, u.name AS created_by_name
      FROM stock_transfers t
      JOIN branches fb ON fb.id = t.from_branch_id
      JOIN branches tb ON tb.id = t.to_branch_id
      JOIN users u ON u.id = t.created_by_id
-     ORDER BY t.created_at DESC LIMIT 100'
-)->fetchAll();
+     $where
+     ORDER BY t.created_at DESC LIMIT 100"
+);
+$transfersStmt->execute($params);
+$transfers = $transfersStmt->fetchAll();
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
