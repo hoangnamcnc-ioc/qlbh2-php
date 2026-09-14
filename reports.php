@@ -5,29 +5,37 @@ requireRole('ADMIN', 'MANAGER');
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
+$tenantId = currentTenantId();
 
 $from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
 $to = $_GET['to'] ?? date('Y-m-d');
 $fromDt = $from . ' 00:00:00';
 $toDt = $to . ' 23:59:59';
 
+// Toan bo bao cao nay tong hop tren nhieu bang nghiep vu theo chi nhanh (orders,
+// stock_receipts, cashbook_entries...) khong co tenant_id rieng - phai JOIN qua branches va
+// loc b.tenant_id o MOI truy van, neu khong se gop nham doanh thu/loi nhuan/ton kho... cua
+// tat ca tenant khac trong he thong vao 1 bao cao chung.
+
 // --- Doanh thu & lãi gộp trong kỳ ---
 $stmt = $pdo->prepare(
-    "SELECT COUNT(*) AS order_count, COALESCE(SUM(total_amount),0) AS revenue
-     FROM orders WHERE created_at BETWEEN ? AND ? AND status != 'CANCELLED'"
+    "SELECT COUNT(*) AS order_count, COALESCE(SUM(o.total_amount),0) AS revenue
+     FROM orders o JOIN branches b ON b.id = o.branch_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $salesSummary = $stmt->fetch();
 
 $stmt = $pdo->prepare(
     "SELECT COALESCE(SUM(oi.quantity * COALESCE(v.cost_price, p.cost_price)),0) AS total_cost
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
+     JOIN branches b ON b.id = o.branch_id
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN product_variants v ON v.id = oi.variant_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'"
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $totalCost = (float) $stmt->fetch()['total_cost'];
 $grossProfit = (float) $salesSummary['revenue'] - $totalCost;
 
@@ -37,79 +45,86 @@ $stmt = $pdo->prepare(
             p.sku, SUM(oi.quantity) AS qty, SUM(oi.line_total) AS total
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
+     JOIN branches b ON b.id = o.branch_id
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN product_variants v ON v.id = oi.variant_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
      GROUP BY oi.product_id, oi.variant_id ORDER BY qty DESC LIMIT 10"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $topProducts = $stmt->fetchAll();
 
 // --- Top khách hàng ---
 $stmt = $pdo->prepare(
     "SELECT c.name, c.phone, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
-     FROM orders o JOIN customers c ON c.id = o.customer_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     FROM orders o JOIN branches b ON b.id = o.branch_id JOIN customers c ON c.id = o.customer_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
      GROUP BY o.customer_id ORDER BY total DESC LIMIT 10"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $topCustomers = $stmt->fetchAll();
 
 // --- Doanh thu theo ngày ---
 $stmt = $pdo->prepare(
-    "SELECT DATE(created_at) AS d, COUNT(*) AS order_count, SUM(total_amount) AS total
-     FROM orders WHERE created_at BETWEEN ? AND ? AND status != 'CANCELLED'
-     GROUP BY DATE(created_at) ORDER BY d DESC"
+    "SELECT DATE(o.created_at) AS d, COUNT(*) AS order_count, SUM(o.total_amount) AS total
+     FROM orders o JOIN branches b ON b.id = o.branch_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     GROUP BY DATE(o.created_at) ORDER BY d DESC"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $byDay = $stmt->fetchAll();
 
 // --- Tồn kho ---
-$stock = $pdo->query(
+$stockStmt = $pdo->prepare(
     "SELECT COALESCE(SUM(i.quantity),0) AS total_qty,
             COALESCE(SUM(i.quantity * COALESCE(v.cost_price, p.cost_price)),0) AS total_value
      FROM inventory i
+     JOIN branches b ON b.id = i.branch_id
      JOIN products p ON p.id = i.product_id
-     LEFT JOIN product_variants v ON v.id = i.variant_id"
-)->fetch();
+     LEFT JOIN product_variants v ON v.id = i.variant_id
+     WHERE b.tenant_id = ?"
+);
+$stockStmt->execute([$tenantId]);
+$stock = $stockStmt->fetch();
 
 // --- Doanh thu theo kênh bán hàng ---
 $stmt = $pdo->prepare(
     "SELECT COALESCE(sc.name, 'Trực tiếp') AS channel_name, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
-     FROM orders o LEFT JOIN sales_channels sc ON sc.id = o.channel_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     FROM orders o JOIN branches b ON b.id = o.branch_id LEFT JOIN sales_channels sc ON sc.id = o.channel_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
      GROUP BY o.channel_id ORDER BY total DESC"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $byChannel = $stmt->fetchAll();
 
 // --- Doanh thu theo phương thức thanh toán ---
 $paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản', 'CARD' => 'Quẹt thẻ', 'QR_CODE' => 'Quét mã QR'];
 $stmt = $pdo->prepare(
     "SELECT p.method, COUNT(*) AS payment_count, SUM(p.amount) AS total
-     FROM payments p JOIN orders o ON o.id = p.order_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     FROM payments p JOIN orders o ON o.id = p.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
      GROUP BY p.method ORDER BY total DESC"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $byPaymentMethod = $stmt->fetchAll();
 
 // --- Doanh thu theo nhân viên bán hàng ---
 $stmt = $pdo->prepare(
     "SELECT u.name AS staff_name, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
-     FROM orders o JOIN users u ON u.id = o.sold_by_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     FROM orders o JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = o.sold_by_id
+     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
      GROUP BY o.sold_by_id ORDER BY total DESC"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $byStaff = $stmt->fetchAll();
 
 // --- Trả hàng trong kỳ ---
 $stmt = $pdo->prepare(
-    "SELECT COUNT(*) AS return_count, COALESCE(SUM(refund_amount),0) AS total_refund
-     FROM order_returns WHERE created_at BETWEEN ? AND ?"
+    "SELECT COUNT(*) AS return_count, COALESCE(SUM(r.refund_amount),0) AS total_refund
+     FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $returnSummary = $stmt->fetch();
 
 $stmt = $pdo->prepare(
@@ -117,29 +132,32 @@ $stmt = $pdo->prepare(
             SUM(ori.quantity) AS qty, SUM(ori.line_total) AS total
      FROM order_return_items ori
      JOIN order_returns r ON r.id = ori.return_id
+     JOIN orders o ON o.id = r.order_id
+     JOIN branches b ON b.id = o.branch_id
      JOIN products p ON p.id = ori.product_id
      LEFT JOIN product_variants v ON v.id = ori.variant_id
-     WHERE r.created_at BETWEEN ? AND ?
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?
      GROUP BY ori.product_id, ori.variant_id ORDER BY qty DESC LIMIT 10"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $returnsByProduct = $stmt->fetchAll();
 
 // --- Nhập hàng trong kỳ ---
 $stmt = $pdo->prepare(
-    "SELECT COUNT(*) AS receipt_count, COALESCE(SUM(total_amount),0) AS total_amount, COALESCE(SUM(total_amount - paid_amount),0) AS total_debt
-     FROM stock_receipts WHERE created_at BETWEEN ? AND ?"
+    "SELECT COUNT(*) AS receipt_count, COALESCE(SUM(r.total_amount),0) AS total_amount, COALESCE(SUM(r.total_amount - r.paid_amount),0) AS total_debt
+     FROM stock_receipts r JOIN branches b ON b.id = r.branch_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $purchaseSummary = $stmt->fetch();
 
 $stmt = $pdo->prepare(
     "SELECT s.name AS supplier_name, COUNT(r.id) AS receipt_count, COALESCE(SUM(r.total_amount),0) AS total
-     FROM stock_receipts r JOIN suppliers s ON s.id = r.supplier_id
-     WHERE r.created_at BETWEEN ? AND ?
+     FROM stock_receipts r JOIN branches b ON b.id = r.branch_id JOIN suppliers s ON s.id = r.supplier_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?
      GROUP BY r.supplier_id ORDER BY total DESC LIMIT 10"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $purchaseBySupplier = $stmt->fetchAll();
 
 $stmt = $pdo->prepare(
@@ -147,31 +165,37 @@ $stmt = $pdo->prepare(
             SUM(ri.quantity) AS qty, SUM(ri.quantity * ri.cost_price) AS total
      FROM stock_receipt_items ri
      JOIN stock_receipts r ON r.id = ri.receipt_id
+     JOIN branches b ON b.id = r.branch_id
      JOIN products p ON p.id = ri.product_id
      LEFT JOIN product_variants v ON v.id = ri.variant_id
-     WHERE r.created_at BETWEEN ? AND ?
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?
      GROUP BY ri.product_id, ri.variant_id ORDER BY qty DESC LIMIT 10"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $purchaseByProduct = $stmt->fetchAll();
 
 // --- Tồn kho theo sản phẩm ---
-$stockByProduct = $pdo->query(
+$stockByProductStmt = $pdo->prepare(
     "SELECT p.name AS product_name, p.sku, SUM(i.quantity) AS qty,
             SUM(i.quantity * COALESCE(v.cost_price, p.cost_price)) AS value
      FROM inventory i
+     JOIN branches b ON b.id = i.branch_id
      JOIN products p ON p.id = i.product_id
      LEFT JOIN product_variants v ON v.id = i.variant_id
+     WHERE b.tenant_id = ?
      GROUP BY i.product_id ORDER BY value DESC LIMIT 15"
-)->fetchAll();
+);
+$stockByProductStmt->execute([$tenantId]);
+$stockByProduct = $stockByProductStmt->fetchAll();
 
 // --- Sổ quỹ trong kỳ ---
 $stmt = $pdo->prepare(
-    "SELECT COALESCE(SUM(CASE WHEN type='RECEIPT' THEN amount ELSE 0 END),0) AS total_receipt,
-            COALESCE(SUM(CASE WHEN type='PAYMENT' THEN amount ELSE 0 END),0) AS total_payment
-     FROM cashbook_entries WHERE created_at BETWEEN ? AND ?"
+    "SELECT COALESCE(SUM(CASE WHEN ce.type='RECEIPT' THEN ce.amount ELSE 0 END),0) AS total_receipt,
+            COALESCE(SUM(CASE WHEN ce.type='PAYMENT' THEN ce.amount ELSE 0 END),0) AS total_payment
+     FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+     WHERE ce.created_at BETWEEN ? AND ? AND b.tenant_id = ?"
 );
-$stmt->execute([$fromDt, $toDt]);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
 $cashSummary = $stmt->fetch();
 ?>
 
