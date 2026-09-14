@@ -81,6 +81,19 @@ $currentFile = basename($_SERVER['SCRIPT_NAME']);
 $storeLogo = getSetting('store_logo', '');
 $brandColor = getSetting('brand_color', '#2563eb');
 $brandColorDark = darkenColor($brandColor, 15);
+
+// Canh bao con lai bao nhieu ngay dung thu - chi hien voi ADMIN/MANAGER (nguoi co the quyet
+// dinh nang cap), tranh lam phien CASHIER voi thong tin ho khong xu ly duoc. Khong tinh lai o
+// checkTrialExpiry() vi ham do chi chan truy cap, khong luu lai so ngay con lai cho UI dung.
+$trialDaysLeft = null;
+if ($isManagerUp) {
+    $tenantRow = db()->prepare('SELECT plan, trial_ends_at FROM tenants WHERE id = ?');
+    $tenantRow->execute([$currentUser['tenant_id']]);
+    $tenantRow = $tenantRow->fetch();
+    if ($tenantRow && $tenantRow['plan'] === 'TRIAL' && $tenantRow['trial_ends_at']) {
+        $trialDaysLeft = (int) ceil((strtotime($tenantRow['trial_ends_at']) - time()) / 86400);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -116,6 +129,10 @@ $brandColorDark = darkenColor($brandColor, 15);
   .sidebar .submenu a.active { background: var(--brand); color: #fff; }
   .main { flex: 1; min-width: 0; }
   .topbar { height: 56px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 24px; }
+  .trial-banner { background: #eff6ff; border-bottom: 1px solid #bfdbfe; color: #1e40af; font-size: 13px; padding: 8px 24px; display: flex; align-items: center; gap: 10px; }
+  .trial-banner a { color: #1e40af; font-weight: 600; text-decoration: underline; margin-left: auto; }
+  .trial-banner-urgent { background: #fef2f2; border-bottom-color: #fecaca; color: #b91c1c; }
+  .trial-banner-urgent a { color: #b91c1c; }
   .content { padding: 24px; }
   .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
   a.card:hover { border-color: #93c5fd; background: #f8fafc; text-decoration: none; }
@@ -185,4 +202,16 @@ $brandColorDark = darkenColor($brandColor, 15);
       <a href="change_password.php" style="color:#64748b;">Đổi mật khẩu</a>
       <a href="logout.php" style="color:#64748b;">Đăng xuất</a>
     </div>
+    <?php if ($trialDaysLeft !== null): ?>
+      <div class="trial-banner <?= $trialDaysLeft <= 3 ? 'trial-banner-urgent' : '' ?>">
+        <?php if ($trialDaysLeft <= 0): ?>
+          ⏳ Bản dùng thử đã hết hạn hôm nay.
+        <?php elseif ($trialDaysLeft === 1): ?>
+          ⏳ Bản dùng thử QLBH2 còn <b>1 ngày</b> — sắp hết hạn.
+        <?php else: ?>
+          ⏳ Bản dùng thử QLBH2 còn <b><?= $trialDaysLeft ?> ngày</b>.
+        <?php endif; ?>
+        <a href="https://kt-soft.vn/lien-he.php" target="_blank" rel="noopener">Liên hệ nâng cấp →</a>
+      </div>
+    <?php endif; ?>
     <div class="content">
