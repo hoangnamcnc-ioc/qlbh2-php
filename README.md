@@ -1296,3 +1296,39 @@ file lưu đúng vào `uploads/store/`, ảnh tải về được (HTTP 200); lo
 trang đăng nhập (xem trực tiếp qua trình duyệt) và trang Đặt hàng Online; xác nhận qua HTML rằng
 logo cũng xuất hiện đúng trên menu quản trị. Không cần xóa dữ liệu vì đây là cấu hình thật của
 người dùng, không phải dữ liệu test.
+
+## Bổ sung tính năng Ước tính thuế hộ kinh doanh (đính chính kết luận "ngoài phạm vi" của vòng rà soát trước)
+
+Vòng rà soát trước (mục "Kế toán và Thuế" ở trên) kết luận toàn bộ mảng kế toán/thuế nằm ngoài
+phạm vi vì cần API hóa đơn điện tử thật. Kết luận đó **chỉ đúng cho phần phát hành hóa đơn điện tử**
+— sau khi đối chiếu với phần mềm QLBH-SOFT (`D:\QLBH-SOFT`, `src/routes/reports.js`) thì phần **ước
+tính thuế** theo luật hiện hành hoàn toàn không cần API bên ngoài, chỉ cần tính từ dữ liệu doanh thu
+sẵn có trong `orders`. Đã sửa lại và bổ sung vào `accounting.php`:
+
+- **Ước tính thuế hộ kinh doanh theo năm** — tính từ `SUM(orders.total_amount)` theo năm (loại đơn
+  đã hủy), áp dụng đúng ngưỡng/tỷ lệ hiện hành cho nhóm "phân phối, cung cấp hàng hóa":
+  - Ngưỡng miễn thuế: **1 tỷ đồng/năm** (Nghị định 68/2026/NĐ-CP, đã sửa bởi Nghị định
+    141/2026/NĐ-CP — nâng từ 500 triệu lên 1 tỷ).
+  - Thuế GTGT: **1%** trên tổng doanh thu năm (Luật Thuế GTGT 48/2024/QH15, Điều 12 khoản 2).
+  - Thuế TNCN: **0,5%** trên phần doanh thu vượt ngưỡng miễn thuế, áp dụng khi doanh thu năm từ
+    ngưỡng miễn thuế đến 3 tỷ đồng (Luật Thuế TNCN 109/2025/QH15, Điều 7 khoản 3).
+  - Doanh thu năm vượt 3 tỷ: hiển thị cảnh báo phải tính theo phương pháp (doanh thu trừ chi phí
+    được trừ) × thuế suất lũy tiến (Điều 7 khoản 2) — phần mềm không có dữ liệu chi phí được trừ nên
+    không tự tính, chỉ cảnh báo.
+  - Bảng chi tiết doanh thu theo từng tháng trong năm.
+- **Sổ doanh thu bán hàng, dịch vụ** theo đúng mẫu Thông tư 152/2025/TT-BTC: tự động chọn mẫu
+  **S1a-HKD** (không có cột thuế) khi doanh thu năm dưới ngưỡng miễn thuế, hoặc **S2a-HKD** (có cột
+  thuế, để trống tự điền) khi vượt ngưỡng — liệt kê từng đơn hàng nhóm theo danh mục sản phẩm
+  (`categories.name`), có tổng từng nhóm và tổng tất cả nhóm, lọc theo khoảng ngày tùy chọn.
+
+Đây chỉ là **số ước tính tham khảo** cho trường hợp 100% doanh thu là bán hàng hóa thông thường —
+cửa hàng có thêm ngành nghề khác hoặc cần số liệu chính thức để kê khai vẫn cần đối chiếu với cơ
+quan thuế/kế toán viên. Phần hóa đơn điện tử (cần API nhà cung cấp thật) vẫn giữ nguyên ngoài phạm
+vi như kết luận trước.
+
+Đã test trên app.kt-soft.vn: tạo đơn hàng test `TEST-TAX-001` (1,5 tỷ đồng, năm 2026, danh mục
+test) → trang hiển thị đúng "Vượt ngưỡng — phải nộp thuế", thuế GTGT = 15.000.000đ (1% × 1,5 tỷ),
+doanh thu tính TNCN = 500.000.000đ (1,5 tỷ − 1 tỷ), thuế TNCN = 2.500.000đ (0,5% × 500 triệu), tổng
+17.500.000đ — khớp tính tay; sổ doanh thu hiển thị đúng mẫu S2a-HKD, nhóm theo danh mục, tổng nhóm
+và tổng tất cả nhóm khớp số tiền đơn hàng test. Đã xóa sạch đơn hàng, sản phẩm, danh mục test và
+toàn bộ script `fix_*.php` tạm dùng để test.
