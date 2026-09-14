@@ -140,7 +140,7 @@ $lowStock = $lowStockStmt->fetchAll();
 
 <?php if (isset($_GET['welcome'])): ?>
   <div class="alert alert-success" style="margin-bottom:16px;">
-    🎉 Chào mừng bạn đến với QLBH2! Tài khoản sử dụng miễn phí 12 tháng đã sẵn sàng — bắt đầu bằng
+    🎉 Chào mừng bạn đến với QLBH-CLOUD! Tài khoản sử dụng miễn phí 12 tháng đã sẵn sàng — bắt đầu bằng
     cách thêm chi nhánh, sản phẩm và bán hàng thử ngay.
   </div>
 <?php endif; ?>

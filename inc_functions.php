@@ -33,7 +33,7 @@ function createBackup(): string
     $filename = 'backup_' . date('Ymd_His') . '.sql.gz';
     $gz = gzopen($dir . '/' . $filename, 'wb9');
 
-    gzwrite($gz, "-- QLBH2 backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
+    gzwrite($gz, "-- QLBH-CLOUD backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
 
     $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
     foreach ($tables as $table) {

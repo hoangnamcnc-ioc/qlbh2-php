@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download'])) {
     ];
     unset($tables['suppliers_returns_placeholder']);
 
-    $sql = "-- QLBH2 - Xuat du lieu tenant #$tid - " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
+    $sql = "-- QLBH-CLOUD - Xuat du lieu tenant #$tid - " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
     foreach ($tables as $table => $where) {
         $count = (int) $pdo->query("SELECT COUNT(*) FROM `$table` WHERE $where")->fetchColumn();
         if ($count === 0) {

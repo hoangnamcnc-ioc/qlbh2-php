@@ -34,7 +34,7 @@ $storeLogo = getSetting('store_logo', '');
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Màn hình đã khóa - QLBH2</title>
+<title>Màn hình đã khóa - QLBH-CLOUD</title>
 <?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
 <style>
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0f172a; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }

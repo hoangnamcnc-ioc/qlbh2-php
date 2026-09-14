@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Đăng nhập - QLBH2</title>
+<title>Đăng nhập - QLBH-CLOUD</title>
 <?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
 <style>
   body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
   <form class="box" method="post">
     <?php if ($storeLogo): ?><img src="uploads/store/<?= e($storeLogo) ?>" alt="Logo" style="width:56px;height:56px;object-fit:contain;border-radius:10px;margin-bottom:12px;"><?php endif; ?>
-    <h1>QLBH2</h1>
+    <h1>QLBH-CLOUD</h1>
     <p class="sub">Đăng nhập để tiếp tục</p>
     <?php if ($error): ?>
       <div class="alert-error"><?= e($error) ?></div>

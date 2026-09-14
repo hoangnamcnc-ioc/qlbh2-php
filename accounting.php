@@ -193,7 +193,7 @@ require_once __DIR__ . '/inc_header.php';
     công nhận (vd Viettel, VNPT, MISA, M-Invoice...).
   </p>
   <p class="muted" style="margin:0;">
-    QLBH2 hiện <b>chưa tích hợp API thật</b> với các nhà cung cấp này. Để dùng được, bạn cần:
+    QLBH-CLOUD hiện <b>chưa tích hợp API thật</b> với các nhà cung cấp này. Để dùng được, bạn cần:
   </p>
   <ol class="muted" style="margin:8px 0 0;padding-left:20px;">
     <li>Đăng ký tài khoản với 1 nhà cung cấp hóa đơn điện tử.</li>

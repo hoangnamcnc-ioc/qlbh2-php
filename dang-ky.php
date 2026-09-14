@@ -7,7 +7,7 @@ require_once __DIR__ . '/inc_functions.php';
 // cu bi tu dong day vao thang tai khoan cu ma khong ro vi sao.
 $loggedInUser = currentUser();
 if ($loggedInUser && !isset($_GET['new'])) {
-    $pageTitle = 'Đăng ký dùng thử QLBH2';
+    $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
     ?>
     <!DOCTYPE html>
     <html lang="vi">
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Đăng ký dùng thử QLBH2';
+$pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -131,7 +131,7 @@ $pageTitle = 'Đăng ký dùng thử QLBH2';
 </head>
 <body>
   <div class="box">
-    <h1>Dùng thử QLBH2</h1>
+    <h1>Dùng thử QLBH-CLOUD</h1>
     <p class="lead">Tạo tài khoản quản trị cho cửa hàng của bạn — miễn phí sử dụng 12 tháng.</p>
 
     <div class="trial-note">

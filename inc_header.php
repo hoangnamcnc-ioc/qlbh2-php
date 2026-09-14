@@ -102,7 +102,7 @@ if ($isManagerUp) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QLBH2 - Quản lý bán hàng</title>
+<title>QLBH-CLOUD - Quản lý bán hàng</title>
 <?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
 <style>
   :root { --brand: <?= e($brandColor) ?>; --brand-dark: <?= e($brandColorDark) ?>; }
@@ -169,7 +169,7 @@ if ($isManagerUp) {
   <aside class="sidebar">
     <div class="brand" style="display:flex;align-items:center;gap:8px;">
       <?php if ($storeLogo): ?><img src="uploads/store/<?= e($storeLogo) ?>" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;background:#fff;"><?php endif; ?>
-      <span>QLBH2</span>
+      <span>QLBH-CLOUD</span>
     </div>
     <?php foreach ($navGroups as $label => $links): ?>
       <?php $hasActive = array_key_exists($currentFile, $links); ?>
@@ -209,9 +209,9 @@ if ($isManagerUp) {
         <?php if ($trialDaysLeft <= 0): ?>
           ⏳ Bản dùng thử đã hết hạn hôm nay.
         <?php elseif ($trialDaysLeft === 1): ?>
-          ⏳ Bản dùng thử QLBH2 còn <b>1 ngày</b> — sắp hết hạn.
+          ⏳ Bản dùng thử QLBH-CLOUD còn <b>1 ngày</b> — sắp hết hạn.
         <?php else: ?>
-          ⏳ Bản dùng thử QLBH2 còn <b><?= $trialDaysLeft ?> ngày</b>.
+          ⏳ Bản dùng thử QLBH-CLOUD còn <b><?= $trialDaysLeft ?> ngày</b>.
         <?php endif; ?>
         <a href="gia_han.php">Yêu cầu gia hạn →</a>
       </div>

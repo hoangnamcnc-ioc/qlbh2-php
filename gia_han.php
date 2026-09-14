@@ -27,14 +27,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'INSERT INTO renewal_requests (tenant_id, contact_name, contact_phone, message) VALUES (?, ?, ?, ?)'
         )->execute([$currentUser['tenant_id'], $contactName, $contactPhone, $message]);
 
-        $subject = 'QLBH2 - Yeu cau gia han: ' . $tenant['name'];
+        $subject = 'QLBH-CLOUD - Yeu cau gia han: ' . $tenant['name'];
         $body = "Cua hang: {$tenant['name']}\n"
             . "Email dang ky: {$tenant['owner_email']}\n"
             . "Nguoi lien he: $contactName\n"
             . "SDT/Zalo: $contactPhone\n"
             . "Ghi chu: " . ($message ?: '(không có)') . "\n"
             . "Han hien tai: " . ($tenant['trial_ends_at'] ?? '(gói trả phí)') . "\n";
-        $headers = 'From: QLBH2 <no-reply@kt-soft.vn>' . "\r\n" . 'Reply-To: ' . (post('contact_email') ?: 'no-reply@kt-soft.vn');
+        $headers = 'From: QLBH-CLOUD <no-reply@kt-soft.vn>' . "\r\n" . 'Reply-To: ' . (post('contact_email') ?: 'no-reply@kt-soft.vn');
         @mail(SUPPORT_EMAIL, $subject, $body, $headers);
 
         logActivity('RENEWAL_REQUEST', 'tenant_id=' . $currentUser['tenant_id']);
