@@ -1691,3 +1691,36 @@ dữ liệu test.
 `fix_multitenant_migrate.php` (script migrate DDL không có auth) cũng được rà lại — xác nhận đã bị
 xóa khỏi server production từ lúc chạy xong (trả về 404), chỉ còn lưu trong git để tham khảo, không
 phải rủi ro đang tồn tại.
+
+## Multi-tenant: dùng thử 12 tháng miễn phí, gia hạn theo năm + form gửi yêu cầu gia hạn
+
+Chủ hệ thống quyết định cho khách hàng dùng thử **miễn phí 12 tháng** (thay vì 14 ngày như ban đầu),
+gia hạn về sau tính theo năm. Đồng thời phát hiện chưa có cách nào trong app để khách chủ động gửi
+yêu cầu gia hạn — trước đó chỉ có link ra trang liên hệ chung của kt-soft.vn.
+
+Đã thêm:
+- `dang-ky.php`: tenant mới tạo có hạn dùng thử `INTERVAL 12 MONTH` (thay vì `14 DAY`), cập nhật
+  text trên form và banner tương ứng.
+- `super_admin_tenants.php`: nút gia hạn nhanh đổi từ "+14 ngày" thành "**+1 năm**" (365 ngày).
+- Bảng `renewal_requests` (tenant_id, contact_name, contact_phone, message, status, created_at) —
+  lưu các yêu cầu gia hạn khách tự gửi từ trong app.
+- `gia_han.php` (trang mới): mọi tenant đã đăng nhập gửi yêu cầu gia hạn/nâng cấp — nhập tên người
+  liên hệ (mặc định lấy tên tài khoản), SĐT/Zalo (bắt buộc), ghi chú. Khi gửi: lưu vào
+  `renewal_requests` **và** thử gửi email tới `hoangnamcnc@gmail.com` qua `mail()` của hosting
+  (best-effort — vì hosting chia sẻ không đảm bảo gửi được nên có lưu DB làm nguồn dữ liệu chính,
+  không phụ thuộc hoàn toàn vào email). Trang cũng hiện sẵn thông tin liên hệ trực tiếp: ĐT/Zalo
+  **0945289666**, email **hoangnamcnc@gmail.com**. Được thêm vào danh sách ngoại lệ của
+  `checkTrialExpiry()` (cùng `trial_expired.php`, `logout.php`) để tenant đã hết hạn vẫn gửi được
+  yêu cầu thay vì bị chặn hoàn toàn.
+- `inc_header.php`: banner đếm ngược đổi link "Liên hệ nâng cấp" (trỏ ra kt-soft.vn) thành "Yêu cầu
+  gia hạn" (trỏ thẳng vào `gia_han.php` trong app); thêm mục menu "Yêu cầu gia hạn" ở nhóm Cấu hình
+  cho mọi ADMIN, không chỉ khi sắp hết hạn.
+- `trial_expired.php`: cập nhật text "12 tháng", nút chính đổi thành "Yêu cầu gia hạn" (trỏ
+  `gia_han.php`), thêm dòng thông tin liên hệ trực tiếp.
+- `super_admin_tenants.php`: thêm bảng "Yêu cầu gia hạn đang chờ" ở đầu trang (tên cửa hàng, người
+  liên hệ, SĐT/Zalo, ghi chú, thời gian gửi), có nút "Đã liên hệ" đánh dấu `status = 'DONE'` sau khi
+  chủ hệ thống đã xử lý — dùng chung transaction/CSRF với các hành động khác trên trang.
+
+Đã test trên production: đăng ký 1 tenant thật qua `dang-ky.php`, xác nhận `trial_ends_at` đúng
++12 tháng (2026 → 2027, không phải +14 ngày); gửi form `gia_han.php`, xác nhận lưu đúng 1 dòng vào
+`renewal_requests` với đầy đủ thông tin. Đã dọn sạch dữ liệu test.
