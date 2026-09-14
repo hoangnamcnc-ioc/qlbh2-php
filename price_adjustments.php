@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -13,7 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $newCost = postFloat('new_cost_price');
     $reason = post('reason') ?: null;
 
-    if (!$productId) {
+    // Xac nhan san pham (va bien the neu co) thuc su thuoc tenant hien tai truoc khi cho phep
+    // dieu chinh gia von - tranh sua gia von cua tenant khac qua request thu cong.
+    $ownProduct = $pdo->prepare('SELECT id FROM products WHERE id = ? AND tenant_id = ?');
+    $ownProduct->execute([$productId, $tenantId]);
+    if ($variantId) {
+        $ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
+        $ownVariant->execute([$variantId, $productId, $tenantId]);
+        $variantOk = (bool) $ownVariant->fetch();
+    } else {
+        $variantOk = true;
+    }
+
+    if (!$productId || !$ownProduct->fetch() || !$variantOk) {
         $error = 'Vui lòng chọn sản phẩm';
     } else {
         if ($variantId) {
@@ -37,14 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$adjustments = $pdo->query(
+$adjustmentsStmt = $pdo->prepare(
     'SELECT a.*, p.name AS product_name, v.name AS variant_name, u.name AS created_by_name
      FROM price_adjustments a
      JOIN products p ON p.id = a.product_id
      LEFT JOIN product_variants v ON v.id = a.variant_id
      JOIN users u ON u.id = a.created_by_id
+     WHERE p.tenant_id = ?
      ORDER BY a.created_at DESC LIMIT 100'
-)->fetchAll();
+);
+$adjustmentsStmt->execute([$tenantId]);
+$adjustments = $adjustmentsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

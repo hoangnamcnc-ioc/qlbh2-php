@@ -12,6 +12,7 @@ if ($q === '' && !$browse) {
 }
 
 $branchId = effectiveBranchId($user);
+$tenantId = currentTenantId();
 $priceListId = (int) ($_GET['price_list_id'] ?? 0) ?: null;
 $pdo = db();
 $like = '%' . $q . '%';
@@ -23,21 +24,21 @@ $stmt = $pdo->prepare(
             COALESCE(i.quantity, 0) AS qty
      FROM products p
      LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
-     WHERE p.is_active = 1 AND p.product_type != 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
+     WHERE p.tenant_id = ? AND p.is_active = 1 AND p.product_type != 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
        AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.is_active = 1)
      ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$branchId, $browse ? 1 : 0, $like, $like, $like]);
+$stmt->execute([$branchId, $tenantId, $browse ? 1 : 0, $like, $like, $like]);
 $products = $stmt->fetchAll();
 
 // Combo (bán như 1 dòng, không kiểm tồn kho riêng)
 $stmt = $pdo->prepare(
     "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, p.product_type, p.created_at, 999 AS qty
      FROM products p
-     WHERE p.is_active = 1 AND p.product_type = 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
+     WHERE p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'COMBO' AND (? = 1 OR p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)
      ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$browse ? 1 : 0, $like, $like, $like]);
+$stmt->execute([$tenantId, $browse ? 1 : 0, $like, $like, $like]);
 $combos = $stmt->fetchAll();
 
 // Biến thể sản phẩm (bán theo variant_id)
@@ -47,18 +48,21 @@ $stmt = $pdo->prepare(
      FROM product_variants v
      JOIN products p ON p.id = v.product_id
      LEFT JOIN inventory i ON i.variant_id = v.id AND i.branch_id = ?
-     WHERE v.is_active = 1 AND p.is_active = 1
+     WHERE v.tenant_id = ? AND v.is_active = 1 AND p.is_active = 1
        AND (? = 1 OR p.name LIKE ? OR v.name LIKE ? OR v.sku LIKE ? OR v.barcode LIKE ?)
      ORDER BY p.name LIMIT $limit"
 );
-$stmt->execute([$branchId, $browse ? 1 : 0, $like, $like, $like, $like]);
+$stmt->execute([$branchId, $tenantId, $browse ? 1 : 0, $like, $like, $like, $like]);
 $variants = $stmt->fetchAll();
 
 $all = array_merge($products, $combos, $variants);
 
 if ($priceListId) {
-    $stmt = $pdo->prepare('SELECT product_id, variant_id, price FROM product_prices WHERE price_list_id = ?');
-    $stmt->execute([$priceListId]);
+    $stmt = $pdo->prepare(
+        'SELECT pp.product_id, pp.variant_id, pp.price FROM product_prices pp
+         JOIN price_lists pl ON pl.id = pp.price_list_id WHERE pp.price_list_id = ? AND pl.tenant_id = ?'
+    );
+    $stmt->execute([$priceListId, $tenantId]);
     $overrides = [];
     foreach ($stmt->fetchAll() as $row) {
         $overrides[$row['product_id'] . ':' . ($row['variant_id'] ?? '')] = $row['price'];

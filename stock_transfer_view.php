@@ -12,9 +12,9 @@ $stmt = $pdo->prepare(
      JOIN branches fb ON fb.id = t.from_branch_id
      JOIN branches tb ON tb.id = t.to_branch_id
      JOIN users u ON u.id = t.created_by_id
-     WHERE t.id = ?'
+     WHERE t.id = ? AND fb.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $transfer = $stmt->fetch();
 if (!$transfer) redirect('stock_transfers.php');
 

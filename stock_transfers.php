@@ -5,15 +5,18 @@ $currentUser = requireRole('ADMIN', 'MANAGER');
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
+$tenantId = currentTenantId();
 
 // MANAGER chỉ xem được phiếu chuyển hàng có liên quan đến chi nhánh mình (là nơi chuyển đi
 // hoặc nơi nhận) — tránh lộ việc điều chuyển hàng giữa 2 chi nhánh khác không liên quan.
-$where = '';
-$params = [];
-if (!hasRole('ADMIN')) {
-    $where = ' WHERE t.from_branch_id = ? OR t.to_branch_id = ?';
+// ADMIN xem được mọi phiếu chuyển của tenant mình (không phải toàn hệ thống).
+if (hasRole('ADMIN')) {
+    $where = ' WHERE fb.tenant_id = ?';
+    $params = [$tenantId];
+} else {
+    $where = ' WHERE (t.from_branch_id = ? OR t.to_branch_id = ?) AND fb.tenant_id = ?';
     $branchId = effectiveBranchId($currentUser);
-    $params = [$branchId, $branchId];
+    $params = [$branchId, $branchId, $tenantId];
 }
 
 $transfersStmt = $pdo->prepare(

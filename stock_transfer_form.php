@@ -4,7 +4,11 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
+$branchIds = array_column($branches, 'id');
 $error = null;
 
 // MANAGER chỉ được tạo phiếu chuyển ĐI từ chi nhánh mình quản lý — tránh tự ý rút hàng từ
@@ -18,6 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fromBranchId = $lockedFromBranchId;
     }
     $toBranchId = (int) ($_POST['to_branch_id'] ?? 0);
+    // Ca 2 chi nhanh (du la ADMIN) deu phai thuoc tenant hien tai.
+    if (!in_array($fromBranchId, $branchIds, true)) $fromBranchId = 0;
+    if (!in_array($toBranchId, $branchIds, true)) $toBranchId = 0;
     $note = post('note') ?: null;
     $productIds = $_POST['product_id'] ?? [];
     $variantIds = $_POST['variant_id'] ?? [];

@@ -4,7 +4,10 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$branches = $pdo->query('SELECT * FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
 $error = null;
 
 // MANAGER chỉ được tạo phiếu kiểm hàng cho chi nhánh mình quản lý — tránh sửa/xem nhầm tồn
@@ -16,6 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $branchId = (int) ($_POST['branch_id'] ?? 0);
     if ($lockedBranchId && $branchId !== $lockedBranchId) {
         $branchId = $lockedBranchId;
+    }
+    // Du la ADMIN cung chi duoc chon chi nhanh thuoc tenant minh.
+    if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+        $branchId = 0;
     }
     $note = post('note') ?: null;
     $productIds = $_POST['product_id'] ?? [];

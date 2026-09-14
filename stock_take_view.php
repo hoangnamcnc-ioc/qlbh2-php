@@ -6,12 +6,14 @@ $currentUser = requireRole('ADMIN', 'MANAGER');
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
 
+// Loc theo tenant ngay tu SELECT - phieu kiem hang cua tenant khac coi nhu "khong ton tai",
+// khong chi dua vao check MANAGER ben duoi (ADMIN truoc day bypass hoan toan check chi nhanh).
 $stmt = $pdo->prepare(
     'SELECT t.*, b.name AS branch_name, u.name AS created_by_name
      FROM stock_takes t JOIN branches b ON b.id = t.branch_id JOIN users u ON u.id = t.created_by_id
-     WHERE t.id = ?'
+     WHERE t.id = ? AND b.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $take = $stmt->fetch();
 if (!$take) redirect('stock_takes.php');
 

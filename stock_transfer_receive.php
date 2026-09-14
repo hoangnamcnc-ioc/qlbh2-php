@@ -10,8 +10,11 @@ $pdo = db();
 $transferId = (int) ($_POST['transfer_id'] ?? 0);
 $action = $_POST['action'] ?? 'receive';
 
-$stmt = $pdo->prepare('SELECT * FROM stock_transfers WHERE id = ?');
-$stmt->execute([$transferId]);
+$stmt = $pdo->prepare(
+    'SELECT t.* FROM stock_transfers t JOIN branches fb ON fb.id = t.from_branch_id
+     WHERE t.id = ? AND fb.tenant_id = ?'
+);
+$stmt->execute([$transferId, currentTenantId()]);
 $transfer = $stmt->fetch();
 
 // MANAGER chỉ được xác nhận nhận hàng nếu chi nhánh mình là nơi nhận, và chỉ được hủy nếu

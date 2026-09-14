@@ -5,8 +5,10 @@ requireLogin();
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = db();
-$services = $pdo->query(
-    "SELECT id, sku, name, sell_price FROM products WHERE is_active = 1 AND product_type = 'SERVICE' ORDER BY name"
-)->fetchAll();
+$servicesStmt = $pdo->prepare(
+    "SELECT id, sku, name, sell_price FROM products WHERE is_active = 1 AND product_type = 'SERVICE' AND tenant_id = ? ORDER BY name"
+);
+$servicesStmt->execute([currentTenantId()]);
+$services = $servicesStmt->fetchAll();
 
 echo json_encode($services, JSON_UNESCAPED_UNICODE);

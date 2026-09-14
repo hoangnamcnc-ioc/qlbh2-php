@@ -5,12 +5,20 @@ $currentUser = requireRole('ADMIN', 'MANAGER');
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
+$tenantId = currentTenantId();
 
 // MANAGER chỉ xem được phiếu kiểm hàng của chi nhánh mình — tránh lộ số liệu tồn kho/chênh
 // lệch kiểm kho của chi nhánh khác, giống các trang Đơn hàng/Tồn kho đã chặn theo chi nhánh.
-$branchId = hasRole('ADMIN') ? (int) ($_GET['branch_id'] ?? 0) : effectiveBranchId($currentUser);
-$where = $branchId ? ' WHERE t.branch_id = ?' : '';
-$params = $branchId ? [$branchId] : [];
+// ADMIN xem được mọi chi nhánh CỦA TENANT MÌNH (không phải toàn hệ thống).
+if (hasRole('ADMIN')) {
+    $branchId = (int) ($_GET['branch_id'] ?? 0);
+    $where = $branchId ? ' WHERE t.branch_id = ? AND b.tenant_id = ?' : ' WHERE b.tenant_id = ?';
+    $params = $branchId ? [$branchId, $tenantId] : [$tenantId];
+} else {
+    $branchId = effectiveBranchId($currentUser);
+    $where = ' WHERE t.branch_id = ?';
+    $params = [$branchId];
+}
 
 $takesStmt = $pdo->prepare(
     "SELECT t.*, b.name AS branch_name, u.name AS created_by_name,
@@ -25,7 +33,9 @@ $takesStmt->execute($params);
 $takes = $takesStmt->fetchAll();
 
 if (hasRole('ADMIN')) {
-    $branches = $pdo->query('SELECT id, name FROM branches ORDER BY name')->fetchAll();
+    $branchesStmt = $pdo->prepare('SELECT id, name FROM branches WHERE tenant_id = ? ORDER BY name');
+    $branchesStmt->execute([$tenantId]);
+    $branches = $branchesStmt->fetchAll();
 }
 ?>
 

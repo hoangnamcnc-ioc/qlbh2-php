@@ -9,8 +9,10 @@ checkCsrf();
 $pdo = db();
 $takeId = (int) ($_POST['take_id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT * FROM stock_takes WHERE id = ?');
-$stmt->execute([$takeId]);
+$stmt = $pdo->prepare(
+    'SELECT t.* FROM stock_takes t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?'
+);
+$stmt->execute([$takeId, currentTenantId()]);
 $take = $stmt->fetch();
 
 // MANAGER chỉ được cân bằng phiếu kiểm hàng của chi nhánh mình.

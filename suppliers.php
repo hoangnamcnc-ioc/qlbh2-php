@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -15,13 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '') {
         $error = 'Vui lòng nhập tên nhà cung cấp';
     } else {
-        $pdo->prepare('INSERT INTO suppliers (name, phone, address) VALUES (?,?,?)')
-            ->execute([$name, $phone, $address]);
+        $pdo->prepare('INSERT INTO suppliers (name, phone, address, tenant_id) VALUES (?,?,?,?)')
+            ->execute([$name, $phone, $address, $tenantId]);
         redirect('suppliers.php');
     }
 }
 
-$suppliers = $pdo->query('SELECT * FROM suppliers ORDER BY created_at DESC')->fetchAll();
+$suppliersStmt = $pdo->prepare('SELECT * FROM suppliers WHERE tenant_id = ? ORDER BY created_at DESC');
+$suppliersStmt->execute([$tenantId]);
+$suppliers = $suppliersStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

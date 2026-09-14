@@ -13,6 +13,7 @@ if (!hash_equals($_SESSION['csrf'] ?? '', $input['csrf'] ?? '')) {
 }
 
 $branchId = effectiveBranchId($user);
+$tenantId = currentTenantId();
 if (!$branchId) {
     echo json_encode(['error' => 'Tài khoản chưa được gán chi nhánh, không thể tạo đơn']);
     exit;
@@ -45,8 +46,8 @@ $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
 
 $sourceId = null;
 if ($sourceIdInput) {
-    $srcStmt = $pdo->prepare('SELECT id FROM order_sources WHERE id = ? AND is_active = 1');
-    $srcStmt->execute([$sourceIdInput]);
+    $srcStmt = $pdo->prepare('SELECT id FROM order_sources WHERE id = ? AND is_active = 1 AND tenant_id = ?');
+    $srcStmt->execute([$sourceIdInput, $tenantId]);
     $sourceId = $srcStmt->fetchColumn() ?: null;
 }
 
@@ -55,15 +56,15 @@ try {
 
     $customerId = null;
     if ($customerPhone !== '') {
-        $stmt = $pdo->prepare('SELECT id FROM customers WHERE phone = ?');
-        $stmt->execute([$customerPhone]);
+        $stmt = $pdo->prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?');
+        $stmt->execute([$customerPhone, $tenantId]);
         $existingCustomer = $stmt->fetch();
         if ($existingCustomer) {
             $customerId = (int) $existingCustomer['id'];
         } else {
             $code = 'CUZN' . substr((string) (int) round(microtime(true) * 1000), -8);
-            $pdo->prepare('INSERT INTO customers (code, name, phone) VALUES (?, ?, ?)')
-                ->execute([$code, $customerPhone, $customerPhone]);
+            $pdo->prepare('INSERT INTO customers (code, name, phone, tenant_id) VALUES (?, ?, ?, ?)')
+                ->execute([$code, $customerPhone, $customerPhone, $tenantId]);
             $customerId = (int) $pdo->lastInsertId();
         }
     }
@@ -80,9 +81,23 @@ try {
             throw new RuntimeException('Dữ liệu sản phẩm không hợp lệ');
         }
 
-        $typeStmt = $pdo->prepare('SELECT product_type FROM products WHERE id = ?');
-        $typeStmt->execute([$productId]);
-        $productType = $typeStmt->fetchColumn() ?: 'PRODUCT';
+        // Xac nhan san pham thuc su thuoc tenant hien tai truoc khi ban - chan viec doan
+        // product_id cua tenant khac de tao don hang/tru kho gia mao.
+        $typeStmt = $pdo->prepare('SELECT product_type FROM products WHERE id = ? AND tenant_id = ?');
+        $typeStmt->execute([$productId, $tenantId]);
+        $typeRow = $typeStmt->fetch();
+        if (!$typeRow) {
+            throw new RuntimeException('Sản phẩm không hợp lệ');
+        }
+        $productType = $typeRow['product_type'];
+
+        if ($variantId) {
+            $ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
+            $ownVariant->execute([$variantId, $productId, $tenantId]);
+            if (!$ownVariant->fetch()) {
+                throw new RuntimeException('Biến thể sản phẩm không hợp lệ');
+            }
+        }
 
         if ($productType === 'SERVICE') {
             // Dịch vụ không quản lý tồn kho, không cần trừ kho.
@@ -182,8 +197,8 @@ try {
     $couponId = null;
     $rawCouponCode = strtoupper(trim((string) ($input['coupon_code'] ?? '')));
     if ($rawCouponCode !== '') {
-        $cStmt = $pdo->prepare('SELECT * FROM coupons WHERE code = ? FOR UPDATE');
-        $cStmt->execute([$rawCouponCode]);
+        $cStmt = $pdo->prepare('SELECT * FROM coupons WHERE code = ? AND tenant_id = ? FOR UPDATE');
+        $cStmt->execute([$rawCouponCode, $tenantId]);
         $coupon = $cStmt->fetch();
 
         if (
@@ -216,9 +231,9 @@ try {
         $totalSpend = (float) $spendStmt->fetchColumn();
 
         $tierStmt = $pdo->prepare(
-            'SELECT discount_percent FROM customer_tiers WHERE is_active = 1 AND min_spend <= ? ORDER BY min_spend DESC LIMIT 1'
+            'SELECT discount_percent FROM customer_tiers WHERE is_active = 1 AND min_spend <= ? AND tenant_id = ? ORDER BY min_spend DESC LIMIT 1'
         );
-        $tierStmt->execute([$totalSpend]);
+        $tierStmt->execute([$totalSpend, $tenantId]);
         $tierDiscountPercent = (float) ($tierStmt->fetchColumn() ?: 0);
 
         $loyaltyDiscountPercent = max($loyaltyDiscountPercent, $tierDiscountPercent);
@@ -231,12 +246,12 @@ try {
     // cộng dồn với giảm giá từ coupon nếu có.
     $promotionId = null;
     $pStmt = $pdo->prepare(
-        "SELECT * FROM promotions WHERE is_active = 1 AND min_order_amount <= ?
+        "SELECT * FROM promotions WHERE is_active = 1 AND min_order_amount <= ? AND tenant_id = ?
          AND (start_date IS NULL OR start_date <= CURDATE())
          AND (end_date IS NULL OR end_date >= CURDATE())
          ORDER BY discount_percent DESC LIMIT 1"
     );
-    $pStmt->execute([$subTotal]);
+    $pStmt->execute([$subTotal, $tenantId]);
     $promotion = $pStmt->fetch();
     if ($promotion) {
         $promoDiscount = $subTotal * (float) $promotion['discount_percent'] / 100;

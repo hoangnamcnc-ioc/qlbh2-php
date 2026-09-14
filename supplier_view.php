@@ -4,20 +4,26 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $id = (int) ($_GET['id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT * FROM suppliers WHERE id = ?');
-$stmt->execute([$id]);
+$stmt = $pdo->prepare('SELECT * FROM suppliers WHERE id = ? AND tenant_id = ?');
+$stmt->execute([$id, $tenantId]);
 $supplier = $stmt->fetch();
 if (!$supplier) redirect('suppliers.php');
 
-$branches = $pdo->query('SELECT id, name FROM branches WHERE is_active = 1 ORDER BY name')->fetchAll();
+$branchesStmt = $pdo->prepare('SELECT id, name FROM branches WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$branchesStmt->execute([$tenantId]);
+$branches = $branchesStmt->fetchAll();
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $amount = postFloat('amount');
     $branchId = hasRole('ADMIN') ? (int) ($_POST['branch_id'] ?? 0) : effectiveBranchId($currentUser);
+    if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+        $branchId = 0;
+    }
 
     if ($amount <= 0 || $amount > (float) $supplier['debt']) {
         $error = 'Số tiền không hợp lệ';
