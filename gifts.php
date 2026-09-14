@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE gifts SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE gifts SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('GIFT_TOGGLE', 'id=' . $id);
         redirect('gifts.php');
     } else {
@@ -25,20 +26,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '' || $pointsRequired <= 0) {
             $error = 'Vui lòng nhập tên quà và số điểm cần đổi (lớn hơn 0)';
         } else {
-            $pdo->prepare('INSERT INTO gifts (name, points_required, stock_qty, note) VALUES (?,?,?,?)')
-                ->execute([$name, $pointsRequired, $stockQty, $note]);
+            $pdo->prepare('INSERT INTO gifts (name, points_required, stock_qty, note, tenant_id) VALUES (?,?,?,?,?)')
+                ->execute([$name, $pointsRequired, $stockQty, $note, $tenantId]);
             logActivity('GIFT_CREATE', $name);
             redirect('gifts.php');
         }
     }
 }
 
-$gifts = $pdo->query(
+$giftsStmt = $pdo->prepare(
     'SELECT g.*, (SELECT COUNT(*) FROM gift_redemptions r WHERE r.gift_id = g.id) AS redeemed_count
-     FROM gifts g ORDER BY g.points_required'
-)->fetchAll();
+     FROM gifts g WHERE g.tenant_id = ? ORDER BY g.points_required'
+);
+$giftsStmt->execute([$tenantId]);
+$gifts = $giftsStmt->fetchAll();
 
-$redemptions = $pdo->query(
+$redemptionsStmt = $pdo->prepare(
     'SELECT r.*, g.name AS gift_name, c.name AS customer_name, c.phone AS customer_phone,
             b.name AS branch_name, u.name AS redeemed_by_name
      FROM gift_redemptions r
@@ -46,8 +49,11 @@ $redemptions = $pdo->query(
      JOIN customers c ON c.id = r.customer_id
      LEFT JOIN branches b ON b.id = r.branch_id
      JOIN users u ON u.id = r.redeemed_by_id
+     WHERE g.tenant_id = ?
      ORDER BY r.created_at DESC LIMIT 100'
-)->fetchAll();
+);
+$redemptionsStmt->execute([$tenantId]);
+$redemptions = $redemptionsStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

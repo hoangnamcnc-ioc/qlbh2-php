@@ -21,19 +21,20 @@ if (!$customerId || !$giftId) {
 }
 
 $pdo = db();
+$tenantId = currentTenantId();
 
 try {
     $pdo->beginTransaction();
 
-    $custStmt = $pdo->prepare('SELECT * FROM customers WHERE id = ? FOR UPDATE');
-    $custStmt->execute([$customerId]);
+    $custStmt = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ? FOR UPDATE');
+    $custStmt->execute([$customerId, $tenantId]);
     $customer = $custStmt->fetch();
     if (!$customer) {
         throw new RuntimeException('Không tìm thấy khách hàng');
     }
 
-    $giftStmt = $pdo->prepare('SELECT * FROM gifts WHERE id = ? AND is_active = 1 FOR UPDATE');
-    $giftStmt->execute([$giftId]);
+    $giftStmt = $pdo->prepare('SELECT * FROM gifts WHERE id = ? AND is_active = 1 AND tenant_id = ? FOR UPDATE');
+    $giftStmt->execute([$giftId, $tenantId]);
     $gift = $giftStmt->fetch();
     if (!$gift) {
         throw new RuntimeException('Quà tặng không tồn tại hoặc đã ngừng áp dụng');

@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $result = null;
 
@@ -34,8 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $existing = null;
                 if ($phone) {
-                    $check = $pdo->prepare('SELECT id FROM customers WHERE phone = ?');
-                    $check->execute([$phone]);
+                    $check = $pdo->prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ?');
+                    $check->execute([$phone, $tenantId]);
                     $existing = $check->fetch();
                 }
 
@@ -45,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updated++;
                 } else {
                     $newCode = trim((string) $code) ?: ('CUZN' . substr((string) (int) round(microtime(true) * 1000 + $created), -8));
-                    $pdo->prepare('INSERT INTO customers (code, name, phone, address) VALUES (?,?,?,?)')
-                        ->execute([$newCode, $name, $phone, $address ?: null]);
+                    $pdo->prepare('INSERT INTO customers (code, name, phone, address, tenant_id) VALUES (?,?,?,?,?)')
+                        ->execute([$newCode, $name, $phone, $address ?: null, $tenantId]);
                     $created++;
                 }
             }

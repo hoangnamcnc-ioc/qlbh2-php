@@ -4,17 +4,20 @@ require_once __DIR__ . '/inc_header.php';
 $q = trim($_GET['q'] ?? '');
 $tab = $_GET['tab'] ?? 'all';
 $pdo = db();
+$tenantId = currentTenantId();
 
 $sql = 'SELECT c.*, g.name AS group_name,
         (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED") AS order_count,
         (SELECT COALESCE(SUM(o.total_amount),0) FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED") AS total_spent
         FROM customers c LEFT JOIN customer_groups g ON g.id = c.group_id';
-$where = [];
-$params = [];
+$where = ['c.tenant_id = ?'];
+$params = [$tenantId];
 if ($q !== '') {
     $where[] = '(c.name LIKE ? OR c.phone LIKE ? OR c.code LIKE ?)';
     $like = '%' . $q . '%';
-    $params = [$like, $like, $like];
+    $params[] = $like;
+    $params[] = $like;
+    $params[] = $like;
 }
 if ($tab === 'active') {
     $where[] = 'EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED")';

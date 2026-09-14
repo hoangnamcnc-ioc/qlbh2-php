@@ -4,12 +4,13 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireLogin();
 
 $pdo = db();
+$tenantId = currentTenantId();
 $id = (int) ($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare(
-    'SELECT c.*, u.name AS assigned_staff_name FROM customers c LEFT JOIN users u ON u.id = c.assigned_staff_id WHERE c.id = ?'
+    'SELECT c.*, u.name AS assigned_staff_name FROM customers c LEFT JOIN users u ON u.id = c.assigned_staff_id WHERE c.id = ? AND c.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, $tenantId]);
 $customer = $stmt->fetch();
 if (!$customer) redirect('customers.php');
 
@@ -95,7 +96,9 @@ $giftRedemptions = $pdo->prepare(
 $giftRedemptions->execute([$id]);
 $giftRedemptions = $giftRedemptions->fetchAll();
 
-$tiers = $pdo->query('SELECT * FROM customer_tiers WHERE is_active = 1 ORDER BY min_spend')->fetchAll();
+$tiersStmt = $pdo->prepare('SELECT * FROM customer_tiers WHERE is_active = 1 AND tenant_id = ? ORDER BY min_spend');
+$tiersStmt->execute([$tenantId]);
+$tiers = $tiersStmt->fetchAll();
 $currentTier = null;
 $nextTier = null;
 foreach ($tiers as $t) {

@@ -11,12 +11,13 @@ if ($phone === '') {
     exit;
 }
 
+$tenantId = currentTenantId();
 $stmt = $pdo->prepare(
     'SELECT c.id, c.name, c.group_id, c.loyalty_points, c.discount_percent, g.price_list_id, g.name AS group_name
      FROM customers c LEFT JOIN customer_groups g ON g.id = c.group_id
-     WHERE c.phone = ?'
+     WHERE c.phone = ? AND c.tenant_id = ?'
 );
-$stmt->execute([$phone]);
+$stmt->execute([$phone, $tenantId]);
 $customer = $stmt->fetch();
 
 if (!$customer) {
@@ -29,9 +30,9 @@ $spendStmt->execute([$customer['id']]);
 $totalSpend = (float) $spendStmt->fetchColumn();
 
 $tierStmt = $pdo->prepare(
-    'SELECT discount_percent FROM customer_tiers WHERE is_active = 1 AND min_spend <= ? ORDER BY min_spend DESC LIMIT 1'
+    'SELECT discount_percent FROM customer_tiers WHERE is_active = 1 AND min_spend <= ? AND tenant_id = ? ORDER BY min_spend DESC LIMIT 1'
 );
-$tierStmt->execute([$totalSpend]);
+$tierStmt->execute([$totalSpend, $tenantId]);
 $tierDiscountPercent = (float) ($tierStmt->fetchColumn() ?: 0);
 
 $loyaltyDiscountPercent = max((float) $customer['discount_percent'], $tierDiscountPercent);

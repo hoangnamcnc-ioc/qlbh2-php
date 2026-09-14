@@ -4,19 +4,24 @@ require_once __DIR__ . '/inc_functions.php';
 requireLogin();
 
 $pdo = db();
+$tenantId = currentTenantId();
 $id = (int) ($_GET['id'] ?? 0);
 $customer = null;
 $error = null;
 
 if ($id) {
-    $stmt = $pdo->prepare('SELECT * FROM customers WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND tenant_id = ?');
+    $stmt->execute([$id, $tenantId]);
     $customer = $stmt->fetch();
     if (!$customer) redirect('customers.php');
 }
 
-$groups = $pdo->query('SELECT * FROM customer_groups ORDER BY name')->fetchAll();
-$staffList = $pdo->query('SELECT id, name FROM users WHERE is_active = 1 ORDER BY name')->fetchAll();
+$groupsStmt = $pdo->prepare('SELECT * FROM customer_groups WHERE tenant_id = ? ORDER BY name');
+$groupsStmt->execute([$tenantId]);
+$groups = $groupsStmt->fetchAll();
+$staffStmt = $pdo->prepare('SELECT id, name FROM users WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$staffStmt->execute([$tenantId]);
+$staffList = $staffStmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
@@ -24,6 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = post('phone') ?: null;
     $address = post('address') ?: null;
     $groupId = post('group_id') ?: null;
+    if ($groupId && !in_array((int) $groupId, array_column($groups, 'id'), true)) {
+        $groupId = null;
+    }
     $birthday = post('birthday') ?: null;
     $gender = in_array($_POST['gender'] ?? '', ['MALE', 'FEMALE', 'OTHER'], true) ? $_POST['gender'] : null;
     $email = post('email') ?: null;
@@ -32,6 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = post('description') ?: null;
     $tags = post('tags') ?: null;
     $assignedStaffId = (int) ($_POST['assigned_staff_id'] ?? 0) ?: null;
+    if ($assignedStaffId && !in_array($assignedStaffId, array_column($staffList, 'id'), true)) {
+        $assignedStaffId = null;
+    }
     $defaultPaymentMethod = in_array($_POST['default_payment_method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true)
         ? $_POST['default_payment_method'] : null;
     $discountPercent = postFloat('discount_percent');
@@ -39,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '') {
         $error = 'Vui lòng nhập tên khách hàng';
     } elseif ($phone) {
-        $check = $pdo->prepare('SELECT id FROM customers WHERE phone = ? AND id != ?');
-        $check->execute([$phone, $id]);
+        $check = $pdo->prepare('SELECT id FROM customers WHERE phone = ? AND id != ? AND tenant_id = ?');
+        $check->execute([$phone, $id, $tenantId]);
         if ($check->fetch()) {
             $error = 'Số điện thoại này đã tồn tại trong hệ thống';
         }
@@ -49,14 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$error) {
         if ($id) {
             $pdo->prepare(
-                'UPDATE customers SET name=?, phone=?, address=?, group_id=?, birthday=?, gender=?, email=?, tax_code=?, website=?, description=?, tags=?, assigned_staff_id=?, default_payment_method=?, discount_percent=? WHERE id=?'
-            )->execute([$name, $phone, $address, $groupId, $birthday, $gender, $email, $taxCode, $website, $description, $tags, $assignedStaffId, $defaultPaymentMethod, $discountPercent, $id]);
+                'UPDATE customers SET name=?, phone=?, address=?, group_id=?, birthday=?, gender=?, email=?, tax_code=?, website=?, description=?, tags=?, assigned_staff_id=?, default_payment_method=?, discount_percent=? WHERE id=? AND tenant_id=?'
+            )->execute([$name, $phone, $address, $groupId, $birthday, $gender, $email, $taxCode, $website, $description, $tags, $assignedStaffId, $defaultPaymentMethod, $discountPercent, $id, $tenantId]);
             redirect('customer_view.php?id=' . $id);
         } else {
             $code = 'CUZN' . substr((string) (time() * 1000), -8);
             $pdo->prepare(
-                'INSERT INTO customers (code, name, phone, address, group_id, birthday, gender, email, tax_code, website, description, tags, assigned_staff_id, default_payment_method, discount_percent) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-            )->execute([$code, $name, $phone, $address, $groupId, $birthday, $gender, $email, $taxCode, $website, $description, $tags, $assignedStaffId, $defaultPaymentMethod, $discountPercent]);
+                'INSERT INTO customers (code, name, phone, address, group_id, birthday, gender, email, tax_code, website, description, tags, assigned_staff_id, default_payment_method, discount_percent, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            )->execute([$code, $name, $phone, $address, $groupId, $birthday, $gender, $email, $taxCode, $website, $description, $tags, $assignedStaffId, $defaultPaymentMethod, $discountPercent, $tenantId]);
             redirect('customer_view.php?id=' . $pdo->lastInsertId());
         }
     }

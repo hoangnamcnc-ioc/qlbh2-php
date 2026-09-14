@@ -4,7 +4,9 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$customers = $pdo->query('SELECT code, name, phone, address, debt, loyalty_points FROM customers ORDER BY created_at DESC')->fetchAll();
+$customersStmt = $pdo->prepare('SELECT code, name, phone, address, debt, loyalty_points FROM customers WHERE tenant_id = ? ORDER BY created_at DESC');
+$customersStmt->execute([currentTenantId()]);
+$customers = $customersStmt->fetchAll();
 logActivity('EXPORT_CUSTOMERS', count($customers) . ' khách hàng');
 
 header('Content-Type: text/csv; charset=utf-8');
