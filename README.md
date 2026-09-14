@@ -1585,3 +1585,30 @@ lần này ở phía chi tiền cho nhà cung cấp:
 thật → công nợ còn lại đúng 300.000đ; kiểm tra DB thấy đã tạo 1 dòng `cashbook_entries` loại
 `PAYMENT`, đúng số tiền 200.000đ, đúng chi nhánh; xác nhận dòng này **hiển thị đúng trên trang Sổ
 quỹ** (`cashbook.php`) như mọi khoản chi khác. Đã xóa sạch NCC và dòng sổ quỹ test.
+
+## Multi-tenant: trang Quản trị hệ thống (`super_admin_tenants.php`)
+
+Sau khi QLBH2 hỗ trợ multi-tenant và có luồng đăng ký dùng thử (`dang-ky.php`), không còn trang nào
+cho chủ hệ thống (KT-SOFT) xem được danh sách toàn bộ khách hàng đã đăng ký — mọi trang đều tự động
+chỉ hiện dữ liệu của đúng 1 tenant (đúng thiết kế bảo mật, nhưng chủ hệ thống cũng cần 1 góc nhìn
+tổng).
+
+Đã thêm:
+- `inc_auth.php`: hàm `requireSuperAdmin()` — chỉ ADMIN của **tenant #1** (tenant chủ sở hữu, tạo ra
+  khi chạy `fix_multitenant_migrate.php`) mới qua được, các tenant khác dù là ADMIN cũng bị chặn
+  (403). Đây là ngoại lệ CỐ Ý duy nhất phá vỡ quy tắc "mỗi tenant chỉ thấy dữ liệu của mình", vì đây
+  là công cụ vận hành nền tảng, không phải nghiệp vụ 1 cửa hàng.
+- `super_admin_tenants.php`: danh sách toàn bộ tenant — tên cửa hàng, email quản trị, ngày đăng ký,
+  gói (Dùng thử/Trả phí), số ngày còn lại của gói dùng thử, số nhân viên/sản phẩm/đơn hàng (để biết
+  đang thực sự dùng hay chỉ đăng ký rồi bỏ), hoạt động gần nhất (từ `activity_logs`), trạng thái
+  khóa/hoạt động. Có sẵn 3 hành động: **Nâng cấp** lên gói trả phí, **+14 ngày** gia hạn dùng thử,
+  **Khóa/Mở khóa** tài khoản — không cho thao tác lên chính tenant #1 để tránh tự khóa mình.
+- `inc_header.php`: thêm mục "Quản trị hệ thống (KT-SOFT)" vào nhóm Cấu hình, chỉ hiện với đúng
+  ADMIN của tenant #1.
+
+Đã test trên app.kt-soft.vn: trang hiển thị đúng 1 tenant thật (chủ sở hữu) sau khi dọn sạch dữ liệu
+test; tạo 1 tenant + tài khoản ADMIN test khác (không phải tenant #1) → đăng nhập, cố truy cập
+`super_admin_tenants.php` → bị chặn đúng HTTP 403, và mục menu cũng không hiện ra cho tài khoản này.
+Phát hiện thêm khi dọn dữ liệu test: `activity_logs.tenant_id` có ràng buộc khóa ngoại tới `tenants`
+— xóa tenant test phải xóa `activity_logs` liên quan trước, nếu không sẽ báo lỗi khóa ngoại (đã ghi
+chú lại để các lần dọn dữ liệu test sau không gặp lại).

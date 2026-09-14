@@ -123,6 +123,25 @@ function hasRole(string ...$roles): bool
     return $user && in_array($user['role'], $roles, true);
 }
 
+/**
+ * Trang quản trị hệ thống (danh sách toàn bộ tenant) — CỐ Ý phá vỡ quy tắc "mỗi tenant chỉ
+ * thấy dữ liệu của mình" vì đây là công cụ vận hành nền tảng cho chủ sở hữu (KT-SOFT), không
+ * phải nghiệp vụ của 1 cửa hàng. Giới hạn chặt: chỉ ADMIN của tenant #1 (tenant khởi tạo sẵn
+ * khi migrate, xem fix_multitenant_migrate.php) mới qua được, không dùng role thường.
+ */
+function requireSuperAdmin(): array
+{
+    $user = requireLogin();
+    if ($user['role'] !== 'ADMIN' || (int) $user['tenant_id'] !== 1) {
+        http_response_code(403);
+        require_once __DIR__ . '/inc_header.php';
+        echo '<div class="alert alert-error">Bạn không có quyền truy cập trang này.</div>';
+        require_once __DIR__ . '/inc_footer.php';
+        exit;
+    }
+    return $user;
+}
+
 // Chong do mat khau: khoa tam 15 phut sau 5 lan sai lien tiep cho tung email. Luu trong
 // session PHP (khong can bang DB rieng) - moi tien trinh PHP-FPM/session file la doc lap
 // theo tung nguoi dung/trinh duyet nen du de chan bot do mat khau tu 1 nguon.
