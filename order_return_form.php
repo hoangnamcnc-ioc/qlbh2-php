@@ -4,11 +4,14 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireLogin();
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $order = null;
 $items = [];
 
-$returnReasons = $pdo->query("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('RETURN','BOTH') ORDER BY id")->fetchAll();
+$returnReasonsStmt = $pdo->prepare("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('RETURN','BOTH') AND tenant_id = ? ORDER BY id");
+$returnReasonsStmt->execute([$tenantId]);
+$returnReasons = $returnReasonsStmt->fetchAll();
 
 $q = trim($_GET['q'] ?? '');
 

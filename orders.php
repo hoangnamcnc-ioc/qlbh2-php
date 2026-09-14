@@ -15,17 +15,25 @@ $channelId = (int) ($_GET['channel_id'] ?? 0);
 $sourceId = (int) ($_GET['source_id'] ?? 0);
 
 $pdo = db();
-$staffList = $pdo->query('SELECT id, name FROM users ORDER BY name')->fetchAll();
-$channelList = $pdo->query('SELECT id, name FROM sales_channels ORDER BY name')->fetchAll();
-$sourceList = $pdo->query('SELECT id, name FROM order_sources ORDER BY name')->fetchAll();
+$tenantId = currentTenantId();
+$staffListStmt = $pdo->prepare('SELECT id, name FROM users WHERE tenant_id = ? ORDER BY name');
+$staffListStmt->execute([$tenantId]);
+$staffList = $staffListStmt->fetchAll();
+$channelListStmt = $pdo->prepare('SELECT id, name FROM sales_channels WHERE tenant_id = ? ORDER BY name');
+$channelListStmt->execute([$tenantId]);
+$channelList = $channelListStmt->fetchAll();
+$sourceListStmt = $pdo->prepare('SELECT id, name FROM order_sources WHERE tenant_id = ? ORDER BY name');
+$sourceListStmt->execute([$tenantId]);
+$sourceList = $sourceListStmt->fetchAll();
 
 $sql = 'SELECT o.*, c.name AS customer_name, u.name AS staff_name, sc.name AS channel_name, os.name AS source_name FROM orders o
+        JOIN branches b ON b.id = o.branch_id
         LEFT JOIN customers c ON c.id = o.customer_id
         JOIN users u ON u.id = o.sold_by_id
         LEFT JOIN sales_channels sc ON sc.id = o.channel_id
         LEFT JOIN order_sources os ON os.id = o.source_id';
-$where = [];
-$params = [];
+$where = ['b.tenant_id = ?'];
+$params = [$tenantId];
 
 if ($status !== '' && array_key_exists($status, $statusLabels)) {
     $where[] = 'o.status = ?';

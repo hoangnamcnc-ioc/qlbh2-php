@@ -23,9 +23,9 @@ $stmt = $pdo->prepare(
      JOIN users u ON u.id = o.sold_by_id
      LEFT JOIN sales_channels sc ON sc.id = o.channel_id
      LEFT JOIN order_sources os ON os.id = o.source_id
-     WHERE o.id = ?'
+     WHERE o.id = ? AND b.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
 // Thu ngan (CASHIER) chi duoc xem don hang cua chinh chi nhanh minh - tranh lo thong tin
@@ -114,7 +114,11 @@ require_once __DIR__ . '/inc_header.php';
       </form>
     <?php endif; ?>
     <?php if (hasRole('ADMIN', 'MANAGER') && $order['status'] !== 'CANCELLED'): ?>
-      <?php $cancelReasons = $pdo->query("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('CANCEL','BOTH') ORDER BY id")->fetchAll(); ?>
+      <?php
+        $cancelReasonsStmt = $pdo->prepare("SELECT * FROM cancel_reasons WHERE is_active = 1 AND applies_to IN ('CANCEL','BOTH') AND tenant_id = ? ORDER BY id");
+        $cancelReasonsStmt->execute([currentTenantId()]);
+        $cancelReasons = $cancelReasonsStmt->fetchAll();
+      ?>
       <form method="post" action="order_cancel.php" style="display:flex;gap:6px;align-items:center;" onsubmit="return confirm('Hủy đơn hàng này? Tồn kho sẽ được hoàn lại.');">
         <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
         <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">

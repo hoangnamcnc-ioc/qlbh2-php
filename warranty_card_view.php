@@ -15,9 +15,9 @@ $stmt = $pdo->prepare(
      LEFT JOIN warranty_policies pol ON pol.id = w.policy_id
      JOIN order_items oi ON oi.id = w.order_item_id
      JOIN orders o ON o.id = oi.order_id
-     WHERE w.id = ?'
+     WHERE w.id = ? AND p.tenant_id = ?'
 );
-$stmt->execute([$id]);
+$stmt->execute([$id, currentTenantId()]);
 $card = $stmt->fetch();
 if (!$card) redirect('warranty_cards.php');
 

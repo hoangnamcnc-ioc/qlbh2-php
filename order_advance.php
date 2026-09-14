@@ -10,8 +10,10 @@ $pdo = db();
 $orderId = (int) ($_POST['order_id'] ?? 0);
 $pipeline = ['DRAFT', 'APPROVED', 'PACKED', 'SHIPPED', 'COMPLETED'];
 
-$stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
-$stmt->execute([$orderId]);
+$stmt = $pdo->prepare(
+    'SELECT o.* FROM orders o JOIN branches b ON b.id = o.branch_id WHERE o.id = ? AND b.tenant_id = ?'
+);
+$stmt->execute([$orderId, currentTenantId()]);
 $order = $stmt->fetch();
 
 if ($order) {

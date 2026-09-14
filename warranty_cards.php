@@ -3,14 +3,17 @@ require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
 $created = $_GET['created'] ?? null;
-$cards = $pdo->query(
+$cardsStmt = $pdo->prepare(
     'SELECT w.*, p.name AS product_name, c.name AS customer_name, pol.name AS policy_name
      FROM warranty_cards w
      JOIN products p ON p.id = w.product_id
      LEFT JOIN customers c ON c.id = w.customer_id
      LEFT JOIN warranty_policies pol ON pol.id = w.policy_id
+     WHERE p.tenant_id = ?
      ORDER BY w.created_at DESC LIMIT 100'
-)->fetchAll();
+);
+$cardsStmt->execute([currentTenantId()]);
+$cards = $cardsStmt->fetchAll();
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">

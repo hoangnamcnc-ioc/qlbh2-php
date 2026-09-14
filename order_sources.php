@@ -4,6 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
-        $pdo->prepare('UPDATE order_sources SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
+        $pdo->prepare('UPDATE order_sources SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('ORDER_SOURCE_TOGGLE', 'id=' . $id);
         redirect('order_sources.php');
     } else {
@@ -20,17 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $error = 'Vui lòng nhập tên nguồn bán hàng';
         } else {
-            $pdo->prepare('INSERT INTO order_sources (name) VALUES (?)')->execute([$name]);
+            $pdo->prepare('INSERT INTO order_sources (name, tenant_id) VALUES (?, ?)')->execute([$name, $tenantId]);
             logActivity('ORDER_SOURCE_CREATE', $name);
             redirect('order_sources.php');
         }
     }
 }
 
-$sources = $pdo->query(
+$sourcesStmt = $pdo->prepare(
     'SELECT os.*, (SELECT COUNT(*) FROM orders o WHERE o.source_id = os.id) AS order_count
-     FROM order_sources os ORDER BY os.id'
-)->fetchAll();
+     FROM order_sources os WHERE os.tenant_id = ? ORDER BY os.id'
+);
+$sourcesStmt->execute([$tenantId]);
+$sources = $sourcesStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

@@ -4,14 +4,21 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
+$tenantId = currentTenantId();
 $id = (int) ($_GET['id'] ?? 0);
-$stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
-$stmt->execute([$id]);
+$stmt = $pdo->prepare(
+    'SELECT o.* FROM orders o JOIN branches b ON b.id = o.branch_id WHERE o.id = ? AND b.tenant_id = ?'
+);
+$stmt->execute([$id, $tenantId]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
 
-$channels = $pdo->query('SELECT * FROM sales_channels WHERE is_active = 1 ORDER BY name')->fetchAll();
-$sources = $pdo->query('SELECT * FROM order_sources WHERE is_active = 1 ORDER BY name')->fetchAll();
+$channelsStmt = $pdo->prepare('SELECT * FROM sales_channels WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$channelsStmt->execute([$tenantId]);
+$channels = $channelsStmt->fetchAll();
+$sourcesStmt = $pdo->prepare('SELECT * FROM order_sources WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
+$sourcesStmt->execute([$tenantId]);
+$sources = $sourcesStmt->fetchAll();
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

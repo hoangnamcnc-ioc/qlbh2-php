@@ -4,17 +4,25 @@ require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireLogin();
 
 $pdo = db();
+$tenantId = currentTenantId();
 $error = null;
 $order = null;
 $items = [];
-$policies = $pdo->query('SELECT * FROM warranty_policies ORDER BY name')->fetchAll();
+$policiesStmt = $pdo->prepare('SELECT * FROM warranty_policies WHERE tenant_id = ? ORDER BY name');
+$policiesStmt->execute([$tenantId]);
+$policies = $policiesStmt->fetchAll();
 
 $q = trim($_GET['q'] ?? '');
 if ($q !== '') {
+    // Loc theo tenant qua JOIN branches - tranh doan ma don hang cua tenant khac de xem/tao
+    // phieu bao hanh gia mao gan voi don hang khong thuoc tenant minh.
     $stmt = $pdo->prepare(
-        'SELECT o.*, c.name AS customer_name FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.code = ?'
+        'SELECT o.*, c.name AS customer_name FROM orders o
+         JOIN branches b ON b.id = o.branch_id
+         LEFT JOIN customers c ON c.id = o.customer_id
+         WHERE o.code = ? AND b.tenant_id = ?'
     );
-    $stmt->execute([$q]);
+    $stmt->execute([$q, $tenantId]);
     $order = $stmt->fetch();
     if (!$order) {
         $error = 'Không tìm thấy đơn hàng với mã "' . $q . '"';
@@ -36,9 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $policyId = (int) ($_POST['policy_id'] ?? 0) ?: null;
 
     $stmt = $pdo->prepare(
-        'SELECT oi.*, o.customer_id FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = ?'
+        'SELECT oi.*, o.customer_id FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         JOIN branches b ON b.id = o.branch_id
+         WHERE oi.id = ? AND b.tenant_id = ?'
     );
-    $stmt->execute([$orderItemId]);
+    $stmt->execute([$orderItemId, $tenantId]);
     $item = $stmt->fetch();
 
     if (!$item) {
@@ -46,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $duration = 12;
         if ($policyId) {
-            $p = $pdo->prepare('SELECT duration_months FROM warranty_policies WHERE id = ?');
-            $p->execute([$policyId]);
+            $p = $pdo->prepare('SELECT duration_months FROM warranty_policies WHERE id = ? AND tenant_id = ?');
+            $p->execute([$policyId, $tenantId]);
             $duration = (int) ($p->fetchColumn() ?: 12);
         }
         $startDate = date('Y-m-d');
