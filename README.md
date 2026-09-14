@@ -1724,3 +1724,24 @@ yêu cầu gia hạn — trước đó chỉ có link ra trang liên hệ chung 
 Đã test trên production: đăng ký 1 tenant thật qua `dang-ky.php`, xác nhận `trial_ends_at` đúng
 +12 tháng (2026 → 2027, không phải +14 ngày); gửi form `gia_han.php`, xác nhận lưu đúng 1 dòng vào
 `renewal_requests` với đầy đủ thông tin. Đã dọn sạch dữ liệu test.
+
+## Multi-tenant: hỏi rõ khi bấm "Dùng thử" nhưng trình duyệt đang có sẵn phiên đăng nhập
+
+Người dùng (chính chủ hệ thống) phản ánh: bấm "Dùng thử QLBH2 12 tháng" trên kt-soft.vn thì vào
+thẳng tài khoản admin chủ của mình, không thấy trang đăng ký/đăng nhập. Nguyên nhân: `dang-ky.php`
+có logic cũ — nếu trình duyệt đang có phiên đăng nhập còn hiệu lực (`currentUser()` trả về khác
+null) thì tự động `redirect('index.php')` luôn, để tránh bắt người dùng đã có tài khoản đăng ký
+lại. Đúng ý đồ thiết kế ban đầu, nhưng gây nhầm lẫn — người bấm không biết vì sao "biến mất" trang
+đăng ký, tưởng là lỗi.
+
+Đã sửa: khi phát hiện đang có phiên đăng nhập, không tự động chuyển hướng nữa mà hiện màn hình hỏi
+rõ — "Bạn đang đăng nhập tài khoản `<email>`... tiếp tục vào hệ thống hay đăng ký tài khoản mới?"
+với 2 nút:
+- **Tiếp tục vào hệ thống** → `index.php` (giữ nguyên hành vi cũ cho người thật sự đã có tài
+  khoản).
+- **Đăng ký tài khoản mới** → `dang-ky.php?new=1`, bỏ qua bước hỏi và hiện thẳng form đăng ký —
+  luồng tạo tenant mới + tự động đăng nhập tài khoản vừa tạo giữ nguyên như cũ (ghi đè session).
+
+Đã test trên production: đăng nhập 1 tài khoản test, xác nhận `dang-ky.php` hiện đúng màn hình hỏi
+với email chính xác của tài khoản đang đăng nhập; `dang-ky.php?new=1` hiện đúng form đăng ký bình
+thường. Đã dọn sạch dữ liệu test.
