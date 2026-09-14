@@ -1424,3 +1424,40 @@ thao tác đồng thời trên cùng 1 dòng tồn kho.
   → HTTP 403 "Bạn không có quyền xem đơn hàng của chi nhánh khác"; mở đơn chi nhánh A → xem bình
   thường; `inventory.php` không hiện dropdown chọn chi nhánh (so với ADMIN vẫn hiện đầy đủ). Đã xóa
   sạch tài khoản, chi nhánh và đơn hàng test.
+
+## Vòng rà soát module Tổng quan (Dashboard) (đối chiếu trang chủ thực tế của Sapo)
+
+Đối chiếu `index.php` với trang chủ Sapo (suabotauo.mysapogo.com) — phát hiện 1 gap bảo mật cùng
+loại với các trang đã sửa ở vòng trước (CASHIER lộ dữ liệu chi nhánh khác), cộng 3 chỉ số Sapo có mà
+QLBH2 thiếu hoàn toàn:
+
+1. **Không lọc theo chi nhánh** — Sapo có dropdown "Tất cả chi nhánh" trên trang chủ và mọi chỉ số
+   đều tôn trọng lựa chọn này; `index.php` của QLBH2 tính toán trên **toàn bộ** đơn hàng/tồn kho của
+   mọi chi nhánh, kể cả khi người xem là CASHIER chỉ được gán 1 chi nhánh — lộ y hệt vấn đề đã sửa ở
+   `orders.php`/`shipments.php`/`inventory.php` nhưng bị bỏ sót ở trang chủ.
+2. **Thiếu "Đơn trả hàng"** trong nhóm 4 chỉ số trong ngày (Sapo có, QLBH2 chỉ có Doanh thu/Đơn
+   mới/Đơn hủy).
+3. **Thiếu "Giá trị tồn kho"** — QLBH2 chỉ hiện tổng số lượng tồn, không hiện giá trị tồn kho theo
+   giá vốn (Sapo hiện cả 2: "Số tồn kho chi nhánh" và "Giá trị tồn kho chi nhánh").
+4. **Thiếu "Top sản phẩm bán chạy"** — mục hoàn toàn không tồn tại trong QLBH2, trong khi đây là 1
+   trong 5 khối chính của trang chủ Sapo.
+
+Đã bổ sung vào `index.php`:
+- Dropdown chọn chi nhánh (chỉ ADMIN/MANAGER thấy, giống mẫu đã dùng ở `inventory.php`); CASHIER tự
+  động khóa theo `effectiveBranchId($currentUser)`, không có dropdown. Toàn bộ query (doanh thu, đơn
+  mới, đơn hủy, đơn trả, tồn kho, biểu đồ 7 ngày, đơn chờ xử lý, top sản phẩm) đều lọc theo chi nhánh
+  đã chọn.
+- Ô "Đơn trả hàng" (đếm từ `order_returns` join `orders` theo ngày).
+- Ô "Giá trị tồn kho" (`SUM(inventory.quantity * products.cost_price)`), đặt cạnh "Số tồn kho".
+- Ô "Chờ thanh toán" trong khối "Đơn hàng cần xử lý" (đơn `payment_status != 'PAID'`, chưa hủy/chưa
+  ở trạng thái nháp) — tương đương ý nghĩa "Chờ thanh toán" của Sapo dù pipeline trạng thái đơn của 2
+  phần mềm không giống hệt nhau.
+- Bảng "Top sản phẩm bán chạy (7 ngày qua)" — top 5 theo doanh thu, từ `order_items`.
+
+Đã test trên app.kt-soft.vn: tạo 2 chi nhánh + 1 sản phẩm với tồn kho khác nhau ở mỗi chi nhánh
+(10 và 20, giá vốn 50.000đ) + 1 đơn hàng thanh toán 1 phần (PARTIAL) ở chi nhánh A → xem "Tất cả chi
+nhánh" ra đúng tổng (30 SL, 1.500.000đ giá trị); lọc riêng chi nhánh A ra đúng (10 SL, 500.000đ, có
+doanh thu 80.000đ); lọc chi nhánh B ra đúng (20 SL, 1.000.000đ, doanh thu 0); ô "Chờ thanh toán" đếm
+đúng 1; "Top sản phẩm bán chạy" hiện đúng sản phẩm/số lượng/doanh thu. Đăng nhập bằng tài khoản
+CASHIER test gắn chi nhánh A → không thấy dropdown chọn chi nhánh, số liệu tự động đúng bằng số của
+chi nhánh A (không lộ tổng công ty). Đã xóa sạch chi nhánh, sản phẩm, đơn hàng, tài khoản test.
