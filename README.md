@@ -1631,3 +1631,31 @@ trước khi bị khóa.
 còn 2 ngày hiện đúng banner đỏ "còn 2 ngày"; tenant còn 10 ngày hiện đúng banner xanh "còn 10 ngày"
 kèm link nâng cấp; tài khoản chủ sở hữu (gói PAID) không hiện banner nào. Đã dọn sạch 2 tenant test
 sau khi xác nhận.
+
+## Multi-tenant: vá lỗ hổng "Sao lưu dữ liệu" rò rỉ xuyên tenant + thêm "Xuất dữ liệu của tôi"
+
+Khi trả lời câu hỏi "người dùng có backup dữ liệu về máy được không", rà lại `backup.php` phát hiện
+lỗ hổng nghiêm trọng: hàm `createBackup()` dump **toàn bộ database** (mọi bảng, mọi tenant) thành 1
+file `.sql.gz` dùng chung trên server, còn `backup.php`/`backup_download.php` chỉ kiểm tra
+`requireRole('ADMIN')` — nghĩa là **bất kỳ tenant nào** (kể cả tài khoản tự đăng ký dùng thử) cũng
+tạo và tải được file chứa dữ liệu của **mọi khách hàng khác** trên hệ thống.
+
+Đã sửa:
+- `backup.php`, `backup_download.php`: đổi từ `requireRole('ADMIN')` sang `requireSuperAdmin()` —
+  chỉ ADMIN của tenant #1 (chủ hệ thống KT-SOFT) mới dùng được, đúng bản chất là công cụ vận hành
+  nền tảng chứ không phải tính năng cho từng cửa hàng.
+- `tenant_export.php` (file mới): cho phép ADMIN của **từng tenant** tự tải về đúng dữ liệu của
+  cửa hàng mình (sản phẩm, khách hàng, đơn hàng, tồn kho, kiểm/chuyển hàng, nhập hàng, bảo hành,
+  sổ quỹ, sổ quỹ, hoạt động...) thành file `.sql.gz`. Khác với `backup.php` cũ, file được sinh và
+  trả về trực tiếp trong 1 request (không lưu trên server) — tránh lặp lại kiểu rò rỉ "file dùng
+  chung" như lỗ hổng vừa vá. Lọc theo tenant dùng đúng 2 tầng đã áp dụng xuyên suốt dự án: bảng có
+  `tenant_id` lọc trực tiếp, bảng có `branch_id` lọc qua `branches.tenant_id`, bảng con lọc qua
+  chuỗi khóa ngoại về bảng cha đã được lọc đúng tenant.
+- `inc_header.php`: đổi mục menu "Sao lưu dữ liệu" (nhóm Cấu hình) thành "Xuất dữ liệu của tôi" cho
+  mọi ADMIN; riêng ADMIN của tenant #1 mới thấy thêm mục "Sao lưu dữ liệu (toàn hệ thống)".
+
+Đã test trên app.kt-soft.vn: tạo 1 tenant test có 1 chi nhánh, 1 tài khoản ADMIN, 1 sản phẩm →
+đăng nhập bằng tài khoản này, gọi `backup.php` xác nhận trả về đúng HTTP 403; gọi
+`tenant_export.php` xác nhận file tải về chỉ có đúng 4 dòng `INSERT` (tenant/branch/user/product
+của chính tenant đó), grep toàn bộ file không thấy id của bất kỳ tenant nào khác. Đã dọn sạch dữ
+liệu test.
