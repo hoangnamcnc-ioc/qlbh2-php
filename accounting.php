@@ -30,11 +30,15 @@ const TY_LE_TNCN_HANG_HOA = 0.005;
 $nam = $_GET['nam'] ?? date('Y');
 if (!preg_match('/^\d{4}$/', $nam)) $nam = date('Y');
 
+$tenantId = currentTenantId();
+
 $rows = $pdo->prepare(
-    "SELECT MONTH(created_at) AS thang, COALESCE(SUM(total_amount),0) AS doanh_thu
-     FROM orders WHERE YEAR(created_at) = ? AND status != 'CANCELLED' GROUP BY MONTH(created_at)"
+    "SELECT MONTH(o.created_at) AS thang, COALESCE(SUM(o.total_amount),0) AS doanh_thu
+     FROM orders o JOIN branches b ON b.id = o.branch_id
+     WHERE YEAR(o.created_at) = ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     GROUP BY MONTH(o.created_at)"
 );
-$rows->execute([$nam]);
+$rows->execute([$nam, $tenantId]);
 $byMonth = array_fill(1, 12, 0.0);
 foreach ($rows->fetchAll() as $r) {
     $byMonth[(int) $r['thang']] = (float) $r['doanh_thu'];
@@ -64,13 +68,14 @@ $soRows = $pdo->prepare(
             COALESCE(cat.name, 'Chưa phân loại') AS nhom, oi.line_total
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
+     JOIN branches b ON b.id = o.branch_id
      LEFT JOIN customers c ON c.id = o.customer_id
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN categories cat ON cat.id = p.category_id
-     WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'CANCELLED'
+     WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
      ORDER BY cat.name, o.created_at"
 );
-$soRows->execute([$tuNgay, $denNgay]);
+$soRows->execute([$tuNgay, $denNgay, $tenantId]);
 $nhomMap = [];
 foreach ($soRows->fetchAll() as $r) {
     $nhomMap[$r['nhom']][] = $r;
