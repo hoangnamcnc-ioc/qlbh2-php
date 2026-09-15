@@ -58,10 +58,21 @@ if ($vuotNguong) {
     }
 }
 
-// Sổ doanh thu theo mẫu S1a-HKD / S2a-HKD (Thông tư 152/2025/TT-BTC)
+// Nhom nop thue khi da vuot nguong (chi ho kinh doanh tu chon, phan mem khong the tu suy ra):
+//   Nhom 2: GTGT + TNCN deu tinh theo ty le (%) tren doanh thu -> dung mau S2a-HKD.
+//   Nhom 3: GTGT theo ty le (%) nhung TNCN tinh theo thu nhap (doanh thu - chi phi duoc tru)
+//   -> dung mau S2b-HKD (so doanh thu) + S2c-HKD (doanh thu, chi phi) + S2d-HKD (vat lieu, hang
+//   hoa) + S2e-HKD (so tien), theo dung huong dan tai Thong tu 152/2025/TT-BTC.
+if (isset($_GET['nhom']) && in_array($_GET['nhom'], ['2', '3'], true)) {
+    setSetting('accounting_tax_group', $_GET['nhom']);
+}
+$nhomThue = getSetting('accounting_tax_group', '2') === '3' ? '3' : '2';
+
+// Sổ doanh thu theo mẫu S1a-HKD / S2a-HKD / S2b-HKD (Thông tư 152/2025/TT-BTC)
 $tuNgay = $_GET['tu'] ?? date('Y-m-01');
 $denNgay = $_GET['den'] ?? date('Y-m-d');
-$mauSo = $vuotNguong ? 'S2a-HKD' : 'S1a-HKD';
+$mauSo = !$vuotNguong ? 'S1a-HKD' : ($nhomThue === '3' ? 'S2b-HKD' : 'S2a-HKD');
+$hienCotThue = $vuotNguong && $nhomThue === '2';
 
 $soRows = $pdo->prepare(
     "SELECT o.code, DATE(o.created_at) AS ngay, c.name AS khach_hang,
@@ -150,13 +161,35 @@ require_once __DIR__ . '/inc_header.php';
   </table>
 </div>
 
+<?php if ($vuotNguong): ?>
+<div class="card" style="margin-bottom:24px;max-width:640px;">
+  <h2 style="font-size:15px;font-weight:600;margin:0 0 8px;">Nhóm nộp thuế</h2>
+  <p class="muted" style="font-size:13px;margin:0 0 12px;">
+    Đã vượt ngưỡng miễn thuế nên cần chọn đúng nhóm đang đăng ký với cơ quan thuế — quyết định sổ
+    sách nào phải lập theo Thông tư 152/2025/TT-BTC. Phần mềm không tự suy ra được nhóm này.
+  </p>
+  <form method="get" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+    <input type="hidden" name="nam" value="<?= e($nam) ?>">
+    <input type="hidden" name="tu" value="<?= e($tuNgay) ?>">
+    <input type="hidden" name="den" value="<?= e($denNgay) ?>">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:normal;">
+      <input type="radio" name="nhom" value="2" <?= $nhomThue === '2' ? 'checked' : '' ?> onchange="this.form.submit()"> Nhóm 2 — GTGT &amp; TNCN đều theo tỷ lệ (%) trên doanh thu
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:normal;">
+      <input type="radio" name="nhom" value="3" <?= $nhomThue === '3' ? 'checked' : '' ?> onchange="this.form.submit()"> Nhóm 3 — GTGT theo tỷ lệ, TNCN theo thu nhập (doanh thu trừ chi phí)
+    </label>
+  </form>
+</div>
+<?php endif; ?>
+
 <div class="card" style="margin-bottom:24px;">
   <h2 style="font-size:15px;font-weight:600;margin:0 0 4px;">Sổ doanh thu bán hàng hóa, dịch vụ</h2>
   <p class="muted" style="font-size:13px;margin:0 0 12px;">
-    Theo mẫu <b><?= e($mauSo) ?></b> (Thông tư 152/2025/TT-BTC) — <?= $vuotNguong ? 'doanh thu năm trên ngưỡng miễn thuế nên dùng mẫu có cột thuế theo từng nhóm ngành hàng; cột thuế để trống, tự điền theo hướng dẫn cơ quan thuế/kế toán viên.' : 'doanh thu năm dưới ngưỡng miễn thuế nên dùng mẫu đơn giản, không có cột thuế.' ?>
+    Theo mẫu <b><?= e($mauSo) ?></b> (Thông tư 152/2025/TT-BTC) — <?= !$vuotNguong ? 'doanh thu năm dưới ngưỡng miễn thuế nên dùng mẫu đơn giản, không có cột thuế.' : ($nhomThue === '3' ? 'nhóm 3 chỉ ghi doanh thu theo nhóm ngành hàng, không ước tính cột thuế (xem thêm Sổ doanh thu, chi phí bên dưới để xác định thu nhập tính thuế).' : 'doanh thu năm trên ngưỡng miễn thuế nên dùng mẫu có cột thuế theo từng nhóm ngành hàng; cột thuế để trống, tự điền theo hướng dẫn cơ quan thuế/kế toán viên.') ?>
   </p>
   <form method="get" style="display:flex;gap:8px;align-items:end;margin-bottom:16px;">
     <input type="hidden" name="nam" value="<?= e($nam) ?>">
+    <input type="hidden" name="nhom" value="<?= e($nhomThue) ?>">
     <div><label style="display:block;font-size:12px;margin-bottom:2px;">Từ ngày</label><input type="date" name="tu" value="<?= e($tuNgay) ?>" class="input"></div>
     <div><label style="display:block;font-size:12px;margin-bottom:2px;">Đến ngày</label><input type="date" name="den" value="<?= e($denNgay) ?>" class="input"></div>
     <button type="submit" class="btn btn-secondary">Xem sổ</button>
@@ -169,7 +202,7 @@ require_once __DIR__ . '/inc_header.php';
     <h3 style="font-size:13px;font-weight:600;margin:16px 0 6px;"><?= e($tenNhom) ?></h3>
     <div class="card" style="padding:0;overflow-x:auto;margin-bottom:8px;">
       <table>
-        <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Số tiền</th><?php if ($vuotNguong): ?><th class="text-right">Thuế GTGT</th><th class="text-right">Thuế TNCN</th><?php endif; ?></tr></thead>
+        <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Số tiền</th><?php if ($hienCotThue): ?><th class="text-right">Thuế GTGT</th><th class="text-right">Thuế TNCN</th><?php endif; ?></tr></thead>
         <tbody>
           <?php $tongNhom = 0; ?>
           <?php foreach ($dong as $d): $tongNhom += (float) $d['line_total']; ?>
@@ -178,10 +211,10 @@ require_once __DIR__ . '/inc_header.php';
               <td class="muted"><?= date('d/m/Y', strtotime($d['ngay'])) ?></td>
               <td>Bán hàng hóa, dịch vụ<?= $d['khach_hang'] ? ' - ' . e($d['khach_hang']) : ' - Khách lẻ' ?></td>
               <td class="text-right"><?= money($d['line_total']) ?></td>
-              <?php if ($vuotNguong): ?><td></td><td></td><?php endif; ?>
+              <?php if ($hienCotThue): ?><td></td><td></td><?php endif; ?>
             </tr>
           <?php endforeach; ?>
-          <tr style="border-top:1px solid #e2e8f0;"><td colspan="3" style="font-weight:700;">Tổng cộng nhóm</td><td class="text-right" style="font-weight:700;"><?= money($tongNhom) ?></td><?php if ($vuotNguong): ?><td></td><td></td><?php endif; ?></tr>
+          <tr style="border-top:1px solid #e2e8f0;"><td colspan="3" style="font-weight:700;">Tổng cộng nhóm</td><td class="text-right" style="font-weight:700;"><?= money($tongNhom) ?></td><?php if ($hienCotThue): ?><td></td><td></td><?php endif; ?></tr>
         </tbody>
       </table>
     </div>
@@ -189,6 +222,168 @@ require_once __DIR__ . '/inc_header.php';
   <?php if ($nhomMap): ?>
     <p style="text-align:right;font-weight:700;font-size:15px;color:#2563eb;margin-top:8px;">Tổng tất cả nhóm: <?= money($tongTatCa) ?></p>
   <?php endif; ?>
+</div>
+
+<?php if ($vuotNguong && $nhomThue === '3'):
+    // --- S2c-HKD: So doanh thu, chi phi ---
+    $chiPhiRows = $pdo->prepare(
+        "SELECT ce.code, DATE(ce.created_at) AS ngay, ce.reason, ce.amount
+         FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+         WHERE ce.type = 'PAYMENT' AND ce.auto_generated = 0
+           AND DATE(ce.created_at) BETWEEN ? AND ? AND b.tenant_id = ?
+         ORDER BY ce.created_at"
+    );
+    $chiPhiRows->execute([$tuNgay, $denNgay, $tenantId]);
+    $chiPhiRows = $chiPhiRows->fetchAll();
+    $tongChiPhi = array_sum(array_column($chiPhiRows, 'amount'));
+
+    // --- S2d-HKD: So chi tiet vat lieu, dung cu, san pham, hang hoa (nhap - xuat - ton) ---
+    $nhapRows = $pdo->prepare(
+        "SELECT p.name, p.sku, SUM(sri.quantity) AS qty
+         FROM stock_receipt_items sri
+         JOIN stock_receipts sr ON sr.id = sri.receipt_id
+         JOIN branches b ON b.id = sr.branch_id
+         JOIN products p ON p.id = sri.product_id
+         WHERE DATE(sr.created_at) BETWEEN ? AND ? AND b.tenant_id = ?
+         GROUP BY sri.product_id"
+    );
+    $nhapRows->execute([$tuNgay, $denNgay, $tenantId]);
+    $nhapMap = [];
+    foreach ($nhapRows->fetchAll() as $r) $nhapMap[$r['name'] . '|' . $r['sku']] = (float) $r['qty'];
+
+    $xuatRows = $pdo->prepare(
+        "SELECT p.name, p.sku, SUM(oi.quantity) AS qty
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         JOIN branches b ON b.id = o.branch_id
+         JOIN products p ON p.id = oi.product_id
+         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+         GROUP BY oi.product_id"
+    );
+    $xuatRows->execute([$tuNgay, $denNgay, $tenantId]);
+    $xuatMap = [];
+    foreach ($xuatRows->fetchAll() as $r) $xuatMap[$r['name'] . '|' . $r['sku']] = (float) $r['qty'];
+
+    $tonRows = $pdo->prepare(
+        "SELECT p.name, p.sku, SUM(i.quantity) AS qty
+         FROM inventory i
+         JOIN branches b ON b.id = i.branch_id
+         JOIN products p ON p.id = i.product_id
+         WHERE b.tenant_id = ?
+         GROUP BY i.product_id"
+    );
+    $tonRows->execute([$tenantId]);
+    $tonMap = [];
+    foreach ($tonRows->fetchAll() as $r) $tonMap[$r['name'] . '|' . $r['sku']] = (float) $r['qty'];
+
+    $s2dKeys = array_unique(array_merge(array_keys($nhapMap), array_keys($xuatMap), array_keys($tonMap)));
+    sort($s2dKeys);
+
+    // --- S2e-HKD: So chi tiet tien (thu - chi trong ky, so du cong don tu dau ky) ---
+    $tienRows = $pdo->prepare(
+        "SELECT ce.code, DATE(ce.created_at) AS ngay, ce.reason, ce.type, ce.amount, ce.payment_method
+         FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+         WHERE DATE(ce.created_at) BETWEEN ? AND ? AND b.tenant_id = ?
+         ORDER BY ce.created_at"
+    );
+    $tienRows->execute([$tuNgay, $denNgay, $tenantId]);
+    $tienRows = $tienRows->fetchAll();
+?>
+<div class="card" style="margin-bottom:24px;">
+  <h2 style="font-size:15px;font-weight:600;margin:0 0 4px;">Sổ doanh thu, chi phí</h2>
+  <p class="muted" style="font-size:13px;margin:0 0 12px;">
+    Theo mẫu <b>S2c-HKD</b> — làm căn cứ xác định thu nhập tính thuế TNCN. Chi phí lấy từ các
+    khoản chi tay trong Sổ quỹ (không gồm chi tự động do bán hàng/nhập hàng sinh ra) — vui lòng
+    đối chiếu, bổ sung các chi phí hợp lý khác (nếu có) trước khi kê khai.
+  </p>
+  <table>
+    <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Số tiền</th></tr></thead>
+    <tbody>
+      <?php if (!$chiPhiRows): ?><tr><td colspan="4" class="muted">Không có khoản chi nào trong kỳ.</td></tr><?php endif; ?>
+      <?php foreach ($chiPhiRows as $r): ?>
+        <tr>
+          <td class="muted" style="font-family:monospace;"><?= e($r['code']) ?></td>
+          <td class="muted"><?= date('d/m/Y', strtotime($r['ngay'])) ?></td>
+          <td><?= e($r['reason']) ?></td>
+          <td class="text-right"><?= money($r['amount']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+  <table style="margin-top:12px;">
+    <tbody>
+      <tr><td>Tổng doanh thu trong kỳ</td><td class="text-right" style="font-weight:700;"><?= money($tongTatCa) ?></td></tr>
+      <tr><td>Tổng chi phí trong kỳ</td><td class="text-right" style="font-weight:700;"><?= money($tongChiPhi) ?></td></tr>
+      <tr style="border-top:1px solid #e2e8f0;"><td style="font-weight:700;padding-top:8px;">Thu nhập tính thuế tạm tính</td><td class="text-right" style="font-weight:700;color:#2563eb;padding-top:8px;"><?= money($tongTatCa - $tongChiPhi) ?></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-bottom:24px;padding:0;overflow-x:auto;">
+  <div style="padding:16px 16px 0;">
+    <h2 style="font-size:15px;font-weight:600;margin:0 0 4px;">Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa</h2>
+    <p class="muted" style="font-size:13px;margin:0 0 12px;">
+      Theo mẫu <b>S2d-HKD</b> — nhập/xuất theo khoảng ngày đã chọn ở trên; tồn là số tồn kho hiện
+      tại tại thời điểm xem trang (không phải tồn cuối ngày <?= e($denNgay) ?>).
+    </p>
+  </div>
+  <table>
+    <thead><tr><th>Sản phẩm</th><th>SKU</th><th class="text-right">Nhập trong kỳ</th><th class="text-right">Xuất trong kỳ</th><th class="text-right">Tồn hiện tại</th></tr></thead>
+    <tbody>
+      <?php if (!$s2dKeys): ?><tr><td colspan="5" class="muted">Không có dữ liệu.</td></tr><?php endif; ?>
+      <?php foreach ($s2dKeys as $key): [$ten, $sku] = explode('|', $key, 2); ?>
+        <tr>
+          <td><?= e($ten) ?></td>
+          <td class="muted" style="font-family:monospace;"><?= e($sku) ?></td>
+          <td class="text-right"><?= fmtQty($nhapMap[$key] ?? 0) ?></td>
+          <td class="text-right"><?= fmtQty($xuatMap[$key] ?? 0) ?></td>
+          <td class="text-right"><?= fmtQty($tonMap[$key] ?? 0) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-bottom:24px;padding:0;overflow-x:auto;">
+  <div style="padding:16px 16px 0;">
+    <h2 style="font-size:15px;font-weight:600;margin:0 0 4px;">Sổ chi tiết tiền</h2>
+    <p class="muted" style="font-size:13px;margin:0 0 12px;">
+      Theo mẫu <b>S2e-HKD</b> — theo dõi thu/chi tiền mặt và chuyển khoản. Số dư cộng dồn tính từ
+      đầu khoảng ngày đã chọn (<?= date('d/m/Y', strtotime($tuNgay)) ?>), không phải số dư tuyệt
+      đối từ lúc bắt đầu kinh doanh.
+    </p>
+  </div>
+  <table>
+    <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Thu</th><th class="text-right">Chi</th><th class="text-right">Số dư</th></tr></thead>
+    <tbody>
+      <?php if (!$tienRows): ?><tr><td colspan="6" class="muted">Không có phát sinh nào trong kỳ.</td></tr><?php endif; ?>
+      <?php $soDu = 0; foreach ($tienRows as $r): $amt = (float) $r['amount']; $soDu += $r['type'] === 'RECEIPT' ? $amt : -$amt; ?>
+        <tr>
+          <td class="muted" style="font-family:monospace;"><?= e($r['code']) ?></td>
+          <td class="muted"><?= date('d/m/Y', strtotime($r['ngay'])) ?></td>
+          <td><?= e($r['reason']) ?> <span class="muted">(<?= e($r['payment_method']) ?>)</span></td>
+          <td class="text-right"><?= $r['type'] === 'RECEIPT' ? money($amt) : '' ?></td>
+          <td class="text-right"><?= $r['type'] === 'PAYMENT' ? money($amt) : '' ?></td>
+          <td class="text-right" style="font-weight:600;"><?= money($soDu) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
+
+<div class="card" style="margin-bottom:24px;max-width:640px;">
+  <h2 style="font-size:15px;font-weight:600;margin:0 0 8px;">Sổ theo dõi nghĩa vụ thuế khác</h2>
+  <p style="margin:0 0 8px;font-size:14px;">
+    Theo mẫu <b>S3a-HKD</b> — chỉ áp dụng nếu cửa hàng có hoạt động chịu các loại thuế khác: thuế
+    xuất/nhập khẩu, tiêu thụ đặc biệt, tài nguyên, bảo vệ môi trường, sử dụng đất...
+  </p>
+  <p class="muted" style="margin:0;font-size:13px;">
+    Phần lớn cửa hàng bán lẻ/tạp hóa thông thường <b>không phát sinh</b> các loại thuế này nên
+    không bắt buộc lập sổ. Nếu cửa hàng của bạn có hoạt động thuộc diện trên, vui lòng theo dõi
+    thủ công theo mẫu S3a-HKD hoặc liên hệ kế toán viên — phần mềm chưa có dữ liệu để tự động
+    tổng hợp mục này.
+  </p>
 </div>
 
 <div class="card" style="max-width:640px;">
