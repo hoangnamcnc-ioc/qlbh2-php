@@ -6,7 +6,7 @@ $currentUser = requireLogin();
 $isManagerUp = hasRole('ADMIN', 'MANAGER');
 
 $navGroups = [
-    'Tổng quan' => ['index.php' => 'Tổng quan'],
+    'Tổng quan' => ['index.php' => 'Tổng quan', 'huong_dan.php' => 'Hướng dẫn sử dụng'],
     'Bán hàng' => array_merge(
         [
             'pos.php' => 'Bán hàng (POS)',
