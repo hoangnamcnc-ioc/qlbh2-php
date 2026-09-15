@@ -13,8 +13,8 @@ if ($code === '') {
 }
 
 $pdo = db();
-$stmt = $pdo->prepare('SELECT * FROM coupons WHERE code = ?');
-$stmt->execute([$code]);
+$stmt = $pdo->prepare('SELECT * FROM coupons WHERE code = ? AND tenant_id = ?');
+$stmt->execute([$code, currentTenantId()]);
 $coupon = $stmt->fetch();
 
 if (!$coupon || !$coupon['is_active']) {

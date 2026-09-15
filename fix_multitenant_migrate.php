@@ -1,5 +1,14 @@
 <?php
 require_once __DIR__ . '/config.php';
+
+$lockFile = __DIR__ . '/fix_multitenant_migrate.lock';
+if (file_exists($lockFile)) {
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Da chay migrate multi-tenant truoc do roi (thay file fix_multitenant_migrate.lock). ";
+    echo "Neu that su can chay lai, xoa thu cong file lock nay tren server roi tai lai trang.\n";
+    exit;
+}
+
 $pdo = db();
 
 function colExists(PDO $pdo, string $table, string $col): bool
@@ -151,6 +160,7 @@ try {
     }
 
     echo "\n=== XONG. Toàn bộ dữ liệu hiện có thuộc tenant_id = 1 (KT-SOFT chủ sở hữu). ===\n";
+    file_put_contents($lockFile, date('c') . "\n");
 } catch (Throwable $e) {
     echo "\n!!! LỖI: " . $e->getMessage() . "\n";
 }
