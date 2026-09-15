@@ -83,20 +83,26 @@ try {
 
         // Xac nhan san pham thuc su thuoc tenant hien tai truoc khi ban - chan viec doan
         // product_id cua tenant khac de tao don hang/tru kho gia mao.
-        $typeStmt = $pdo->prepare('SELECT product_type FROM products WHERE id = ? AND tenant_id = ?');
+        $typeStmt = $pdo->prepare('SELECT product_type, cost_price FROM products WHERE id = ? AND tenant_id = ?');
         $typeStmt->execute([$productId, $tenantId]);
         $typeRow = $typeStmt->fetch();
         if (!$typeRow) {
             throw new RuntimeException('Sản phẩm không hợp lệ');
         }
         $productType = $typeRow['product_type'];
+        // Chot gia von TAI THOI DIEM BAN vao chinh dong don hang - tranh loi bao cao lai gop qua
+        // khu bi tinh lai sai moi khi gia nhap san pham thay doi sau nay (chi dung gia von hien
+        // tai lam fallback cho du lieu cu chua co cost_price rieng, xem fix_add_cost_price.php).
+        $costPrice = (float) $typeRow['cost_price'];
 
         if ($variantId) {
-            $ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
+            $ownVariant = $pdo->prepare('SELECT id, cost_price FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
             $ownVariant->execute([$variantId, $productId, $tenantId]);
-            if (!$ownVariant->fetch()) {
+            $variantRow = $ownVariant->fetch();
+            if (!$variantRow) {
                 throw new RuntimeException('Biến thể sản phẩm không hợp lệ');
             }
+            $costPrice = (float) $variantRow['cost_price'];
         }
 
         if ($productType === 'SERVICE') {
@@ -183,7 +189,7 @@ try {
 
         $lineTotal = $unitPrice * $quantity;
         $subTotal += $lineTotal;
-        $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal];
+        $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice];
     }
 
     // Chiết khấu đơn nhập tay (F6) tính trước, luôn giới hạn không vượt quá tổng tiền hàng
@@ -292,10 +298,10 @@ try {
         ->execute([$orderId, $initialStatus, $user['id']]);
 
     $itemStmt = $pdo->prepare(
-        'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)'
+        'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total, cost_price) VALUES (?,?,?,?,?,?,?)'
     );
-    foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal]) {
-        $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal]);
+    foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice]) {
+        $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice]);
     }
 
     if ($couponId) {

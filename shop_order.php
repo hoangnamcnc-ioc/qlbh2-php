@@ -52,7 +52,7 @@ try {
         if ($productId <= 0 || $qty <= 0) continue;
 
         $stmt = $pdo->prepare(
-            "SELECT p.id, p.name, p.sell_price, i.quantity AS stock, i.id AS inventory_id
+            "SELECT p.id, p.name, p.sell_price, p.cost_price, i.quantity AS stock, i.id AS inventory_id
              FROM products p
              LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
              WHERE p.id = ? AND p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'
@@ -70,7 +70,7 @@ try {
         $unitPrice = (float) $product['sell_price'];
         $lineTotal = $unitPrice * $qty;
         $subTotal += $lineTotal;
-        $lineData[] = [$productId, $qty, $unitPrice, $lineTotal, $product['inventory_id']];
+        $lineData[] = [$productId, $qty, $unitPrice, $lineTotal, $product['inventory_id'], (float) $product['cost_price']];
     }
 
     if (!$lineData) {
@@ -104,9 +104,9 @@ try {
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, "DRAFT", ?)')
         ->execute([$orderId, $systemUserId]);
 
-    $itemStmt = $pdo->prepare('INSERT INTO order_items (order_id, product_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?)');
-    foreach ($lineData as [$productId, $qty, $unitPrice, $lineTotal, $inventoryId]) {
-        $itemStmt->execute([$orderId, $productId, $qty, $unitPrice, $lineTotal]);
+    $itemStmt = $pdo->prepare('INSERT INTO order_items (order_id, product_id, quantity, unit_price, line_total, cost_price) VALUES (?,?,?,?,?,?)');
+    foreach ($lineData as [$productId, $qty, $unitPrice, $lineTotal, $inventoryId, $costPrice]) {
+        $itemStmt->execute([$orderId, $productId, $qty, $unitPrice, $lineTotal, $costPrice]);
         if ($inventoryId) {
             $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')->execute([$qty, $inventoryId]);
         }

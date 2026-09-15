@@ -280,6 +280,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   unit_price DECIMAL(14,2) NOT NULL,
   discount DECIMAL(14,2) NOT NULL DEFAULT 0,
   line_total DECIMAL(14,2) NOT NULL,
+  cost_price DECIMAL(14,2) NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id),
   FOREIGN KEY (variant_id) REFERENCES product_variants(id)

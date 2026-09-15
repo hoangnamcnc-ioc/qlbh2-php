@@ -162,6 +162,26 @@ if ($isManagerUp) {
   .text-right { text-align: right; }
   .text-center { text-align: center; }
   .muted { color: #94a3b8; }
+
+  /* Responsive - man hinh dien thoai */
+  .hamburger { display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #334155; padding: 4px 8px; margin-right: auto; }
+  .sidebar-overlay { display: none; }
+  @media (max-width: 860px) {
+    .layout { display: block; }
+    .hamburger { display: inline-block; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; z-index: 200; width: 250px;
+      transform: translateX(-100%); transition: transform .2s ease; overflow-y: auto;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.show { display: block; position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 150; }
+    .main { width: 100%; }
+    .topbar { flex-wrap: wrap; height: auto; min-height: 56px; padding: 10px 14px; gap: 8px; }
+    .content { padding: 14px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    table { display: block; overflow-x: auto; white-space: nowrap; }
+    .trial-banner { flex-wrap: wrap; padding: 8px 14px; }
+  }
 </style>
 </head>
 <body>
@@ -191,14 +211,20 @@ if ($isManagerUp) {
       <?php endif; ?>
     <?php endforeach; ?>
   </aside>
+  <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
   <script>
     function toggleGroup(el) {
       el.classList.toggle('open');
       el.nextElementSibling.classList.toggle('open');
     }
+    function toggleSidebar() {
+      document.querySelector('.sidebar').classList.toggle('open');
+      document.querySelector('.sidebar-overlay').classList.toggle('show');
+    }
   </script>
   <div class="main">
     <div class="topbar">
+      <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="Mở menu">☰</button>
       <span><?= e($currentUser['name']) ?> · <span class="muted"><?= e($currentUser['role']) ?></span></span>
       <a href="lock.php" style="color:#64748b;">🔒 Khóa màn hình</a>
       <a href="change_password.php" style="color:#64748b;">Đổi mật khẩu</a>

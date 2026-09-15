@@ -26,8 +26,11 @@ $stmt = $pdo->prepare(
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $salesSummary = $stmt->fetch();
 
+// Dung gia von da chot san TAI THOI DIEM BAN (oi.cost_price) thay vi gia von hien tai cua san
+// pham - tranh bao cao lai gop cua ky trong qua khu bi tinh lai moi khi gia nhap thay doi sau
+// nay. COALESCE ve gia hien tai chi la fallback cho don hang rat cu truoc khi co cot nay.
 $stmt = $pdo->prepare(
-    "SELECT COALESCE(SUM(oi.quantity * COALESCE(v.cost_price, p.cost_price)),0) AS total_cost
+    "SELECT COALESCE(SUM(oi.quantity * COALESCE(oi.cost_price, v.cost_price, p.cost_price)),0) AS total_cost
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
      JOIN branches b ON b.id = o.branch_id
