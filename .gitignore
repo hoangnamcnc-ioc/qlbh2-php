@@ -1,4 +1,5 @@
 config.php
 seed.lock
+fix_multitenant_migrate.lock
 *.log
 .DS_Store

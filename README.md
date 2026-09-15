@@ -1692,6 +1692,26 @@ dữ liệu test.
 xóa khỏi server production từ lúc chạy xong (trả về 404), chỉ còn lưu trong git để tham khảo, không
 phải rủi ro đang tồn tại.
 
+## Rà soát tổng thể lần 3 (sau khi đổi tên QLBH-CLOUD) — vá thêm 1 lỗ hổng coupon xuyên tenant
+
+Sau khi hoàn tất các tính năng dùng thử 12 tháng/gia hạn/đổi tên thương hiệu, người dùng yêu cầu rà
+soát tổng thể toàn bộ app một lần nữa. Quét có hệ thống ~134 file, tìm thêm:
+
+- **`coupon_check.php` (NGHIÊM TRỌNG)** — endpoint AJAX kiểm tra mã giảm giá khi bán hàng, trước đó
+  chỉ tra theo `code`, hoàn toàn không lọc `tenant_id` dù bảng `coupons` là bảng trực tiếp có
+  `tenant_id`. Bất kỳ tenant nào (kể cả tài khoản tự đăng ký dùng thử) đoán/thử đúng mã giảm giá
+  của tenant khác là áp dụng được, lộ luôn điều khoản khuyến mại (% giảm, đơn tối thiểu, hạn dùng,
+  số lượt còn lại) của tenant đó. Đã thêm `AND tenant_id = ?` dùng `currentTenantId()`.
+- **`fix_multitenant_migrate.php`** — script chạy DDL không yêu cầu đăng nhập, dù mỗi bước đã tự
+  bỏ qua nếu đã áp dụng (idempotent) nhưng vẫn có thể bị gọi lại bởi bất kỳ ai. Thêm cơ chế khóa
+  file (`fix_multitenant_migrate.lock`, theo đúng mẫu `seed.lock` của `seed.php`) — sau khi chạy
+  thành công 1 lần, các lần gọi sau chỉ trả về thông báo đã khóa.
+
+Đã test trên production bằng kịch bản tấn công thật: tạo tenant A (victim, có coupon `SECRET50`)
+và tenant B (attacker) — tenant B gọi `coupon_check.php?code=SECRET50` bị từ chối đúng ("không tồn
+tại"); tenant A vẫn dùng được coupon của chính mình (tính đúng số tiền giảm). Xác nhận
+`fix_multitenant_migrate.php` bị khóa đúng ở lần gọi thứ 2. Đã dọn sạch dữ liệu test.
+
 ## Multi-tenant: dùng thử 12 tháng miễn phí, gia hạn theo năm + form gửi yêu cầu gia hạn
 
 Chủ hệ thống quyết định cho khách hàng dùng thử **miễn phí 12 tháng** (thay vì 14 ngày như ban đầu),
