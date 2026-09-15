@@ -265,6 +265,11 @@ try {
         $promotionId = $promotion['id'];
     }
 
+    // Tran an toan: du cong don bao nhieu loai chiet khau (tay + coupon + hang khach + khuyen
+    // mai), tong khong duoc vuot qua 50% gia tri don hang - tranh loi cau hinh/lam dung nhieu
+    // loai giam gia cung luc lam mot don bi giam gia qua sau ngoai y muon cua chu cua hang.
+    $discount = min($discount, $subTotal * 0.5);
+
     $totalAmount = $subTotal - $discount;
     if (getSetting('round_total', '0') === '1') {
         $totalAmount = round($totalAmount / 1000) * 1000;

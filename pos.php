@@ -590,7 +590,7 @@ function updateTotals() {
   const manualDiscount = getManualDiscount(subTotal);
   const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
   const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
-  const discount = Math.min(subTotal, manualDiscount + couponDiscount + loyaltyDiscount);
+  const discount = Math.min(subTotal * 0.5, manualDiscount + couponDiscount + loyaltyDiscount);
   const shippingFee = getShippingFee();
   const total = Math.max(0, subTotal - discount) + shippingFee;
   document.getElementById('cart-subtotal').textContent = formatMoney(subTotal);
@@ -632,7 +632,7 @@ document.getElementById('delivery-toggle').addEventListener('change', (e) => {
 function updateChange() {
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
-  const discount = Math.min(subTotal, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0) + loyaltyDiscount);
+  const discount = Math.min(subTotal * 0.5, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0) + loyaltyDiscount);
   const total = Math.max(0, subTotal - discount) + getShippingFee();
   const given = parseFloat(document.getElementById('cash-given').value) || 0;
   const change = given - Math.max(0, total);
@@ -912,7 +912,7 @@ on('qa-qr-payment', 'click', () => {
     return;
   }
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const discount = Math.min(subTotal, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0));
+  const discount = Math.min(subTotal * 0.5, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0));
   const total = Math.round(Math.max(0, subTotal - discount) + getShippingFee());
   if (total <= 0) {
     panel.style.display = 'block';
