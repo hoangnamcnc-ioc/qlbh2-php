@@ -1765,3 +1765,58 @@ với 2 nút:
 Đã test trên production: đăng nhập 1 tài khoản test, xác nhận `dang-ky.php` hiện đúng màn hình hỏi
 với email chính xác của tài khoản đang đăng nhập; `dang-ky.php?new=1` hiện đúng form đăng ký bình
 thường. Đã dọn sạch dữ liệu test.
+
+## Đánh giá tổng thể phần mềm + sửa theo báo cáo (mobile, giá vốn lịch sử, trần chiết khấu)
+
+Người dùng yêu cầu rà soát đánh giá kỹ toàn bộ hệ sinh thái (không chỉ bảo mật). Chạy 2 agent đọc
+code song song cho QLBH-CLOUD và kt-soft.vn/admin, tổng hợp báo cáo bằng tiếng Việt xếp theo mức độ
+quan trọng. Đã sửa các mục quan trọng nhất từ báo cáo:
+
+- **Responsive di động**: `inc_header.php` trước đây không có `@media query` nào, sidebar 250px cố
+  định tràn ngang trên điện thoại. Thêm nút hamburger mở sidebar dạng drawer trượt (kèm lớp phủ mờ
+  phía sau, bấm ra ngoài để đóng), bảng tự cuộn ngang thay vì tràn trang, `.grid-2` về 1 cột dưới
+  860px — chỉ sửa 1 file dùng chung nên áp dụng ngay cho toàn bộ ~124 trang.
+- **Lỗi lãi gộp tính sai theo giá vốn hiện tại** (nghiêm trọng nhất về số liệu tài chính):
+  `reports.php` trước đây tính giá vốn bằng giá vốn *hiện tại* của sản phẩm thay vì giá vốn *tại
+  thời điểm bán* — mỗi lần đổi giá nhập hàng, lãi gộp của các kỳ **quá khứ** cũng bị tính lại sai
+  theo. Thêm cột `order_items.cost_price`, chốt giá vốn ngay lúc tạo đơn (`pos_checkout.php`,
+  `shop_order.php`), `reports.php` đổi sang dùng `oi.cost_price`. Migrate qua
+  `fix_add_cost_price.php` (backfill dữ liệu cũ bằng giá vốn hiện tại làm giá trị xấp xỉ, ghi chú
+  rõ trong code — thực tế production chưa có đơn hàng thật nào nên backfill = 0 dòng).
+- **Trần chiết khấu cộng dồn 50%**: chiết khấu tay + coupon + hạng khách + khuyến mại tự động
+  trước đây cộng dồn không giới hạn hợp lý (về lý thuyết có thể giảm 100%). Thêm trần 50% tổng đơn
+  ở bước cuối cùng trong `pos_checkout.php`, đồng bộ vào 3 chỗ tính tổng xem trước bằng JS trong
+  `pos.php` để nhân viên thấy đúng số tiền sẽ áp dụng trước khi thanh toán.
+
+Đã test trên production: viewport 375px xác nhận sidebar ẩn đúng, hamburger mở được drawer; tạo 1
+sản phẩm giá vốn 50.000, bán đơn 100.000, đổi giá vốn sản phẩm lên 90.000 → báo cáo lãi gộp vẫn
+hiện đúng 50.000 (không bị tính lại theo giá mới); tạo đơn 100.000 nhập chiết khấu tay 90.000 →
+hệ thống chỉ cho giảm đúng 50.000 (50%). Đã dọn sạch dữ liệu test.
+
+## Vá lỗ hổng NGHIÊM TRỌNG ở trang Kế toán và Thuế + thêm đủ 7 mẫu sổ theo Thông tư 152/2025/TT-BTC
+
+Người dùng cung cấp tài liệu "Chi tiết mẫu sổ sách kế toán hộ kinh doanh theo thông tư 152" để đối
+chiếu — phát hiện `accounting.php` mới chỉ làm 2/7 mẫu sổ chính thức (S1a-HKD, S2a-HKD). Trong lúc
+đọc code để mở rộng, phát hiện thêm **lỗ hổng rò rỉ tài chính nghiêm trọng nhất từng tìm thấy trong
+dự án**: cả 2 truy vấn chính của trang (ước tính thuế theo tháng, sổ doanh thu theo khoảng ngày)
+hoàn toàn không lọc theo tenant — mọi tenant vào trang này đều thấy **doanh thu gộp của TẤT CẢ
+khách hàng trên toàn hệ thống**, không phải của riêng mình. Đã vá ngay bằng cách thêm
+`JOIN branches b ... AND b.tenant_id = ?` vào cả 2 truy vấn.
+
+Sau khi vá xong, thêm đủ 5 mẫu sổ còn thiếu:
+- Thêm bộ chọn **Nhóm nộp thuế** (chỉ hiện khi đã vượt ngưỡng miễn thuế) — Nhóm 2 (GTGT+TNCN đều
+  theo tỷ lệ % doanh thu, dùng mẫu S2a-HKD như cũ) hoặc Nhóm 3 (GTGT theo tỷ lệ nhưng TNCN theo
+  thu nhập, dùng mẫu S2b-HKD) — lưu lựa chọn qua `setSetting()`, phần mềm không tự suy ra được vì
+  đây là lựa chọn đăng ký với cơ quan thuế.
+- Nhóm 3 hiện thêm: **S2c-HKD** (sổ doanh thu, chi phí — chi phí lấy từ khoản chi tay trong sổ quỹ,
+  loại trừ `auto_generated` để không tính nhầm chi phí hệ thống tự sinh khi bán/nhập hàng), **S2d-HKD**
+  (sổ chi tiết vật liệu/hàng hóa — nhập từ `stock_receipts`, xuất từ `order_items`, tồn hiện tại từ
+  `inventory`), **S2e-HKD** (sổ chi tiết tiền — liệt kê thu/chi từ `cashbook_entries`, tính số dư
+  cộng dồn từ đầu khoảng ngày đã chọn).
+- **S3a-HKD** (nghĩa vụ thuế khác): thẻ thông tin, không tự động tổng hợp vì không có dữ liệu nguồn
+  (thuế XNK/TTĐB/tài nguyên/môi trường) — ghi chú rõ đa số cửa hàng bán lẻ không phát sinh loại này.
+
+Đã test trên production bằng kịch bản tấn công thật (tenant A có đơn 999.999.999đ, tenant B rỗng —
+xác nhận tenant B thấy đúng 0đ sau khi vá) và kịch bản nghiệp vụ thật (tenant có đơn 1,2 tỷ, nhập
+100 đơn vị, chi 2 triệu, thu 500 nghìn qua sổ quỹ — xác nhận nhóm 2 hiện đúng S2a, chuyển nhóm 3
+hiện đúng S2b/S2c/S2d/S2e/S3a với số liệu chính xác). Đã dọn sạch dữ liệu test.
