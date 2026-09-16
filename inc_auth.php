@@ -207,7 +207,12 @@ function csrfToken(): string
 function checkCsrf(): void
 {
     $token = $_POST['csrf'] ?? '';
-    if (!hash_equals($_SESSION['csrf'] ?? '', $token)) {
+    // hash_equals('', '') tra ve true (2 chuoi rong bang nhau) - neu khong co phien nao
+    // (chua tung goi csrfToken() de sinh $_SESSION['csrf']) va request cung khong gui csrf,
+    // ca 2 ve deu la chuoi rong va se "khop" mot cach sai lech, vo hieu hoa hoan toan kiem
+    // tra CSRF cho cac trang cong khai khong bat buoc dang nhap truoc. Phai bat buoc session
+    // da co token that (khong rong) truoc khi so sanh.
+    if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)) {
         http_response_code(403);
         exit('Phiên làm việc không hợp lệ, vui lòng tải lại trang và thử lại.');
     }

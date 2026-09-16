@@ -6,7 +6,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 
-if (!hash_equals($_SESSION['csrf'] ?? '', $input['csrf'] ?? '')) {
+if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $input['csrf'] ?? '')) {
     http_response_code(403);
     echo json_encode(['error' => 'Phiên làm việc không hợp lệ, vui lòng tải lại trang.']);
     exit;

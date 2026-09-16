@@ -4,7 +4,7 @@ require_once __DIR__ . '/inc_functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('shop.php');
 
-if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) {
+if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $_POST['csrf'] ?? '')) {
     redirect('shop.php?err=' . urlencode('Phiên làm việc đã hết hạn, vui lòng tải lại trang và thử lại.'));
 }
 
