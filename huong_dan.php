@@ -83,8 +83,8 @@ require_once __DIR__ . '/inc_header.php';
   <ul style="line-height:1.9;">
     <li><b>Danh sách sản phẩm</b>: thêm/sửa sản phẩm, có thể tạo biến thể (màu/size...), phân loại thường/dịch vụ/combo, gắn danh mục và nhãn hiệu, đăng nhiều ảnh.</li>
     <li><b>Quản lý kho</b>: xem tồn kho theo từng chi nhánh, cảnh báo sản phẩm dưới định mức tồn tối thiểu.</li>
-    <li><b>Kiểm hàng</b>: tạo phiếu kiểm kê, nhập số đếm thực tế — hệ thống tự tính chênh lệch và điều chỉnh tồn kho khi cân bằng phiếu.</li>
-    <li><b>Chuyển hàng</b>: chuyển sản phẩm giữa các chi nhánh, cần xác nhận đã nhận hàng ở chi nhánh đích mới cộng tồn.</li>
+    <li><b>Kiểm hàng</b>: tạo phiếu kiểm kê, nhập số đếm thực tế (gõ tay hoặc <b>quét mã vạch</b> để tự thêm) — hệ thống tự tính chênh lệch và điều chỉnh tồn kho khi cân bằng phiếu.</li>
+    <li><b>Chuyển hàng</b>: chuyển sản phẩm giữa các chi nhánh (chọn sản phẩm bằng gõ tay hoặc <b>quét mã vạch</b>), cần xác nhận đã nhận hàng ở chi nhánh đích mới cộng tồn.</li>
     <li><b>Điều chỉnh giá vốn</b>: sửa giá vốn khi giá nhập thay đổi — không ảnh hưởng đến lãi gộp của các đơn đã bán trước đó (giá vốn được chốt lại ngay lúc bán).</li>
   </ul>
 </div>
@@ -93,7 +93,7 @@ require_once __DIR__ . '/inc_header.php';
   <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">5. Nhập hàng &amp; nhà cung cấp</h2>
   <ul style="line-height:1.9;">
     <li><b>Đặt hàng nhập</b>: tạo đơn đặt hàng gửi nhà cung cấp trước khi hàng về kho (tùy chọn, không bắt buộc).</li>
-    <li><b>Nhập hàng</b>: ghi nhận phiếu nhập kho thực tế — có thể tạo từ đơn đặt hàng có sẵn hoặc nhập trực tiếp, tự cộng tồn kho và cập nhật công nợ phải trả nhà cung cấp.</li>
+    <li><b>Nhập hàng</b>: ghi nhận phiếu nhập kho thực tế — có thể tạo từ đơn đặt hàng có sẵn hoặc nhập trực tiếp (chọn sản phẩm bằng gõ tay hoặc <b>quét mã vạch</b> để tự thêm vào phiếu), tự cộng tồn kho và cập nhật công nợ phải trả nhà cung cấp.</li>
     <li><b>Nhà cung cấp</b>: quản lý danh sách NCC, theo dõi công nợ phải trả, ghi nhận thanh toán cho NCC.</li>
     <li><b>Trả hàng NCC</b>: tạo phiếu trả hàng khi hàng nhập bị lỗi/không đạt, tự trừ tồn kho và giảm công nợ.</li>
   </ul>
