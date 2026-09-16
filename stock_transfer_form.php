@@ -8,7 +8,7 @@ $tenantId = currentTenantId();
 $branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
 $branchesStmt->execute([$tenantId]);
 $branches = $branchesStmt->fetchAll();
-$branchIds = array_column($branches, 'id');
+$branchIds = array_map('intval', array_column($branches, 'id'));
 $error = null;
 
 // MANAGER chỉ được tạo phiếu chuyển ĐI từ chi nhánh mình quản lý — tránh tự ý rút hàng từ
