@@ -27,7 +27,7 @@ if ($q === '' || !$branchId) { echo '[]'; exit; }
 $like = '%' . $q . '%';
 
 $stmt = $pdo->prepare(
-    'SELECT p.id, NULL AS variant_id, p.sku, p.name, COALESCE(i.quantity,0) AS qty
+    'SELECT p.id, NULL AS variant_id, p.sku, p.barcode, p.name, COALESCE(i.quantity,0) AS qty
      FROM products p
      LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
      WHERE p.tenant_id = ? AND (p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)

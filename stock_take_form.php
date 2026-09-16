@@ -152,6 +152,34 @@ searchInput.addEventListener('input', () => {
   }, 250);
 });
 
+// May quet ma vach go nhanh ma roi tu bam Enter - tu them dung 1 san pham khop vao danh sach kiem
+// ngay, giong hanh vi da co o man hinh ban hang (POS) va man hinh Nhap hang.
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  clearTimeout(timer);
+  const q = searchInput.value.trim();
+  const branchId = branchSelect.value;
+  if (!q || !branchId) return;
+  fetch('stock_take_search.php?q=' + encodeURIComponent(q) + '&branch_id=' + branchId)
+    .then(r => r.json())
+    .then(data => {
+      if (data.length === 1) {
+        const p = data[0];
+        addLine(p.id, p.variant_id, p.name, parseFloat(p.qty) || 0);
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        return;
+      }
+      const exact = data.find(p => p.sku === q || p.barcode === q);
+      if (exact) {
+        addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.qty) || 0);
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+      }
+    });
+});
+
 function addLine(id, variantId, name, systemQty) {
   const key = id + ':' + (variantId ?? '');
   if (lines.find(l => l.key === key)) return;
