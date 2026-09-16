@@ -1820,3 +1820,42 @@ Sau khi vá xong, thêm đủ 5 mẫu sổ còn thiếu:
 xác nhận tenant B thấy đúng 0đ sau khi vá) và kịch bản nghiệp vụ thật (tenant có đơn 1,2 tỷ, nhập
 100 đơn vị, chi 2 triệu, thu 500 nghìn qua sổ quỹ — xác nhận nhóm 2 hiện đúng S2a, chuyển nhóm 3
 hiện đúng S2b/S2c/S2d/S2e/S3a với số liệu chính xác). Đã dọn sạch dữ liệu test.
+
+## Thêm module Nhân sự: Chấm công, Lịch làm việc, Bảng lương (theo mẫu QLBH-SOFT)
+
+Người dùng yêu cầu bổ sung quản lý nhân viên/chấm công/tính lương giống QLBH-SOFT. Đọc code
+QLBH-SOFT (`src/routes/users.js`, `public/quan-ly.html`) để lấy đúng mô hình dữ liệu và công thức
+tính lương trước khi làm, thay vì tự bịa: nhân viên có **lương theo giờ** + **% hoa hồng trên
+doanh số**, không dùng lương cơ bản cố định — ngày nào không chấm công thì ngày đó tính 0 giờ.
+
+Đã thêm:
+- `users.php`: 2 trường Lương/giờ và Tỷ lệ hoa hồng trong form tạo tài khoản, và 1 form sửa nhanh
+  ngay trong bảng danh sách (action `update_pay`, có kiểm tra thuộc đúng tenant như các action
+  khác của trang).
+- `attendance.php` (mới) — **Chấm công**: chọn nhân viên + tháng, ghi nhận giờ vào/giờ ra từng
+  ngày (upsert qua `ON DUPLICATE KEY UPDATE`, mỗi nhân viên 1 bản ghi/ngày), xử lý được ca làm qua
+  đêm (giờ ra nhỏ hơn giờ vào), tự tính tổng giờ công tháng.
+- `work_schedules.php` (mới) — **Lịch làm việc**: xếp lịch ca làm theo ngày cho từng nhân viên
+  (chỉ để theo dõi, không ảnh hưởng tính lương).
+- `payroll.php` (mới) — **Bảng lương**: theo tháng, tự tính cho từng nhân viên đang hoạt động:
+  `Thực nhận = Tổng giờ công tháng × Lương/giờ + (Doanh số bán trong tháng − doanh thu đã trả
+  hàng) × % hoa hồng` — đúng công thức của QLBH-SOFT.
+- Thêm nhóm menu "Nhân sự" (chỉ ADMIN/MANAGER thấy).
+- Bảng mới `attendance`, `work_schedules` (có `tenant_id` trực tiếp) + 2 cột mới trên `users`
+  (`hourly_wage`, `commission_percent`), migrate qua `fix_add_payroll.php`.
+
+**Lỗi có sẵn quan trọng phát hiện và vá trong lúc test**: PDO của dự án trả về cột `id` dạng
+**chuỗi** (string), không phải số nguyên — khiến mọi chỗ dùng
+`in_array($x, array_column($arr, 'id'), true)` (so sánh kiểu chặt) **luôn thất bại** do lệch kiểu
+dữ liệu, âm thầm reset lựa chọn về `null`/rỗng mà không báo lỗi gì. Ảnh hưởng **12 file** đã tồn
+tại từ trước: `users.php` (gán chi nhánh cho nhân viên **không bao giờ hoạt động**), `index.php`,
+`inventory.php` (lọc chi nhánh ở Tổng quan/Kho), `product_form.php` (danh mục/nhãn hiệu/thuế/bảo
+hành/bảng giá sản phẩm), `campaigns.php` (nhóm khách hàng), `customer_form.php` (nhân viên phụ
+trách), `purchase_order_form.php` + `stock_receipt_form.php` (nhà cung cấp), `stock_take_form.php`
++ `supplier_view.php` (chi nhánh) — cộng thêm `attendance.php`/`work_schedules.php` phát hiện ngay
+lúc vừa viết. Đã sửa toàn bộ bằng `array_map('intval', ...)` trước khi đưa vào `in_array`.
+
+Đã test trên production: tạo nhân viên lương 30.000đ/giờ + hoa hồng 2%, chấm công 8h-17h (9 giờ),
+bán đơn 1.000.000đ → Bảng lương tính đúng 270.000đ (lương giờ) + 20.000đ (hoa hồng) = 290.000đ
+thực nhận; xác nhận gán chi nhánh cho nhân viên mới hoạt động đúng (trước đây luôn bị reset về
+rỗng). Đã dọn sạch dữ liệu test.

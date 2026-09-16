@@ -20,8 +20,9 @@ require_once __DIR__ . '/inc_header.php';
     <a href="#bao-hanh">8. Bảo hành</a>
     <a href="#so-quy-bao-cao">9. Sổ quỹ &amp; báo cáo</a>
     <a href="#ke-toan">10. Kế toán &amp; thuế</a>
-    <a href="#cau-hinh">11. Cấu hình &amp; tài khoản</a>
-    <a href="#faq">12. Câu hỏi thường gặp</a>
+    <a href="#nhan-su">11. Nhân sự (chấm công, lương)</a>
+    <a href="#cau-hinh">12. Cấu hình &amp; tài khoản</a>
+    <a href="#faq">13. Câu hỏi thường gặp</a>
   </div>
 </div>
 
@@ -142,8 +143,18 @@ require_once __DIR__ . '/inc_header.php';
   </ul>
 </div>
 
+<div class="card" id="nhan-su" style="margin-bottom:24px;">
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">11. Nhân sự (chấm công, lương)</h2>
+  <ul style="line-height:1.9;">
+    <li><b>Thiết lập lương</b>: vào <b>Nhân viên và phân quyền</b> (Cấu hình) đặt Lương theo giờ và Tỷ lệ hoa hồng (% doanh số) cho từng nhân viên.</li>
+    <li><b>Chấm công</b>: chọn nhân viên + ngày, nhập giờ vào/giờ ra — hỗ trợ ca làm qua đêm (giờ ra nhỏ hơn giờ vào). Mỗi nhân viên chỉ có 1 bản ghi/ngày, ghi lại lần sau sẽ cập nhật đè lên.</li>
+    <li><b>Lịch làm việc</b>: xếp lịch ca làm cho từng nhân viên theo ngày (chỉ để theo dõi, không ảnh hưởng tính lương).</li>
+    <li><b>Bảng lương</b>: chọn tháng, hệ thống tự tính cho từng nhân viên: <b>Thực nhận = Tổng giờ công trong tháng × Lương/giờ + (Doanh số bán trong tháng − doanh thu đã trả hàng) × % hoa hồng</b>. Không có lương cứng cố định — ngày nào không chấm công thì ngày đó tính 0 giờ.</li>
+  </ul>
+</div>
+
 <div class="card" id="cau-hinh" style="margin-bottom:24px;">
-  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">11. Cấu hình &amp; tài khoản</h2>
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">12. Cấu hình &amp; tài khoản</h2>
   <ul style="line-height:1.9;">
     <li><b>Cấu hình</b>: tên cửa hàng, logo, màu thương hiệu, mẫu in hóa đơn, bật/tắt bán hàng online, cho phép tồn kho âm hay không.</li>
     <li><b>Chi nhánh &amp; nhân viên</b>: thêm chi nhánh mới, tạo tài khoản nhân viên và phân quyền ADMIN/MANAGER/CASHIER theo từng chi nhánh.</li>
@@ -154,7 +165,7 @@ require_once __DIR__ . '/inc_header.php';
 </div>
 
 <div class="card" id="faq" style="margin-bottom:24px;">
-  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">12. Câu hỏi thường gặp</h2>
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">13. Câu hỏi thường gặp</h2>
   <div style="display:grid;gap:14px;">
     <div>
       <b>Mất mạng giữa lúc bán hàng thì sao?</b>
