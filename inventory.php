@@ -10,7 +10,7 @@ $branches = $branchesStmt->fetchAll();
 // nhanh khac qua tham so branch_id tren URL - tranh lo du lieu ton kho toan chuoi cho nhan
 // vien cap thap nhat. ADMIN/MANAGER van xem duoc toan bo hoac loc theo tung chi nhanh.
 $branchId = hasRole('ADMIN', 'MANAGER') ? (int) ($_GET['branch_id'] ?? 0) : effectiveBranchId($currentUser);
-if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
     $branchId = 0;
 }
 $q = trim($_GET['q'] ?? '');

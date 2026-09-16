@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Moi thao tac tren 1 user co san (toggle/reset_password/update_role) BAT BUOC xac nhan
     // user do thuoc dung tenant hien tai - neu khong, ADMIN cua tenant nay co the khoa/doi mat
     // khau/doi quyen tai khoan cua tenant khac (chiem quyen hoan toan) chi bang cach doan id.
-    if (in_array($action, ['toggle', 'reset_password', 'update_role'], true)) {
+    if (in_array($action, ['toggle', 'reset_password', 'update_role', 'update_pay'], true)) {
         $id = (int) ($_POST['id'] ?? 0);
         $ownUser = $pdo->prepare('SELECT id FROM users WHERE id = ? AND tenant_id = ?');
         $ownUser->execute([$id, $tenantId]);
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'update_role') {
         $role = in_array($_POST['role'] ?? '', ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $_POST['role'] : 'CASHIER';
         $branchId = (int) ($_POST['branch_id'] ?? 0) ?: null;
-        if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+        if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
             $branchId = null;
         }
         if ($id === (int) $currentUser['id'] && $role !== 'ADMIN') {
@@ -56,15 +56,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logActivity('USER_ROLE_CHANGE', "user_id=$id role=$role");
             redirect('users.php');
         }
+    } elseif ($action === 'update_pay') {
+        $hourlyWage = max(0, (float) post('hourly_wage'));
+        $commissionPercent = min(100, max(0, (float) post('commission_percent')));
+        $pdo->prepare('UPDATE users SET hourly_wage = ?, commission_percent = ? WHERE id = ?')
+            ->execute([$hourlyWage, $commissionPercent, $id]);
+        logActivity('USER_PAY_CHANGE', "user_id=$id hourly_wage=$hourlyWage commission=$commissionPercent");
+        redirect('users.php');
     } else {
         $name = post('name');
         $email = trim(strtolower(post('email')));
         $password = post('password');
         $role = in_array($_POST['role'] ?? '', ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $_POST['role'] : 'CASHIER';
         $branchId = (int) ($_POST['branch_id'] ?? 0) ?: null;
-        if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+        if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
             $branchId = null;
         }
+        $hourlyWage = max(0, (float) post('hourly_wage'));
+        $commissionPercent = min(100, max(0, (float) post('commission_percent')));
 
         if ($name === '' || $email === '' || strlen($password) < 6) {
             $error = 'Vui lòng nhập đủ Tên, Email và Mật khẩu (tối thiểu 6 ký tự)';
@@ -77,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Email này đã được sử dụng';
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                $pdo->prepare('INSERT INTO users (name, email, password_hash, role, branch_id, tenant_id) VALUES (?,?,?,?,?,?)')
-                    ->execute([$name, $email, $hash, $role, $branchId, $tenantId]);
+                $pdo->prepare('INSERT INTO users (name, email, password_hash, role, branch_id, tenant_id, hourly_wage, commission_percent) VALUES (?,?,?,?,?,?,?,?)')
+                    ->execute([$name, $email, $hash, $role, $branchId, $tenantId, $hourlyWage, $commissionPercent]);
                 logActivity('USER_CREATE', $email);
                 redirect('users.php?created=1');
             }
@@ -125,14 +134,19 @@ require_once __DIR__ . '/inc_header.php';
         </select>
       </div>
     </div>
-    <div class="field">
-      <label>Chi nhánh</label>
-      <select class="input" name="branch_id">
-        <option value="">— Không gán —</option>
-        <?php foreach ($branches as $b): ?>
-          <option value="<?= (int) $b['id'] ?>"><?= e($b['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
+    <div class="grid-2">
+      <div class="field"><label>Chi nhánh</label>
+        <select class="input" name="branch_id">
+          <option value="">— Không gán —</option>
+          <?php foreach ($branches as $b): ?>
+            <option value="<?= (int) $b['id'] ?>"><?= e($b['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Lương theo giờ (đ/giờ)</label><input class="input" type="number" min="0" step="1000" name="hourly_wage" value="0"></div>
+      <div class="field"><label>Tỷ lệ hoa hồng (% doanh số)</label><input class="input" type="number" min="0" max="100" step="0.5" name="commission_percent" value="0"></div>
     </div>
     <button type="submit" class="btn">Tạo tài khoản</button>
   </form>
@@ -141,7 +155,7 @@ require_once __DIR__ . '/inc_header.php';
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
-      <tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Chi nhánh</th><th class="text-center">Trạng thái</th><th></th></tr>
+      <tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Chi nhánh</th><th>Lương/giờ &amp; hoa hồng</th><th class="text-center">Trạng thái</th><th></th></tr>
     </thead>
     <tbody>
       <?php foreach ($users as $u): ?>
@@ -167,6 +181,16 @@ require_once __DIR__ . '/inc_header.php';
             </form>
           </td>
           <td class="muted"><?= e($u['branch_name'] ?: '—') ?></td>
+          <td>
+            <form method="post" style="display:flex;gap:6px;align-items:center;">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="action" value="update_pay">
+              <input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <input class="input" type="number" min="0" step="1000" name="hourly_wage" value="<?= (float) $u['hourly_wage'] ?>" style="width:90px;padding:4px 6px;" title="Lương theo giờ (đ)">
+              <input class="input" type="number" min="0" max="100" step="0.5" name="commission_percent" value="<?= (float) $u['commission_percent'] ?>" style="width:60px;padding:4px 6px;" title="% hoa hồng">
+              <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;">Lưu</button>
+            </form>
+          </td>
           <td class="text-center">
             <?php if ($u['is_active']): ?><span class="badge badge-green">Đang hoạt động</span>
             <?php else: ?><span class="badge badge-gray">Đã khóa</span><?php endif; ?>

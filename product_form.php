@@ -60,7 +60,7 @@ if ($id) {
         $stmt = $pdo->prepare(
             'SELECT * FROM inventory WHERE variant_id IN (' . implode(',', array_fill(0, count($variants), '?')) . ')'
         );
-        $stmt->execute(array_column($variants, 'id'));
+        $stmt->execute(array_map('intval', array_column($variants, 'id')));
         foreach ($stmt->fetchAll() as $inv) {
             $variantInventories[$inv['variant_id']][$inv['branch_id']] = $inv;
         }
@@ -109,10 +109,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Chỉ cho phép gán category/brand/tax_rate/warranty_policy thuộc đúng tenant hiện tại -
         // tránh gắn nhầm/cố ý gắn sản phẩm sang danh mục của tenant khác qua request thủ công.
-        if ($categoryId && !in_array($categoryId, array_column($categories, 'id'), true)) $categoryId = null;
-        if ($brandId && !in_array($brandId, array_column($brands, 'id'), true)) $brandId = null;
-        if ($taxRateId && !in_array($taxRateId, array_column($taxRates, 'id'), true)) $taxRateId = null;
-        if ($warrantyPolicyId && !in_array($warrantyPolicyId, array_column($warrantyPolicies, 'id'), true)) $warrantyPolicyId = null;
+        if ($categoryId && !in_array($categoryId, array_map('intval', array_column($categories, 'id')), true)) $categoryId = null;
+        if ($brandId && !in_array($brandId, array_map('intval', array_column($brands, 'id')), true)) $brandId = null;
+        if ($taxRateId && !in_array($taxRateId, array_map('intval', array_column($taxRates, 'id')), true)) $taxRateId = null;
+        if ($warrantyPolicyId && !in_array($warrantyPolicyId, array_map('intval', array_column($warrantyPolicies, 'id')), true)) $warrantyPolicyId = null;
 
         try {
             if ($id) {
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 foreach ($_POST['price_list_id'] ?? [] as $plId => $price) {
                     $plId = (int) $plId;
-                    if (!in_array($plId, array_column($priceLists, 'id'), true)) {
+                    if (!in_array($plId, array_map('intval', array_column($priceLists, 'id')), true)) {
                         continue;
                     }
                     $price = $price === '' ? null : (float) $price;

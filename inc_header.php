@@ -53,6 +53,11 @@ if ($isManagerUp) {
         'reports.php' => 'Báo cáo',
         'accounting.php' => 'Kế toán và Thuế',
     ];
+    $navGroups['Nhân sự'] = [
+        'attendance.php' => 'Chấm công',
+        'work_schedules.php' => 'Lịch làm việc',
+        'payroll.php' => 'Bảng lương',
+    ];
 }
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = [
@@ -76,6 +81,7 @@ $groupIcons = [
     'Marketing & Khuyến mại' => '📣',
     'Bảo hành' => '🛡️',
     'Tài chính & Báo cáo' => '💰',
+    'Nhân sự' => '🧑‍💼',
     'Cấu hình' => '⚙️',
 ];
 

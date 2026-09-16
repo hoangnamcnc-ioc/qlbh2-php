@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $channel = in_array($_POST['channel'] ?? '', ['SMS', 'EMAIL', 'OTHER'], true) ? $_POST['channel'] : 'SMS';
     $message = post('message');
     $groupId = (int) ($_POST['target_group_id'] ?? 0) ?: null;
-    if ($groupId && !in_array($groupId, array_column($groups, 'id'), true)) {
+    if ($groupId && !in_array($groupId, array_map('intval', array_column($groups, 'id')), true)) {
         $groupId = null;
     }
 

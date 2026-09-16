@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $amount = postFloat('amount');
     $branchId = hasRole('ADMIN') ? (int) ($_POST['branch_id'] ?? 0) : effectiveBranchId($currentUser);
-    if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+    if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
         $branchId = 0;
     }
 

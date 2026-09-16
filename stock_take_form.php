@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $branchId = $lockedBranchId;
     }
     // Du la ADMIN cung chi duoc chon chi nhanh thuoc tenant minh.
-    if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+    if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
         $branchId = 0;
     }
     $note = post('note') ?: null;

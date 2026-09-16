@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = post('phone') ?: null;
     $address = post('address') ?: null;
     $groupId = post('group_id') ?: null;
-    if ($groupId && !in_array((int) $groupId, array_column($groups, 'id'), true)) {
+    if ($groupId && !in_array((int) $groupId, array_map('intval', array_column($groups, 'id')), true)) {
         $groupId = null;
     }
     $birthday = post('birthday') ?: null;
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = post('description') ?: null;
     $tags = post('tags') ?: null;
     $assignedStaffId = (int) ($_POST['assigned_staff_id'] ?? 0) ?: null;
-    if ($assignedStaffId && !in_array($assignedStaffId, array_column($staffList, 'id'), true)) {
+    if ($assignedStaffId && !in_array($assignedStaffId, array_map('intval', array_column($staffList, 'id')), true)) {
         $assignedStaffId = null;
     }
     $defaultPaymentMethod = in_array($_POST['default_payment_method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true)

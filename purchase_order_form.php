@@ -17,14 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $branchId = (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
-    if ($supplierId && !in_array($supplierId, array_column($suppliers, 'id'), true)) {
+    if ($supplierId && !in_array($supplierId, array_map('intval', array_column($suppliers, 'id')), true)) {
         $supplierId = null;
     }
     $note = post('note') ?: null;
     $expectedDeliveryDate = post('expected_delivery_date') ?: null;
     $referenceNo = post('reference_no') ?: null;
     $assignedStaffId = (int) ($_POST['assigned_staff_id'] ?? 0) ?: null;
-    if ($assignedStaffId && !in_array($assignedStaffId, array_column($staffList, 'id'), true)) {
+    if ($assignedStaffId && !in_array($assignedStaffId, array_map('intval', array_column($staffList, 'id')), true)) {
         $assignedStaffId = null;
     }
     $productIds = $_POST['product_id'] ?? [];

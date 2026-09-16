@@ -793,3 +793,33 @@ CREATE TABLE IF NOT EXISTS renewal_requests (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Nhan su: cham cong + tinh luong (theo mau QLBH-SOFT) =====
+ALTER TABLE users ADD COLUMN hourly_wage DECIMAL(14,2) NOT NULL DEFAULT 0,
+  ADD COLUMN commission_percent DECIMAL(5,2) NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS attendance (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  user_id INT NOT NULL,
+  work_date DATE NOT NULL,
+  time_in TIME NULL,
+  time_out TIME NULL,
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_attendance_user_date (user_id, work_date),
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS work_schedules (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  user_id INT NOT NULL,
+  work_date DATE NOT NULL,
+  shift VARCHAR(100) NOT NULL,
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

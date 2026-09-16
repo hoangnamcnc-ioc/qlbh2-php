@@ -15,7 +15,7 @@ if (hasRole('ADMIN', 'MANAGER')) {
     $branchId = (int) ($_GET['branch_id'] ?? 0);
     // Nếu chọn 1 chi nhánh cụ thể, xác nhận chi nhánh đó thực sự thuộc tenant hiện tại -
     // tránh truyền branch_id của tenant khác qua URL để xem lẫn số liệu.
-    if ($branchId && !in_array($branchId, array_column($branches, 'id'), true)) {
+    if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
         $branchId = 0;
     }
 } else {

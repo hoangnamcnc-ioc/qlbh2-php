@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $branchId = (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
-    if ($supplierId && !in_array($supplierId, array_column($suppliers, 'id'), true)) {
+    if ($supplierId && !in_array($supplierId, array_map('intval', array_column($suppliers, 'id')), true)) {
         $supplierId = null;
     }
     $note = post('note') ?: null;
