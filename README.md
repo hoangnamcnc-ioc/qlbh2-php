@@ -1859,3 +1859,38 @@ lúc vừa viết. Đã sửa toàn bộ bằng `array_map('intval', ...)` trư�
 bán đơn 1.000.000đ → Bảng lương tính đúng 270.000đ (lương giờ) + 20.000đ (hoa hồng) = 290.000đ
 thực nhận; xác nhận gán chi nhánh cho nhân viên mới hoạt động đúng (trước đây luôn bị reset về
 rỗng). Đã dọn sạch dữ liệu test.
+
+## Kiểm thử toàn diện toàn bộ luồng nghiệp vụ trên production
+
+Người dùng yêu cầu "test toàn diện phần mềm". Dùng 2 tenant test (A có dữ liệu, B rỗng để đối
+chứng cách ly), đi qua toàn bộ chuỗi nghiệp vụ thật bằng request POST/GET thật (không chỉ đọc
+code):
+
+1. **POS**: bán 1 đơn kèm coupon 10% + chiết khấu tay 90% → xác nhận trần 50% chặn đúng (discount
+   thực tế = 100.000 trên đơn 200.000, không phải ~190.000 nếu cộng dồn không giới hạn); tồn kho
+   trừ đúng; `order_items.cost_price` chốt đúng giá vốn tại thời điểm bán.
+2. **Hủy đơn**: hủy đơn vừa tạo → xác nhận hoàn tồn kho đúng về số ban đầu.
+3. **Nhập hàng**: nhập 10 đơn vị → tồn cộng đúng.
+4. **Chuyển hàng**: chuyển 5 đơn vị giữa 2 chi nhánh, xác nhận chi nhánh gửi trừ đúng, trạng thái
+   `IN_TRANSIT`, sau khi bấm "Xác nhận đã nhận hàng" thì chi nhánh nhận cộng đúng.
+5. **Khách hàng & công nợ**: bán trả góp một phần (trả 30.000/100.000) → công nợ khách hiện đúng
+   70.000.
+6. **Báo cáo**: đổi giá vốn sản phẩm SAU khi bán (40.000 → 90.000) → lãi gộp báo cáo vẫn dùng
+   đúng giá vốn cũ (100.000 − 40.000 = 60.000), không bị tính lại theo giá mới.
+7. **Bảng lương**: chấm công 8 giờ, lương 25.000đ/giờ + hoa hồng 3% → thực nhận đúng
+   200.000 + 3.000 = 203.000, và **doanh số hoa hồng tự động loại trừ đúng đơn đã hủy** (chỉ tính
+   đơn 100.000 còn hiệu lực, không cộng luôn đơn 200.000 đã hủy ở bước 2).
+8. **Cách ly tenant**: tenant B (rỗng) xác nhận thấy đúng 0/rỗng ở `index.php`, `customers.php`,
+   `payroll.php`, `accounting.php` — không lẫn dữ liệu tenant A.
+
+**Phát hiện thêm 1 lỗ hổng chức năng nghiêm trọng khi test bước 4** — `stock_transfer_form.php` có
+cùng lỗi "PDO trả về `id` dạng chuỗi khiến `in_array(..., true)` luôn thất bại" đã vá ở 12 file
+khác trước đó, nhưng sót lại vì `array_column()` được gán ra biến `$branchIds` riêng ở dòng khác
+thay vì viết liền trong `in_array(...)` — khác pattern grep đã quét trước đó. Hậu quả: **tính năng
+Chuyển hàng hoàn toàn không dùng được**, luôn báo lỗi "Vui lòng chọn chi nhánh chuyển và chi nhánh
+nhận" dù đã chọn đúng cả 2 chi nhánh. Đã vá bằng `array_map('intval', ...)` giống các chỗ khác, và
+quét lại toàn bộ codebase bằng pattern grep mới để xác nhận không còn chỗ sót nào khác.
+
+Toàn bộ 8 bước đều cho kết quả đúng sau khi vá xong lỗi ở bước 4. Đã dọn sạch dữ liệu test (2
+tenant, sản phẩm, đơn hàng, phiếu nhập/chuyển, chấm công, khách hàng, coupon...) và xóa hết 5 script
+tạm, xác nhận lại bằng 404.
