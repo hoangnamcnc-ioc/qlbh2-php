@@ -214,6 +214,33 @@ searchInput.addEventListener('input', () => {
   }, 250);
 });
 
+// May quet ma vach go nhanh ma roi tu bam Enter - bat su kien nay de tu them dung 1 san pham
+// khop ma vao phieu nhap ngay, giong hanh vi da co san o man hinh ban hang (POS).
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  clearTimeout(timer);
+  const q = searchInput.value.trim();
+  if (!q) return;
+  fetch('stock_receipt_search.php?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(data => {
+      if (data.length === 1) {
+        const p = data[0];
+        addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0);
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        return;
+      }
+      const exact = data.find(p => p.sku === q || p.barcode === q);
+      if (exact) {
+        addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.cost_price) || 0);
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+      }
+    });
+});
+
 function addLine(id, variantId, name, cost) {
   const key = id + ':' + (variantId ?? '');
   const existing = lines.find(l => l.key === key);
