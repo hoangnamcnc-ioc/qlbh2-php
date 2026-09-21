@@ -136,12 +136,55 @@ $lowStockStmt = $pdo->prepare(
 );
 $lowStockStmt->execute($lowStockParam);
 $lowStock = $lowStockStmt->fetchAll();
+
+// Checklist lam quen (onboarding) - chi tinh toan va hien thi khi con thieu buoc nao do, chi
+// ADMIN/MANAGER moi thay (nhan vien thuong khong can quan tam thiet lap ban dau). Tu bien mat
+// vinh vien khi ca 3 buoc da xong - khong can luu trang thai "da an" rieng vi du lieu that da
+// chung minh ho dang dung roi.
+$showOnboarding = false;
+if (hasRole('ADMIN', 'MANAGER')) {
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM products WHERE tenant_id = ?');
+    $stmt->execute([$tenantId]);
+    $obProductCount = (int) $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM orders o JOIN branches b ON b.id = o.branch_id WHERE b.tenant_id = ?');
+    $stmt->execute([$tenantId]);
+    $obOrderCount = (int) $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE tenant_id = ?');
+    $stmt->execute([$tenantId]);
+    $obEmployeeCount = (int) $stmt->fetchColumn();
+
+    $obSteps = [
+        ['done' => $obProductCount > 0, 'label' => 'Thêm sản phẩm đầu tiên', 'link' => 'product_form.php'],
+        ['done' => $obOrderCount > 0, 'label' => 'Tạo đơn hàng thử (bán hàng tại POS)', 'link' => 'pos.php'],
+        ['done' => $obEmployeeCount > 1, 'label' => 'Thêm nhân viên vào cửa hàng', 'link' => 'users.php'],
+    ];
+    $showOnboarding = count(array_filter($obSteps, fn ($s) => !$s['done'])) > 0;
+}
 ?>
 
 <?php if (isset($_GET['welcome'])): ?>
   <div class="alert alert-success" style="margin-bottom:16px;">
     🎉 Chào mừng bạn đến với QLBH-CLOUD! Tài khoản sử dụng miễn phí 12 tháng đã sẵn sàng — bắt đầu bằng
     cách thêm chi nhánh, sản phẩm và bán hàng thử ngay.
+  </div>
+<?php endif; ?>
+
+<?php if ($showOnboarding): ?>
+  <div class="card" style="margin-bottom:24px;border:1px solid #bfdbfe;background:#eff6ff;">
+    <div style="font-weight:600;margin-bottom:12px;">🚀 Bắt đầu với QLBH-CLOUD</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <?php foreach ($obSteps as $step): ?>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:16px;"><?= $step['done'] ? '✅' : '⬜' ?></span>
+          <span style="<?= $step['done'] ? 'color:#64748b;text-decoration:line-through;' : '' ?>"><?= e($step['label']) ?></span>
+          <?php if (!$step['done']): ?>
+            <a href="<?= e($step['link']) ?>" style="margin-left:auto;font-size:13px;">Thực hiện →</a>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
   </div>
 <?php endif; ?>
 
