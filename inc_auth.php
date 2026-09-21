@@ -72,7 +72,7 @@ function checkTrialExpiry(): void
         return;
     }
 
-    $stmt = db()->prepare('SELECT id, plan, trial_ends_at, trial_reminder_sent_at, paid_until, owner_email, is_active FROM tenants WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, name, plan, trial_ends_at, trial_reminder_sent_at, paid_until, owner_email, is_active, last_weekly_report_at, created_at FROM tenants WHERE id = ?');
     $stmt->execute([$_SESSION['user']['tenant_id']]);
     $tenant = $stmt->fetch();
 
@@ -94,6 +94,7 @@ function checkTrialExpiry(): void
     }
 
     maybeSendTrialReminder($tenant);
+    maybeSendWeeklyReport($tenant);
 }
 
 /**
@@ -127,6 +128,44 @@ function maybeSendTrialReminder(array $tenant): void
     @mail($tenant['owner_email'], $subject, $body, $headers);
 
     db()->prepare('UPDATE tenants SET trial_reminder_sent_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
+}
+
+/**
+ * Gui email tom tat doanh thu/don hang 7 ngay qua cho chu cua hang, moi 7 ngay/lan - cung khong
+ * dung cron (giong maybeSendTrialReminder), kiem tra tren chinh request cua nguoi dung do. Muc
+ * tieu: tao thoi quen quay lai dung phan mem, khong chi de "quen" sau khi dang ky.
+ */
+function maybeSendWeeklyReport(array $tenant): void
+{
+    if (empty($tenant['owner_email'])) {
+        return;
+    }
+    $lastSent = $tenant['last_weekly_report_at'] ?? $tenant['created_at'];
+    if ($lastSent === null || (time() - strtotime($lastSent)) < 7 * 86400) {
+        return;
+    }
+
+    $pdo = db();
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(o.total_amount),0) AS revenue, COUNT(*) AS order_count
+         FROM orders o JOIN branches b ON b.id = o.branch_id
+         WHERE b.tenant_id = ? AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND o.status != 'CANCELLED'"
+    );
+    $stmt->execute([$tenant['id']]);
+    $stats = $stmt->fetch();
+
+    // Khong lam phien chu cua hang neu tuan do khong co hoat dong gi - email rong khong co gia
+    // tri, chi nen bao khi co so lieu thuc su de xem.
+    if ((int) $stats['order_count'] > 0) {
+        $subject = 'QLBH-CLOUD - Báo cáo tuần: ' . $tenant['name'];
+        $body = "Tổng kết 7 ngày qua cho {$tenant['name']}:\n\n"
+            . "Doanh thu: " . number_format((float) $stats['revenue'], 0, ',', '.') . "đ\n"
+            . "Số đơn hàng: {$stats['order_count']}\n\n"
+            . "Xem chi tiết tại: https://app.kt-soft.vn/reports.php\n";
+        @mail($tenant['owner_email'], $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+    }
+
+    $pdo->prepare('UPDATE tenants SET last_weekly_report_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
 }
 
 function requireLogin(): array

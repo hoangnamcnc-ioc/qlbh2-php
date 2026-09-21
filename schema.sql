@@ -733,6 +733,7 @@ CREATE TABLE IF NOT EXISTS tenants (
   plan ENUM('TRIAL','PAID') NOT NULL DEFAULT 'TRIAL',
   trial_ends_at DATETIME NULL,
   trial_reminder_sent_at DATETIME NULL,
+  last_weekly_report_at DATETIME NULL,
   -- Han goi PAID (NULL = khong gioi han, dung cho tenant #1 va cac truong hop nang cap thu cong
   -- truoc khi co tinh nang nay - khong tu dong ap han cho ho). Tenant nang cap qua VNPay se duoc
   -- dat gia tri nay va bi kiem tra het han giong TRIAL.
