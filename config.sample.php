@@ -19,6 +19,9 @@ define('DB_PASS', 'mat_khau');
 // Tạo nhanh bằng lệnh: php -r "echo bin2hex(random_bytes(32));"
 define('AUTH_SALT', 'change-this-to-a-random-long-string');
 
+// Bi mat de goi backup_cron.php tu dong (qua cron cua hosting) - doi thanh chuoi rieng cua ban.
+define('BACKUP_CRON_SECRET', 'change-this-to-another-random-long-string');
+
 function db(): PDO
 {
     static $pdo = null;
