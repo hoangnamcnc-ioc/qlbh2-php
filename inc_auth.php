@@ -72,7 +72,7 @@ function checkTrialExpiry(): void
         return;
     }
 
-    $stmt = db()->prepare('SELECT plan, trial_ends_at, is_active FROM tenants WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, plan, trial_ends_at, trial_reminder_sent_at, owner_email, is_active FROM tenants WHERE id = ?');
     $stmt->execute([$_SESSION['user']['tenant_id']]);
     $tenant = $stmt->fetch();
 
@@ -85,6 +85,41 @@ function checkTrialExpiry(): void
     if ($tenant['plan'] === 'TRIAL' && $tenant['trial_ends_at'] !== null && strtotime($tenant['trial_ends_at']) < time()) {
         redirect('trial_expired.php');
     }
+
+    maybeSendTrialReminder($tenant);
+}
+
+/**
+ * Gui email nhac con 3 ngay het han dung thu - chi gui 1 lan/tenant (danh dau qua
+ * trial_reminder_sent_at). Khong dung cron (hosting khong co SSH/cron de tao job rieng) - kiem
+ * tra ngay tren request cua chinh nguoi dung do khi ho dang nhap/dung app, đủ hiệu quả vì trial
+ * chi 14 ngay va tenant TRIAL van dang hoat dong (mo app) trong khoang do.
+ */
+function maybeSendTrialReminder(array $tenant): void
+{
+    if ($tenant['plan'] !== 'TRIAL' || $tenant['trial_ends_at'] === null || empty($tenant['owner_email'])) {
+        return;
+    }
+    if ($tenant['trial_reminder_sent_at'] !== null) {
+        return;
+    }
+    $secondsLeft = strtotime($tenant['trial_ends_at']) - time();
+    if ($secondsLeft <= 0 || $secondsLeft > 3 * 86400) {
+        return;
+    }
+
+    $daysLeft = max(1, (int) ceil($secondsLeft / 86400));
+    $subject = "QLBH-CLOUD - Con {$daysLeft} ngay dung thu";
+    $body = "Xin chao,\n\n"
+        . "Goi dung thu QLBH-CLOUD cua ban ({$tenant['name']}) se het han sau {$daysLeft} ngay nua.\n"
+        . "De tiep tuc su dung khong gian doan, vui long lien he nang cap len goi tra phi:\n\n"
+        . "DT/Zalo: 0945289666\nEmail: hoangnamcnc@gmail.com\n\n"
+        . "Sau khi het han dung thu, du lieu cua ban van duoc giu nguyen - chi tam khoa truy cap"
+        . " cho toi khi nang cap.\n";
+    $headers = 'From: QLBH-CLOUD <no-reply@kt-soft.vn>';
+    @mail($tenant['owner_email'], $subject, $body, $headers);
+
+    db()->prepare('UPDATE tenants SET trial_reminder_sent_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
 }
 
 function requireLogin(): array
