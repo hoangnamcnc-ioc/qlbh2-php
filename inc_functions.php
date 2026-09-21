@@ -246,3 +246,54 @@ function recordCashbookEntry(
         'INSERT INTO cashbook_entries (code, branch_id, type, amount, reason, payment_method, created_by_id, order_id, receipt_id, auto_generated) VALUES (?,?,?,?,?,?,?,?,?,1)'
     )->execute([$code, $branchId, $type, $amount, $reason, $paymentMethod, $createdById, $orderId, $receiptId]);
 }
+
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_LOCK_SECONDS = 15 * 60;
+
+function clientIp(): string
+{
+    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+}
+
+/**
+ * Số giây còn lại bị khóa cho 1 hành động (login/forgot_password) theo IP hiện tại — 0 nếu
+ * không bị khóa. Lưu ở DB (không phải session) để không thể bypass bằng cách xóa cookie.
+ */
+function rateLimitSecondsLeft(string $action): int
+{
+    $stmt = db()->prepare('SELECT locked_until FROM login_attempts WHERE ip_addr = ? AND action = ?');
+    $stmt->execute([clientIp(), $action]);
+    $lockedUntil = $stmt->fetchColumn();
+    if (!$lockedUntil || strtotime($lockedUntil) <= time()) {
+        return 0;
+    }
+    return strtotime($lockedUntil) - time();
+}
+
+/** Ghi 1 lần thất bại cho hành động theo IP hiện tại, tự khóa RATE_LIMIT_LOCK_SECONDS khi đạt RATE_LIMIT_MAX lần. */
+function rateLimitRecordFailure(string $action): void
+{
+    $ip = clientIp();
+    $stmt = db()->prepare('SELECT attempt_count FROM login_attempts WHERE ip_addr = ? AND action = ?');
+    $stmt->execute([$ip, $action]);
+    $count = (int) $stmt->fetchColumn() + 1;
+
+    if ($count >= RATE_LIMIT_MAX) {
+        $lockedUntil = date('Y-m-d H:i:s', time() + RATE_LIMIT_LOCK_SECONDS);
+        db()->prepare(
+            'INSERT INTO login_attempts (ip_addr, action, attempt_count, locked_until) VALUES (?,?,0,?)
+             ON DUPLICATE KEY UPDATE attempt_count = 0, locked_until = VALUES(locked_until)'
+        )->execute([$ip, $action, $lockedUntil]);
+    } else {
+        db()->prepare(
+            'INSERT INTO login_attempts (ip_addr, action, attempt_count, locked_until) VALUES (?,?,?,NULL)
+             ON DUPLICATE KEY UPDATE attempt_count = VALUES(attempt_count), locked_until = NULL'
+        )->execute([$ip, $action, $count]);
+    }
+}
+
+/** Xóa bộ đếm thất bại khi thành công (đăng nhập đúng...). */
+function rateLimitReset(string $action): void
+{
+    db()->prepare('DELETE FROM login_attempts WHERE ip_addr = ? AND action = ?')->execute([clientIp(), $action]);
+}

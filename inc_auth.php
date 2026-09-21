@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/inc_functions.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     // Dat ten cookie session rieng theo tung deployment (dua tren AUTH_SALT) thay vi dung
@@ -142,20 +143,19 @@ function requireSuperAdmin(): array
     return $user;
 }
 
-// Chong do mat khau: khoa tam 15 phut sau 5 lan sai lien tiep cho tung email. Luu trong
-// session PHP (khong can bang DB rieng) - moi tien trinh PHP-FPM/session file la doc lap
-// theo tung nguoi dung/trinh duyet nen du de chan bot do mat khau tu 1 nguon.
+// Chong do mat khau: khoa tam 15 phut sau 5 lan sai lien tiep THEO IP, luu o bang login_attempts
+// (khong phai session) - ke tan cong xoa cookie/mo tab an danh se duoc session moi tinh, vo hieu
+// hoan toan khoa kieu session. Khoa theo IP (khong phai theo email) de chan ca kieu do quet nhieu
+// email tu 1 nguon.
 function loginLockedUntil(string $email): int
 {
-    return (int) ($_SESSION['login_lock'][$email]['until'] ?? 0);
+    $secondsLeft = rateLimitSecondsLeft('login');
+    return $secondsLeft > 0 ? time() + $secondsLeft : 0;
 }
 
 function attemptLogin(string $email, string $password): ?array
 {
-    if (!isset($_SESSION['login_lock'][$email]) || !is_array($_SESSION['login_lock'][$email])) {
-        $_SESSION['login_lock'][$email] = ['count' => 0, 'until' => 0];
-    }
-    if ($_SESSION['login_lock'][$email]['until'] > time()) {
+    if (rateLimitSecondsLeft('login') > 0) {
         return null;
     }
 
@@ -164,15 +164,11 @@ function attemptLogin(string $email, string $password): ?array
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
-        $count = $_SESSION['login_lock'][$email]['count'] + 1;
-        $_SESSION['login_lock'][$email]['count'] = $count;
-        if ($count >= 5) {
-            $_SESSION['login_lock'][$email]['until'] = time() + 15 * 60;
-        }
+        rateLimitRecordFailure('login');
         return null;
     }
 
-    unset($_SESSION['login_lock'][$email]);
+    rateLimitReset('login');
     unset($user['password_hash']);
     // Doi session ID moi khi dang nhap thanh cong - chan "session fixation" (ke tan cong dat
     // truoc 1 session ID roi du nan nhan dang nhap bang chinh ID do de chiem phien sau khi

@@ -7,12 +7,19 @@ if (currentUser()) {
 }
 
 $sent = false;
+$rateLimited = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $email = strtolower(trim(post('email')));
 
-    if ($email !== '') {
+    if (rateLimitSecondsLeft('forgot_password') > 0) {
+        // Gioi han so lan yeu cau dat lai mat khau theo IP - tranh bi spam gui email hang loat
+        // hoac do doan token bang cach tao token lien tuc. Khac voi login: o day khong can giau
+        // trang thai khoa (khong lo thong tin tai khoan) nen bao thang cho nguoi dung biet.
+        $rateLimited = true;
+    } elseif ($email !== '') {
+        rateLimitRecordFailure('forgot_password');
         $pdo = db();
         $stmt = $pdo->prepare('SELECT id, name FROM users WHERE email = ? AND is_active = 1');
         $stmt->execute([$email]);
@@ -60,7 +67,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
   <div class="box">
     <h1>Quên mật khẩu</h1>
-    <?php if ($sent): ?>
+    <?php if ($rateLimited): ?>
+      <div class="alert-success" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c;">
+        Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau ít phút, hoặc liên hệ hỗ trợ: ĐT/Zalo
+        <b>0945289666</b>.
+      </div>
+      <a href="login.php" class="back-link">← Quay lại đăng nhập</a>
+    <?php elseif ($sent): ?>
       <div class="alert-success">
         Nếu email này có tài khoản trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu (hiệu
         lực 1 giờ). Vui lòng kiểm tra hộp thư (kể cả mục Spam). Nếu không nhận được email sau vài

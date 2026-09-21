@@ -1,0 +1,18 @@
+## ONEPANEL Force HTTPS by SSL installation
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]
+Header always set Content-Security-Policy "upgrade-insecure-requests;"
+## ONEPANEL Force HTTPS by SSL installation end
+
+# Chan truy cap truc tiep cac file cau hinh/du lieu nhay cam qua HTTP - PHP require() van doc
+# duoc binh thuong (chan la o tang HTTP, khong anh huong include noi bo).
+<FilesMatch "^(config\.php|config\.sample\.php)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(sql|log|md)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes

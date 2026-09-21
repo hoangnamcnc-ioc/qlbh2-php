@@ -4,6 +4,12 @@
 // Quirk hosting iNet đã biết: DB_HOST phải là 127.0.0.1 (không dùng 'localhost'),
 // nếu không sẽ không kết nối được.
 
+// Tat hien thi loi PHP ra man hinh tren production - tranh lo duong dan server/query SQL khi co
+// loi. Van ghi log day du vao error_log cua host de con debug duoc.
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
 define('DB_HOST', '127.0.0.1');
 define('DB_NAME', 'ten_database');
 define('DB_USER', 'ten_user');

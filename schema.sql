@@ -823,6 +823,17 @@ CREATE TABLE IF NOT EXISTS password_resets (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Khoa brute-force theo IP + hanh dong (login/forgot_password) - luu DB thay vi session de
+-- khong the bypass bang cach xoa cookie/mo session moi (session lock cu bi vo hieu theo cach do).
+CREATE TABLE IF NOT EXISTS login_attempts (
+  ip_addr VARCHAR(45) NOT NULL,
+  action VARCHAR(20) NOT NULL,
+  attempt_count INT NOT NULL DEFAULT 0,
+  locked_until DATETIME NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (ip_addr, action)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS work_schedules (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tenant_id INT NOT NULL,
