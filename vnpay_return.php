@@ -4,6 +4,7 @@
 // the tu go URL nay voi response code 00 de gia mao "da thanh toan".
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_mail.php';
 require_once __DIR__ . '/inc_vnpay.php';
 
 $params = $_GET;
@@ -51,9 +52,9 @@ if (!$validSignature) {
     $body = "Cam on ban! Da nhan thanh toan {$payment['amount']}d cho cua hang {$payment['tenant_name']}.\n"
         . "Goi dich vu da duoc kich hoat them {$payment['months']} thang.\n";
     if (!empty($payment['owner_email'])) {
-        @mail($payment['owner_email'], $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+        sendMail($payment['owner_email'], $subject, $body);
     }
-    @mail('hoangnamcnc@gmail.com', $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+    sendMail('hoangnamcnc@gmail.com', $subject, $body);
 
     $success = true;
     $message = 'Thanh toán thành công! Gói dịch vụ của bạn đã được kích hoạt.';

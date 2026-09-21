@@ -36,8 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . "Co yeu cau dat lai mat khau cho tai khoan nay. Bam vao link duoi day de dat mat khau moi\n"
                 . "(link co hieu luc trong 1 gio):\n\n$resetLink\n\n"
                 . "Neu ban khong yeu cau, vui long bo qua email nay.\n";
-            $headers = 'From: QLBH-CLOUD <no-reply@kt-soft.vn>';
-            @mail($email, $subject, $body, $headers);
+            sendMail($email, $subject, $body);
             logActivity('PASSWORD_RESET_REQUEST', $email);
         }
         // Luon hien thong bao thanh cong nhu nhau du email co ton tai hay khong - tranh lo

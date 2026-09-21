@@ -34,8 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             . "SDT/Zalo: $contactPhone\n"
             . "Ghi chu: " . ($message ?: '(không có)') . "\n"
             . "Han hien tai: " . ($tenant['trial_ends_at'] ?? '(gói trả phí)') . "\n";
-        $headers = 'From: QLBH-CLOUD <no-reply@kt-soft.vn>' . "\r\n" . 'Reply-To: ' . (post('contact_email') ?: 'no-reply@kt-soft.vn');
-        @mail(SUPPORT_EMAIL, $subject, $body, $headers);
+        sendMail(SUPPORT_EMAIL, $subject, $body, post('contact_email') ?: null);
 
         logActivity('RENEWAL_REQUEST', 'tenant_id=' . $currentUser['tenant_id']);
         $sent = true;

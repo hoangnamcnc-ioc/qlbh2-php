@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_mail.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     // Dat ten cookie session rieng theo tung deployment (dua tren AUTH_SALT) thay vi dung
@@ -124,8 +125,7 @@ function maybeSendTrialReminder(array $tenant): void
         . "DT/Zalo: 0945289666\nEmail: hoangnamcnc@gmail.com\n\n"
         . "Sau khi het han dung thu, du lieu cua ban van duoc giu nguyen - chi tam khoa truy cap"
         . " cho toi khi nang cap.\n";
-    $headers = 'From: QLBH-CLOUD <no-reply@kt-soft.vn>';
-    @mail($tenant['owner_email'], $subject, $body, $headers);
+    sendMail($tenant['owner_email'], $subject, $body);
 
     db()->prepare('UPDATE tenants SET trial_reminder_sent_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
 }
@@ -162,7 +162,7 @@ function maybeSendWeeklyReport(array $tenant): void
             . "Doanh thu: " . number_format((float) $stats['revenue'], 0, ',', '.') . "đ\n"
             . "Số đơn hàng: {$stats['order_count']}\n\n"
             . "Xem chi tiết tại: https://app.kt-soft.vn/reports.php\n";
-        @mail($tenant['owner_email'], $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+        sendMail($tenant['owner_email'], $subject, $body);
     }
 
     $pdo->prepare('UPDATE tenants SET last_weekly_report_at = NOW() WHERE id = ?')->execute([$tenant['id']]);

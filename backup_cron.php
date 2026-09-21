@@ -5,6 +5,7 @@
 // bang dieu khien hosting.
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_mail.php';
 
 header('Content-Type: text/plain; charset=utf-8');
 
@@ -24,6 +25,6 @@ $sizeKb = number_format(filesize($path) / 1024, 0);
 $subject = 'QLBH-CLOUD - Sao luu tu dong thanh cong';
 $body = "Da tao sao luu tu dong: {$filename} ({$sizeKb} KB).\n"
     . "Tai xuong tai: https://" . $_SERVER['HTTP_HOST'] . "/backup.php (dang nhap tai khoan quan tri he thong).\n";
-@mail('hoangnamcnc@gmail.com', $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+sendMail('hoangnamcnc@gmail.com', $subject, $body);
 
 echo "OK: $filename ($sizeKb KB)\n";

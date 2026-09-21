@@ -8,6 +8,7 @@
 // VNPay yeu cau tra ve JSON {"RspCode":"...","Message":"..."} chu khong phai HTML.
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_mail.php';
 require_once __DIR__ . '/inc_vnpay.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -73,8 +74,8 @@ $subject = 'QLBH-CLOUD - Thanh toan thanh cong';
 $body = "Da nhan thanh toan " . number_format((float) $payment['amount'], 0, ',', '.') . "d cho {$tenant['name']}.\n"
     . "Goi dich vu da duoc kich hoat them {$payment['months']} thang.\n";
 if (!empty($tenant['owner_email'])) {
-    @mail($tenant['owner_email'], $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+    sendMail($tenant['owner_email'], $subject, $body);
 }
-@mail('hoangnamcnc@gmail.com', $subject, $body, 'From: QLBH-CLOUD <no-reply@kt-soft.vn>');
+sendMail('hoangnamcnc@gmail.com', $subject, $body);
 
 ipnRespond('00', 'Confirm Success');
