@@ -51,7 +51,8 @@ require_once __DIR__ . '/inc_header.php';
   <?php if ($sent): ?>
     <div class="alert alert-success">
       Đã gửi yêu cầu gia hạn thành công! KT-SOFT sẽ liên hệ lại sớm nhất qua số điện thoại/Zalo bạn
-      cung cấp.
+      cung cấp để thống nhất giá, sau đó gửi bạn link thanh toán online (qua VNPay) — gói sẽ tự
+      động kích hoạt ngay sau khi thanh toán xong.
     </div>
   <?php else: ?>
     <p class="muted" style="margin:0 0 16px;">

@@ -6,6 +6,10 @@ $user = currentUser();
 if (!$user) {
     redirect('login.php');
 }
+
+$stmt = db()->prepare('SELECT plan FROM tenants WHERE id = ?');
+$stmt->execute([$user['tenant_id']]);
+$isPaidExpired = $stmt->fetchColumn() === 'PAID';
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -28,12 +32,20 @@ if (!$user) {
 <body>
   <div class="box">
     <div class="icon">⏳</div>
-    <h1>Đã hết hạn dùng thử QLBH-CLOUD</h1>
-    <p>
-      Cảm ơn <?= e($user['name']) ?> đã trải nghiệm QLBH-CLOUD! Thời gian sử dụng miễn phí 12 tháng đã
-      kết thúc. Dữ liệu của bạn vẫn được giữ nguyên — gửi yêu cầu gia hạn để KT-SOFT liên hệ và
-      tiếp tục cho bạn sử dụng (gia hạn tính theo năm).
-    </p>
+    <?php if ($isPaidExpired): ?>
+      <h1>Gói dịch vụ QLBH-CLOUD đã hết hạn</h1>
+      <p>
+        Xin chào <?= e($user['name']) ?>, gói dịch vụ trả phí của bạn đã hết hạn. Dữ liệu của bạn
+        vẫn được giữ nguyên — gửi yêu cầu gia hạn để KT-SOFT gửi lại link thanh toán online.
+      </p>
+    <?php else: ?>
+      <h1>Đã hết hạn dùng thử QLBH-CLOUD</h1>
+      <p>
+        Cảm ơn <?= e($user['name']) ?> đã trải nghiệm QLBH-CLOUD! Thời gian sử dụng miễn phí 12 tháng đã
+        kết thúc. Dữ liệu của bạn vẫn được giữ nguyên — gửi yêu cầu gia hạn để KT-SOFT liên hệ và
+        tiếp tục cho bạn sử dụng (gia hạn tính theo năm).
+      </p>
+    <?php endif; ?>
     <a class="btn" href="gia_han.php">Yêu cầu gia hạn</a>
     <p style="font-size:12px;color:#94a3b8;margin-top:14px;">
       Hoặc liên hệ trực tiếp: ĐT/Zalo <b>0945289666</b> — Email <b>hoangnamcnc@gmail.com</b>

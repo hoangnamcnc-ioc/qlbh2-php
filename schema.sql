@@ -733,8 +733,31 @@ CREATE TABLE IF NOT EXISTS tenants (
   plan ENUM('TRIAL','PAID') NOT NULL DEFAULT 'TRIAL',
   trial_ends_at DATETIME NULL,
   trial_reminder_sent_at DATETIME NULL,
+  -- Han goi PAID (NULL = khong gioi han, dung cho tenant #1 va cac truong hop nang cap thu cong
+  -- truoc khi co tinh nang nay - khong tu dong ap han cho ho). Tenant nang cap qua VNPay se duoc
+  -- dat gia tri nay va bi kiem tra het han giong TRIAL.
+  paid_until DATETIME NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Link thanh toan VNPay - chu he thong tao 1 dong PENDING voi so tien da thong nhat rieng voi
+-- tung khach (gia QLBH-CLOUD hien tu van theo quy mo, khong co bang gia co dinh), gui link
+-- pay.php?order=... cho khach. VNPay redirect ve vnpay_return.php sau khi thanh toan xong.
+-- Ten "subscription_payments" (khong phai "payments") vi bang "payments" da ton tai san - dung
+-- de ghi nhan thanh toan cua don hang POS (orders), khac hoan toan muc dich voi bang nay.
+CREATE TABLE IF NOT EXISTS subscription_payments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  order_code VARCHAR(40) NOT NULL UNIQUE,
+  amount INT NOT NULL,
+  months INT NOT NULL DEFAULT 12,
+  status ENUM('PENDING','SUCCESS','FAILED') NOT NULL DEFAULT 'PENDING',
+  vnp_transaction_no VARCHAR(50) NULL,
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  paid_at DATETIME NULL,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 ALTER TABLE branches ADD COLUMN tenant_id INT NOT NULL DEFAULT 1, ADD CONSTRAINT fk_branches_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);

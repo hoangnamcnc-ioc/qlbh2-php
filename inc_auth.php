@@ -72,7 +72,7 @@ function checkTrialExpiry(): void
         return;
     }
 
-    $stmt = db()->prepare('SELECT id, plan, trial_ends_at, trial_reminder_sent_at, owner_email, is_active FROM tenants WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, plan, trial_ends_at, trial_reminder_sent_at, paid_until, owner_email, is_active FROM tenants WHERE id = ?');
     $stmt->execute([$_SESSION['user']['tenant_id']]);
     $tenant = $stmt->fetch();
 
@@ -83,6 +83,13 @@ function checkTrialExpiry(): void
     }
 
     if ($tenant['plan'] === 'TRIAL' && $tenant['trial_ends_at'] !== null && strtotime($tenant['trial_ends_at']) < time()) {
+        redirect('trial_expired.php');
+    }
+
+    // paid_until = NULL nghia la khong gioi han (nang cap thu cong truoc khi co tinh nang thanh
+    // toan online, hoac tenant #1 - chu so huu) - chi ap dung het han cho tenant da tung thanh
+    // toan qua VNPay (co gia tri paid_until that).
+    if ($tenant['plan'] === 'PAID' && $tenant['paid_until'] !== null && strtotime($tenant['paid_until']) < time()) {
         redirect('trial_expired.php');
     }
 

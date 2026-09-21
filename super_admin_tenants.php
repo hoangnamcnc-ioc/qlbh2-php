@@ -1,18 +1,34 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_vnpay.php';
 requireSuperAdmin();
 
 $pdo = db();
 $error = null;
+$newPaymentLink = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $action = $_POST['action'] ?? '';
     $id = (int) ($_POST['id'] ?? 0);
 
+    if ($action === 'create_payment_link') {
+        $amount = (int) ($_POST['amount'] ?? 0);
+        $months = max(1, (int) ($_POST['months'] ?? 12));
+        if ($amount < 1000) {
+            $error = 'Số tiền không hợp lệ.';
+        } else {
+            $orderCode = vnpayGenOrderCode();
+            $pdo->prepare('INSERT INTO subscription_payments (tenant_id, order_code, amount, months) VALUES (?, ?, ?, ?)')
+                ->execute([$id, $orderCode, $amount, $months]);
+            logActivity('SUPER_ADMIN_PAYMENT_LINK_CREATE', "tenant_id=$id order=$orderCode amount=$amount");
+            $newPaymentLink = 'https://' . $_SERVER['HTTP_HOST'] . '/pay.php?order=' . $orderCode;
+        }
+    }
+
     // Khong cho tu khoa/tu ha cap chinh tenant #1 (chu so huu) de tranh tu khoa minh ra khoi he thong.
-    if ($id === 1) {
+    if ($id === 1 && $action !== 'create_payment_link') {
         redirect('super_admin_tenants.php');
     }
 
@@ -33,7 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("UPDATE renewal_requests SET status = 'DONE' WHERE id = ? AND tenant_id = ?")->execute([$reqId, $id]);
         logActivity('SUPER_ADMIN_RENEWAL_RESOLVE', "tenant_id=$id req_id=$reqId");
     }
-    redirect('super_admin_tenants.php');
+    // Khong redirect khi vua tao link thanh toan - can giu $newPaymentLink de hien thi cho chu
+    // he thong copy gui khach (redirect se lam mat bien nay vi day la request moi).
+    if ($action !== 'create_payment_link') {
+        redirect('super_admin_tenants.php');
+    }
 }
 
 $pendingRenewals = $pdo->query(
@@ -66,6 +86,20 @@ require_once __DIR__ . '/inc_header.php';
   Trang riêng cho chủ hệ thống KT-SOFT — không phải nghiệp vụ của 1 cửa hàng. Chỉ tài khoản ADMIN
   gốc mới xem được trang này.
 </p>
+
+<?php if (!vnpayConfigured()): ?>
+  <div class="alert" style="background:#fef9c3;border:1px solid #fde047;color:#854d0e;margin-bottom:20px;">
+    ⚠️ Chưa cấu hình VNPay (điền <code>VNPAY_TMN_CODE</code>/<code>VNPAY_HASH_SECRET</code> trong <code>config.php</code>) — link thanh toán vẫn tạo được nhưng khách sẽ thấy thông báo "chưa sẵn sàng" khi bấm thanh toán.
+  </div>
+<?php endif; ?>
+
+<?php if ($error): ?><div class="alert alert-error" style="margin-bottom:20px;"><?= e($error) ?></div><?php endif; ?>
+<?php if ($newPaymentLink): ?>
+  <div class="alert alert-success" style="margin-bottom:20px;">
+    ✅ Đã tạo link thanh toán — gửi link này cho khách hàng:<br>
+    <input type="text" readonly value="<?= e($newPaymentLink) ?>" onclick="this.select()" style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid #86efac;border-radius:6px;font-family:monospace;font-size:13px;">
+  </div>
+<?php endif; ?>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
   <div class="card">
@@ -143,7 +177,18 @@ require_once __DIR__ . '/inc_header.php';
             <?php endif; ?>
           </td>
           <td>
-            <?php if ($t['plan'] === 'PAID' || !$t['trial_ends_at']): ?>
+            <?php if ($t['plan'] === 'PAID'): ?>
+              <?php if (!$t['paid_until']): ?>
+                <span class="muted">Không giới hạn</span>
+              <?php else: ?>
+                <?php $paidDaysLeft = ceil((strtotime($t['paid_until']) - time()) / 86400); ?>
+                <?php if ($paidDaysLeft < 0): ?>
+                  <span style="color:#dc2626;font-weight:600;">Đã hết hạn</span>
+                <?php else: ?>
+                  Còn <?= (int) $paidDaysLeft ?> ngày
+                <?php endif; ?>
+              <?php endif; ?>
+            <?php elseif (!$t['trial_ends_at']): ?>
               <span class="muted">—</span>
             <?php elseif ($daysLeft < 0): ?>
               <span style="color:#dc2626;font-weight:600;">Đã hết hạn</span>
@@ -182,6 +227,19 @@ require_once __DIR__ . '/inc_header.php';
                 <input type="hidden" name="action" value="toggle_active">
                 <button type="submit" class="btn <?= $t['is_active'] ? 'btn-danger' : 'btn-secondary' ?>" style="padding:4px 8px;font-size:11px;" onclick="return confirm('<?= $t['is_active'] ? 'Khóa' : 'Mở khóa' ?> tài khoản này?')"><?= $t['is_active'] ? 'Khóa' : 'Mở khóa' ?></button>
               </form>
+              <details style="display:inline-block;position:relative;">
+                <summary class="btn btn-secondary" style="padding:4px 8px;font-size:11px;display:inline-block;cursor:pointer;list-style:none;">💳 Tạo link TT</summary>
+                <form method="post" style="position:absolute;z-index:10;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,.1);top:100%;right:0;width:200px;margin-top:4px;">
+                  <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                  <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+                  <input type="hidden" name="action" value="create_payment_link">
+                  <label style="display:block;font-size:11px;margin-bottom:2px;">Số tiền (VNĐ)</label>
+                  <input type="number" name="amount" min="1000" step="1000" required style="width:100%;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">
+                  <label style="display:block;font-size:11px;margin-bottom:2px;">Số tháng</label>
+                  <input type="number" name="months" value="12" min="1" required style="width:100%;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">
+                  <button type="submit" class="btn" style="width:100%;padding:6px;font-size:12px;">Tạo link</button>
+                </form>
+              </details>
             <?php endif; ?>
           </td>
         </tr>

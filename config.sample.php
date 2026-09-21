@@ -22,6 +22,13 @@ define('AUTH_SALT', 'change-this-to-a-random-long-string');
 // Bi mat de goi backup_cron.php tu dong (qua cron cua hosting) - doi thanh chuoi rieng cua ban.
 define('BACKUP_CRON_SECRET', 'change-this-to-another-random-long-string');
 
+// Thanh toan VNPay - dien thong tin tu Cong thong tin thanh toan VNPay (muc "Thong tin ket noi").
+// De trong ('') neu chua dung tinh nang thanh toan online - pay.php se bao "chua cau hinh".
+define('VNPAY_TMN_CODE', '');
+define('VNPAY_HASH_SECRET', '');
+define('VNPAY_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html');
+define('VNPAY_RETURN_URL', 'https://your-domain/vnpay_return.php');
+
 function db(): PDO
 {
     static $pdo = null;
