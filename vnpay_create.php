@@ -14,5 +14,5 @@ if (!$payment || !vnpayConfigured()) {
     exit('Không tìm thấy đơn thanh toán hoặc thanh toán online chưa được cấu hình.');
 }
 
-$url = vnpayBuildPaymentUrl($orderCode, (int) $payment['amount'], 'Thanh toan QLBH-CLOUD - ' . $orderCode);
+$url = vnpayBuildPaymentUrl($orderCode, (int) $payment['amount'], 'QLBH-CLOUD_' . $orderCode);
 redirect($url);

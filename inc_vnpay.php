@@ -21,6 +21,10 @@ function vnpayBuildPaymentUrl(string $orderCode, int $amountVnd, string $orderIn
         'vnp_Amount' => $amountVnd * 100, // VNPay yeu cau nhan 100 (khong co phan thap phan)
         'vnp_CurrCode' => 'VND',
         'vnp_TxnRef' => $orderCode,
+        // Khong dung khoang trang/dau tieng Viet trong OrderInfo: khi VNPay redirect ve,
+        // PHP da tu giai ma $_GET roi ta ma hoa lai de dung chu ky - khoang trang co the
+        // di ra dang '+' luc gui nhung thanh '%20' luc ma hoa lai, lam chu ky khong khop
+        // va giao dich hop le bi tu choi oan.
         'vnp_OrderInfo' => $orderInfo,
         'vnp_OrderType' => 'other',
         'vnp_Locale' => 'vn',
