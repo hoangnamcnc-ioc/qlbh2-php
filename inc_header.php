@@ -54,6 +54,7 @@ if ($isManagerUp) {
         'accounting.php' => 'Kế toán và Thuế',
     ];
     $navGroups['Nhân sự'] = [
+        'users.php' => 'Nhân viên & phân quyền',
         'attendance.php' => 'Chấm công',
         'work_schedules.php' => 'Lịch làm việc',
         'payroll.php' => 'Bảng lương',
