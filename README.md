@@ -2071,7 +2071,7 @@ bảng giá), **đăng nhập thật qua HTTP** bằng tài khoản của A, r�
 B — sau đó tự dọn sạch. Nó chỉ xóa đúng 2 tenant nó vừa tạo (nhớ id ngay từ đầu), không bao giờ
 đụng tới dữ liệu khách hàng thật.
 
-Ba loại phép thử, 38 phép tất cả:
+Ba loại phép thử, 45 phép tất cả:
 
 | Loại | Kiểm tra gì | Vì sao cần |
 |---|---|---|
@@ -2088,3 +2088,13 @@ có thể nối vào quy trình deploy tự động.
 
 Lưu ý khi sửa script: LiteSpeed chặn user-agent mặc định của cURL bằng 403, nên mọi request nội bộ
 đều phải khai báo `CURLOPT_USERAGENT` (hằng `TEST_UA`).
+
+Hai lưu ý nữa rút ra khi mở rộng script:
+
+- **Lấy token CSRF từ trang nào cũng quan trọng.** Ô `csrf` của `order_return_form.php` chỉ hiện ra
+  sau khi form đã tìm được đơn hàng, nên lấy token từ chính trang đó sẽ ra chuỗi rỗng, request bị
+  chặn vì CSRF, và phép thử "đạt" mà **chưa hề chạm tới hàng rào tenant**. Token là của phiên chứ
+  không của từng form, nên script lấy một lần từ `orders.php` rồi dùng chung.
+- **Phép thử chuyển hàng chéo hiện còn yếu.** Nó đạt cả khi chưa vá, vì sản phẩm của cửa hàng khác
+  không có tồn kho ở chi nhánh mình nên lệnh chuyển tự hỏng vì thiếu hàng. Bản vá vẫn cần (chặn từ
+  gốc thay vì dựa vào một tác dụng phụ), nhưng đừng coi phép thử đó là bằng chứng mạnh.

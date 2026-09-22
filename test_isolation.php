@@ -80,6 +80,7 @@ function taoCuaHangTam(PDO $pdo, string $nhan, string $marker): array
     $order = (int) $pdo->lastInsertId();
     $pdo->prepare("INSERT INTO order_items (order_id, product_id, quantity, unit_price, line_total, cost_price) VALUES (?, ?, 1, 10000, 10000, 5000)")
         ->execute([$order, $product]);
+    $orderItem = (int) $pdo->lastInsertId();
 
     $pdo->prepare("INSERT INTO stock_takes (code, branch_id, created_by_id, status) VALUES (?, ?, ?, 'DRAFT')")
         ->execute(["KH-$nhan-$marker", $branch, $user]);
@@ -90,7 +91,7 @@ function taoCuaHangTam(PDO $pdo, string $nhan, string $marker): array
         ->execute([$t, "Khuyen mai rieng cua $nhan"]);
     $pdo->prepare("INSERT INTO price_lists (tenant_id, name) VALUES (?, ?)")->execute([$t, "Bang gia rieng cua $nhan"]);
 
-    return compact('t', 'branch', 'user', 'product', 'customer', 'supplier', 'receipt', 'po', 'order', 'take') + ['email' => $email];
+    return compact('t', 'branch', 'user', 'product', 'customer', 'supplier', 'receipt', 'po', 'order', 'orderItem', 'take') + ['email' => $email];
 }
 
 /** Dang nhap that qua HTTP, tra ve duong dan file cookie de dung cho cac request sau. */
@@ -203,6 +204,58 @@ try {
     $q->execute([$B['order']]);
     ok('Thu them tien vao don hang cua cua hang khac', (float) $q->fetchColumn() == 0.0, 'don cua B phai chua thu dong nao');
 
+    // Tra hang cheo: ghi thang vao so sach nan nhan (cong ton kho + phieu chi tien trong so quy).
+    // Endpoint nay nhan ca ma don hang (GET) lan id don hang (POST) nen phai thu ca hai duong.
+    // Dung $csrf lay tu orders.php chu KHONG lay tu chinh order_return_form.php: o csrf cua trang
+    // do chi hien ra khi form da tim duoc don hang, nen se lay duoc chuoi rong va request bi chan
+    // vi CSRF - phep thu se "dat" ma khong he cham toi hang rao tenant.
+    $demTra = static fn(PDO $p, int $t): int => (int) $p->query(
+        "SELECT COUNT(*) FROM order_returns r JOIN orders o ON o.id = r.order_id
+         JOIN branches b ON b.id = o.branch_id WHERE b.tenant_id = $t")->fetchColumn();
+    $traTruoc = $demTra($pdo, $B['t']);
+    httpPost($baseUrl . '/order_return_form.php', ['csrf' => $csrf, 'order_id' => $B['order'],
+        'reason' => 'kiem thu', 'qty' => [$B['orderItem'] => 1]], $jarA);
+    ok('Tao don tra hang tren don cua cua hang khac', $demTra($pdo, $B['t']) === $traTruoc,
+        'so don tra hang cua B phai khong doi');
+
+    httpPost($baseUrl . '/order_return_form.php', ['csrf' => $csrf, 'order_id' => $A['order'],
+        'reason' => 'kiem thu', 'qty' => [$A['orderItem'] => 1]], $jarA);
+    ok('[Doi chieu] Tao don tra hang tren don CUA CHINH MINH', $demTra($pdo, $A['t']) === 1,
+        'phai tao duoc don tra hang cho don cua chinh minh - neu hong thi phep thu tren khong dang tin');
+
+    $html = httpGet($baseUrl . '/order_return_form.php?q=' . urlencode("DH-B-$marker"), $jarA);
+    ok('Tra cuu don hang cua cua hang khac bang MA don', !str_contains($html, 'San pham B'),
+        'khong duoc hien san pham trong don cua B');
+    $html = httpGet($baseUrl . '/order_return_form.php?q=' . urlencode("DH-A-$marker"), $jarA);
+    ok('[Doi chieu] Tra cuu don CUA CHINH MINH bang ma don', str_contains($html, 'San pham A'),
+        'phai tra cuu duoc don cua chinh minh - neu hong thi phep thu tren khong dang tin');
+
+    // Dua SAN PHAM cua cua hang khac vao chung tu CUA MINH: chung tu nam trong so sach cua A
+    // nhung dong hang tro toi san pham cua B, nen ten/gia san pham cua B lo ra trong phieu va
+    // trong ton kho chi nhanh A.
+    $demDong = static fn(PDO $p, string $bang, string $cot, int $sp): int => (int) $p->query(
+        "SELECT COUNT(*) FROM `$bang` WHERE product_id = $sp")->fetchColumn();
+
+    $truoc = $demDong($pdo, 'stock_take_items', 'take_id', $B['product']);
+    httpPost($baseUrl . '/stock_take_form.php', ['csrf' => $csrf, 'branch_id' => $A['branch'],
+        'product_id' => [$B['product']], 'variant_id' => [''], 'system_qty' => [0], 'counted_qty' => [5]], $jarA);
+    ok('Dua san pham cua cua hang khac vao phieu kiem hang cua minh',
+        $demDong($pdo, 'stock_take_items', 'take_id', $B['product']) === $truoc,
+        'khong duoc tao dong kiem hang tro toi san pham cua B');
+
+    $truoc = $demDong($pdo, 'stock_transfer_items', 'transfer_id', $B['product']);
+    httpPost($baseUrl . '/stock_transfer_form.php', ['csrf' => $csrf, 'from_branch_id' => $A['branch'],
+        'to_branch_id' => $A['branch'], 'product_id' => [$B['product']], 'variant_id' => [''], 'quantity' => [1]], $jarA);
+    ok('Dua san pham cua cua hang khac vao phieu chuyen hang cua minh',
+        $demDong($pdo, 'stock_transfer_items', 'transfer_id', $B['product']) === $truoc,
+        'khong duoc tao dong chuyen hang tro toi san pham cua B');
+
+    httpPost($baseUrl . '/stock_take_form.php', ['csrf' => $csrf, 'branch_id' => $A['branch'],
+        'product_id' => [$A['product']], 'variant_id' => [''], 'system_qty' => [0], 'counted_qty' => [5]], $jarA);
+    ok('[Doi chieu] Dua san pham CUA CHINH MINH vao phieu kiem hang',
+        $demDong($pdo, 'stock_take_items', 'take_id', $A['product']) > 0,
+        'phai tao duoc phieu kiem hang voi san pham cua chinh minh');
+
     httpPost($baseUrl . '/stock_take_balance.php', ['csrf' => $csrf, 'take_id' => $B['take']], $jarA);
     $q = $pdo->prepare("SELECT status FROM stock_takes WHERE id = ?");
     $q->execute([$B['take']]);
@@ -277,10 +330,15 @@ try {
         $ids = implode(',', array_map('intval', $createdTenantIds));
         $steps = [
             "DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
+            "DELETE FROM order_return_items WHERE return_id IN (SELECT id FROM order_returns WHERE order_id IN (SELECT id FROM orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))))",
+            "DELETE FROM order_returns WHERE order_id IN (SELECT id FROM orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
             "DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
             "DELETE FROM order_status_history WHERE order_id IN (SELECT id FROM orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
             "DELETE FROM cashbook_entries WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",
             "DELETE FROM orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",
+            "DELETE FROM stock_take_items WHERE take_id IN (SELECT id FROM stock_takes WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
+            "DELETE FROM stock_transfer_items WHERE transfer_id IN (SELECT id FROM stock_transfers WHERE from_branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
+            "DELETE FROM stock_transfers WHERE from_branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",
             "DELETE FROM stock_takes WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",
             "DELETE FROM stock_receipt_items WHERE receipt_id IN (SELECT id FROM stock_receipts WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids)))",
             "DELETE FROM stock_receipts WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",

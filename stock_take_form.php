@@ -40,6 +40,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sys = round((float) ($systemQtys[$i] ?? 0), 3);
             $counted = round((float) ($countedQtys[$i] ?? 0), 3);
             if ($pid > 0) {
+                // San pham (va bien the) phai thuoc dung cua hang hien tai. Thieu dong nay thi
+                // gui product_id cua cua hang khac se dua ten san pham cua ho vao chung tu va
+                // vao ton kho chi nhanh minh. stock_receipt_form.php/purchase_order_form.php da
+                // kiem tu truoc - hai file nay bi sot.
+                if (!laySanPhamCuaToi($pid)) {
+                    continue;
+                }
+                if ($vid) {
+                    $ownVariant = $pdo->prepare('SELECT id FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
+                    $ownVariant->execute([$vid, $pid, $tenantId]);
+                    if (!$ownVariant->fetch()) {
+                        continue;
+                    }
+                }
                 $lines[] = [$pid, $vid, $sys, $counted];
             }
         }

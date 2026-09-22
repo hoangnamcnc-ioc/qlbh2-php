@@ -16,12 +16,16 @@ $returnReasons = $returnReasonsStmt->fetchAll();
 $q = trim($_GET['q'] ?? '');
 
 if ($q !== '') {
+    // Loc theo tenant qua JOIN branches: ma don hang la chuoi ngan, doan duoc - khong co dieu
+    // kien nay thi bat ky cua hang nao cung tra cuu duoc don hang cua cua hang khac (thay san
+    // pham, so luong, don gia, ten khach).
     $stmt = $pdo->prepare(
         'SELECT o.*, c.name AS customer_name FROM orders o
+         JOIN branches b ON b.id = o.branch_id
          LEFT JOIN customers c ON c.id = o.customer_id
-         WHERE o.code = ?'
+         WHERE o.code = ? AND b.tenant_id = ?'
     );
-    $stmt->execute([$q]);
+    $stmt->execute([$q, $tenantId]);
     $order = $stmt->fetch();
 
     if (!$order) {
@@ -56,9 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $quantities = $_POST['qty'] ?? [];
 
-    $stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
-    $stmt->execute([$orderId]);
-    $orderRow = $stmt->fetch();
+    // Phai qua cong kiem tra tenant: kiem tra quyen ngay duoi day chi so sanh branch_id va CHI
+    // ap dung voi CASHIER - ADMIN/MANAGER di thang qua. Khong co dong nay thi quan tri cua hang
+    // A gui order_id cua cua hang B se tao duoc don tra hang tren so sach cua B (cong ton kho
+    // vao chi nhanh cua ho va ghi mot phieu chi tien vao so quy cua ho).
+    $orderRow = layDonHangCuaToi($orderId);
 
     if (!$orderRow) {
         $error = 'Đơn hàng không hợp lệ';
