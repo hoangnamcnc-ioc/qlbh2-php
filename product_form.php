@@ -104,8 +104,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $hasWarranty = isset($_POST['has_warranty']) ? 1 : 0;
     $warrantyPolicyId = (int) ($_POST['warranty_policy_id'] ?? 0) ?: null;
 
-    if ($name === '' || ($id === 0 && $sku === '')) {
-        $error = 'Vui lòng nhập Tên sản phẩm' . ($id === 0 ? ' và Mã SKU' : '');
+    // Ma SKU khong bat buoc: chu cua hang nho thuong khong co san ma cho tung mat hang, bat ho
+    // tu nghi ra ma duy nhat cho hang tram san pham la rao can lon ngay o san pham dau tien.
+    if ($id === 0 && $sku === '') {
+        $sku = genCode('SP');
+    }
+
+    if ($name === '') {
+        $error = 'Vui lòng nhập Tên sản phẩm';
     } else {
         // Chỉ cho phép gán category/brand/tax_rate/warranty_policy thuộc đúng tenant hiện tại -
         // tránh gắn nhầm/cố ý gắn sản phẩm sang danh mục của tenant khác qua request thủ công.
@@ -226,11 +232,11 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="grid-2">
       <div class="field">
-        <label>Mã SKU <?= $product ? '' : '*' ?></label>
+        <label>Mã SKU <span class="muted" style="font-weight:400;">(để trống sẽ tự sinh)</span></label>
         <?php if ($product): ?>
           <input class="input" value="<?= e($product['sku']) ?>" disabled>
         <?php else: ?>
-          <input class="input" name="sku" required>
+          <input class="input" name="sku" placeholder="Bỏ trống để hệ thống tự tạo mã">
         <?php endif; ?>
       </div>
       <div class="field">
@@ -379,7 +385,7 @@ require_once __DIR__ . '/inc_header.php';
       <input type="hidden" name="redirect" value="product_form.php?id=<?= (int) $product['id'] ?>">
       <div style="flex:1;font-size:14px;font-weight:500;min-width:120px;">
         <?= e($b['name']) ?>
-        <?php if ((float) $inv['quantity'] <= (int) $inv['min_stock']): ?>
+        <?php if ((int) $inv['min_stock'] > 0 && (float) $inv['quantity'] <= (int) $inv['min_stock']): ?>
           <span class="badge badge-red">Dưới định mức</span>
         <?php endif; ?>
       </div>
@@ -448,7 +454,7 @@ require_once __DIR__ . '/inc_header.php';
           <input type="hidden" name="redirect" value="product_form.php?id=<?= (int) $product['id'] ?>">
           <div style="flex:1;font-size:13px;">
             <?= e($b['name']) ?>
-            <?php if ((float) $inv['quantity'] <= (int) $inv['min_stock']): ?>
+            <?php if ((int) $inv['min_stock'] > 0 && (float) $inv['quantity'] <= (int) $inv['min_stock']): ?>
               <span class="badge badge-red">Dưới định mức</span>
             <?php endif; ?>
           </div>

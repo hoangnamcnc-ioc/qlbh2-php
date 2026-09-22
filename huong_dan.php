@@ -42,10 +42,26 @@ require_once __DIR__ . '/inc_header.php';
   <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">2. Nhập dữ liệu có sẵn từ Excel</h2>
   <p>Nếu bạn đang quản lý sản phẩm/khách hàng bằng file Excel có sẵn, không cần gõ tay lại — tải thẳng file lên để phần mềm tự nhập vào.</p>
   <ul style="line-height:1.9;">
-    <li><b>Nhập sản phẩm</b>: vào <b>Sản phẩm → Danh sách sản phẩm → Nhập file</b>. File cần có các cột theo đúng thứ tự: <code>sku, barcode, name, unit, cost_price, sell_price</code> (mã hàng, mã vạch, tên sản phẩm, đơn vị tính, giá vốn, giá bán). Sản phẩm trùng mã (SKU) sẽ được cập nhật, mã mới sẽ được tạo mới.</li>
-    <li><b>Nhập tồn kho ban đầu</b>: sau khi đã có sản phẩm, vào <b>Sản phẩm → Quản lý kho → Nhập tồn kho từ file</b>, chọn chi nhánh rồi tải file có 2 cột: <code>sku, quantity</code> (mã hàng, số lượng tồn thực tế đang có). Số lượng nhập vào sẽ <b>thay thế</b> số tồn hiện có, không cộng dồn.</li>
-    <li><b>Nhập khách hàng</b>: vào <b>Khách hàng → Danh sách khách hàng → Nhập file</b>. File cần các cột: <code>code, name, phone, address</code> (mã khách, tên, số điện thoại, địa chỉ) — cột mã khách có thể để trống, hệ thống tự sinh. Khách trùng số điện thoại sẽ được cập nhật, số mới sẽ được tạo khách hàng mới.</li>
+    <li><b>Nhập sản phẩm</b>: vào <b>Sản phẩm → Danh sách sản phẩm → Nhập file</b>. Chỉ cần cột
+      <b>Tên sản phẩm</b> (hoặc "Tên hàng") là bắt buộc; các cột khác như Mã hàng, Mã vạch, Đơn vị
+      tính, Giá vốn, Giá bán có thì tốt, không có cũng được. Nếu file không có cột mã hàng, hệ
+      thống tự sinh mã. Sản phẩm trùng mã hàng sẽ được cập nhật thay vì tạo trùng.</li>
+    <li><b>Nhập tồn kho</b>: sau khi đã có sản phẩm, vào <b>Sản phẩm → Quản lý kho → Nhập tồn kho
+      từ file</b>, chọn chi nhánh rồi tải file có cột <b>Mã hàng</b> và <b>Số lượng tồn</b>. Số
+      lượng nhập vào sẽ <b>thay thế</b> số tồn hiện có, không cộng dồn.</li>
+    <li><b>Nhập khách hàng</b>: vào <b>Khách hàng → Danh sách khách hàng → Nhập file</b>. Chỉ cần
+      cột <b>Tên khách hàng</b> là bắt buộc; Số điện thoại, Địa chỉ, Mã khách có thì thêm vào.
+      Khách trùng số điện thoại sẽ được cập nhật thay vì tạo trùng.</li>
+    <li><b>Thứ tự cột trong file không quan trọng</b> — hệ thống tự nhận cột theo <b>tên tiếng
+      Việt ở dòng tiêu đề</b> (dòng đầu tiên). Không cần đổi tên cột sang tiếng Anh, không cần
+      sắp xếp lại cột.</li>
+    <li><b>Luôn có bước xem trước</b>: sau khi chọn file, hệ thống hiện 5 dòng đầu đã đọc được để
+      bạn kiểm tra các cột đã vào đúng chỗ chưa — dữ liệu chỉ được ghi vào sau khi bạn bấm
+      "Xác nhận".</li>
     <li>Cả 3 màn hình chỉ nhận <b>file Excel (.xlsx)</b> — file tải thẳng xuống từ Excel/Google Sheets đều dùng được ngay. Dòng đầu tiên của file phải là dòng tiêu đề (tên cột), dữ liệu bắt đầu từ dòng thứ 2.</li>
+    <li>Sau khi nhập sản phẩm và tồn kho xong mới bán được tại POS — mặc định hệ thống không cho
+      bán sản phẩm đang hết hàng (có thể đổi trong <b>Cấu hình</b> nếu cửa hàng muốn cho bán cả
+      khi chưa kịp cập nhật tồn).</li>
     <li>Các nút <b>Xuất file</b> ở danh sách sản phẩm/khách hàng/sổ quỹ cũng xuất ra file Excel (.xlsx) — có thể dùng ngay làm file mẫu để chỉnh sửa rồi nhập lại.</li>
     <li>Nhập xong, màn hình sẽ báo rõ: đã thêm mới bao nhiêu, cập nhật bao nhiêu, bỏ qua bao nhiêu dòng không hợp lệ — kiểm tra lại số liệu này để chắc chắn không sót dòng nào.</li>
   </ul>

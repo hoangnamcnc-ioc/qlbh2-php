@@ -158,7 +158,14 @@ try {
                     $prod->execute([$productId]);
                 }
                 $pname = $prod->fetchColumn() ?: ('#' . $productId);
-                throw new RuntimeException("Sản phẩm \"$pname\" không đủ tồn kho");
+                $tonHienCo = $inv ? fmtQty($inv['quantity']) : '0';
+                // Bao ro dang co bao nhieu va cach xu ly - truoc day chi bao "khong du ton kho"
+                // la ngo cut voi nguoi dung moi (vua tao san pham xong, ton kho = 0).
+                throw new RuntimeException(
+                    "Sản phẩm \"$pname\" không đủ tồn kho (còn $tonHienCo). "
+                    . 'Vào Sản phẩm → Quản lý kho → "Nhập tồn kho từ file" để khai báo tồn đầu kỳ, '
+                    . 'hoặc bật "Cho phép bán khi hết hàng" trong Cấu hình.'
+                );
             }
 
             if ($inv) {

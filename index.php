@@ -131,7 +131,7 @@ $lowStockStmt = $pdo->prepare(
      JOIN products p ON p.id = i.product_id
      LEFT JOIN product_variants v ON v.id = i.variant_id
      JOIN branches b ON b.id = i.branch_id
-     WHERE i.quantity <= i.min_stock$lowStockWhere
+     WHERE i.min_stock > 0 AND i.quantity <= i.min_stock$lowStockWhere
      ORDER BY i.quantity ASC LIMIT 10"
 );
 $lowStockStmt->execute($lowStockParam);
@@ -155,8 +155,18 @@ if (hasRole('ADMIN', 'MANAGER')) {
     $stmt->execute([$tenantId]);
     $obEmployeeCount = (int) $stmt->fetchColumn();
 
+    // Phai co ton kho truoc khi ban thu: mac dinh he thong KHONG cho ban khi ton = 0, nen neu
+    // checklist bao "ban thu" ngay sau khi tao san pham thi nguoi dung moi se bi chan va tac.
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM inventory i JOIN branches b ON b.id = i.branch_id
+         WHERE b.tenant_id = ? AND i.quantity > 0'
+    );
+    $stmt->execute([$tenantId]);
+    $obStockCount = (int) $stmt->fetchColumn();
+
     $obSteps = [
-        ['done' => $obProductCount > 0, 'label' => 'Thêm sản phẩm đầu tiên', 'link' => 'product_form.php'],
+        ['done' => $obProductCount > 0, 'label' => 'Thêm sản phẩm (hoặc nhập cả danh sách từ file Excel)', 'link' => 'products_import.php'],
+        ['done' => $obStockCount > 0, 'label' => 'Khai báo tồn kho đang có', 'link' => 'inventory_import.php'],
         ['done' => $obOrderCount > 0, 'label' => 'Tạo đơn hàng thử (bán hàng tại POS)', 'link' => 'pos.php'],
         ['done' => $obEmployeeCount > 1, 'label' => 'Thêm nhân viên vào cửa hàng', 'link' => 'users.php'],
     ];

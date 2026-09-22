@@ -354,3 +354,168 @@ function downloadXlsx(array $rows, string $filename): void
     echo $content;
     exit;
 }
+
+// ============================================================================
+// ANH XA COT THEO TEN TIEU DE (thay vi theo vi tri) + xem truoc truoc khi nhap that
+//
+// Vi sao can: truoc day cac man hinh nhap doc du lieu THEO VI TRI cot, nen 1 file Excel that
+// cua khach (vd cot "Tên hàng" dung truoc "Mã hàng") se bi doc lech toan bo ma van bao "thanh
+// cong" - san pham bi dat ten la "Chai", gia ban = 0. Gio doc theo TEN cot, chap nhan ca tieng
+// Viet lan tieng Anh, va bao loi ro rang neu thieu cot bat buoc.
+// ============================================================================
+
+/** Chuan hoa tieu de cot de so sanh: bo dau tieng Viet, gop khoang trang, chu thuong. */
+function xlsxNormalizeHeader(string $value): string
+{
+    $value = trim(mb_strtolower($value, 'UTF-8'));
+    $value = strtr($value, [
+        'à' => 'a', 'á' => 'a', 'ạ' => 'a', 'ả' => 'a', 'ã' => 'a',
+        'â' => 'a', 'ầ' => 'a', 'ấ' => 'a', 'ậ' => 'a', 'ẩ' => 'a', 'ẫ' => 'a',
+        'ă' => 'a', 'ằ' => 'a', 'ắ' => 'a', 'ặ' => 'a', 'ẳ' => 'a', 'ẵ' => 'a',
+        'è' => 'e', 'é' => 'e', 'ẹ' => 'e', 'ẻ' => 'e', 'ẽ' => 'e',
+        'ê' => 'e', 'ề' => 'e', 'ế' => 'e', 'ệ' => 'e', 'ể' => 'e', 'ễ' => 'e',
+        'ì' => 'i', 'í' => 'i', 'ị' => 'i', 'ỉ' => 'i', 'ĩ' => 'i',
+        'ò' => 'o', 'ó' => 'o', 'ọ' => 'o', 'ỏ' => 'o', 'õ' => 'o',
+        'ô' => 'o', 'ồ' => 'o', 'ố' => 'o', 'ộ' => 'o', 'ổ' => 'o', 'ỗ' => 'o',
+        'ơ' => 'o', 'ờ' => 'o', 'ớ' => 'o', 'ợ' => 'o', 'ở' => 'o', 'ỡ' => 'o',
+        'ù' => 'u', 'ú' => 'u', 'ụ' => 'u', 'ủ' => 'u', 'ũ' => 'u',
+        'ư' => 'u', 'ừ' => 'u', 'ứ' => 'u', 'ự' => 'u', 'ử' => 'u', 'ữ' => 'u',
+        'ỳ' => 'y', 'ý' => 'y', 'ỵ' => 'y', 'ỷ' => 'y', 'ỹ' => 'y',
+        'đ' => 'd',
+    ]);
+    $value = str_replace(['_', '-', '.'], ' ', $value);
+    return trim(preg_replace('/\s+/', ' ', $value));
+}
+
+/**
+ * Doi chieu dong tieu de cua file voi bang dinh nghia cot ($spec), tra ve
+ * [ten_cot_chuan => chi so cot trong file]. Nem RuntimeException kem thong bao ro rang (liet ke
+ * dung cot dang thieu va cac ten duoc chap nhan) neu file thieu cot bat buoc.
+ *
+ * $spec: [ten_cot_chuan => ['labels' => [cac ten chap nhan], 'required' => bool, 'display' => '...']]
+ */
+function mapImportColumns(array $headerRow, array $spec): array
+{
+    $normalizedHeader = [];
+    foreach ($headerRow as $index => $title) {
+        $key = xlsxNormalizeHeader((string) $title);
+        if ($key !== '' && !isset($normalizedHeader[$key])) {
+            $normalizedHeader[$key] = $index;
+        }
+    }
+
+    $map = [];
+    $missing = [];
+    foreach ($spec as $field => $def) {
+        $foundIndex = null;
+        foreach ($def['labels'] as $label) {
+            $key = xlsxNormalizeHeader($label);
+            if (isset($normalizedHeader[$key])) {
+                $foundIndex = $normalizedHeader[$key];
+                break;
+            }
+        }
+        if ($foundIndex === null) {
+            if (!empty($def['required'])) {
+                $missing[] = $def['display'] . ' (đặt tên cột là: ' . implode(' / ', array_slice($def['labels'], 0, 3)) . ')';
+            }
+            continue;
+        }
+        $map[$field] = $foundIndex;
+    }
+
+    if ($missing) {
+        throw new RuntimeException(
+            'File thiếu cột bắt buộc: ' . implode('; ', $missing)
+            . '. Dòng đầu tiên của file phải là dòng tiêu đề ghi tên các cột.'
+        );
+    }
+
+    return $map;
+}
+
+/**
+ * Doc file .xlsx tai len va anh xa theo tieu de, tra ve mang cac dong dang
+ * [ten_cot_chuan => gia tri] - da bo dong tieu de. Dung chung cho moi man hinh nhap lieu.
+ */
+function readMappedImportRows(string $tmpPath, string $originalFilename, array $spec): array
+{
+    $raw = readImportRows($tmpPath, $originalFilename);
+    if (!$raw) {
+        throw new RuntimeException('File không có dữ liệu.');
+    }
+
+    $header = array_shift($raw);
+    $map = mapImportColumns($header, $spec);
+
+    // Gioi han so dong: tranh giu qua nhieu du lieu trong session luc xem truoc va tranh request
+    // chay qua lau. File lon hon thi huong dan khach tach nho.
+    if (count($raw) > 5000) {
+        throw new RuntimeException('File có hơn 5.000 dòng — vui lòng tách nhỏ thành nhiều file rồi nhập lần lượt.');
+    }
+
+    $rows = [];
+    foreach ($raw as $row) {
+        $mapped = [];
+        $hasValue = false;
+        foreach ($map as $field => $index) {
+            $value = trim((string) ($row[$index] ?? ''));
+            $mapped[$field] = $value;
+            if ($value !== '') {
+                $hasValue = true;
+            }
+        }
+        if ($hasValue) { // bo qua dong trong hoan toan (file Excel hay co dong thua o cuoi)
+            $rows[] = $mapped;
+        }
+    }
+
+    if (!$rows) {
+        throw new RuntimeException('File không có dòng dữ liệu nào (chỉ có dòng tiêu đề).');
+    }
+
+    return $rows;
+}
+
+/** In bang xem truoc 5 dong dau + nut xac nhan, de nguoi dung kiem tra truoc khi ghi that. */
+function renderImportPreview(array $rows, array $spec, string $filename, string $csrfToken, array $extraFields = []): void
+{
+    $total = count($rows);
+    $preview = array_slice($rows, 0, 5);
+    ?>
+    <div class="card" style="max-width:900px;">
+      <div class="alert alert-success" style="margin-bottom:16px;">
+        Đã đọc được <b><?= $total ?></b> dòng từ file <b><?= e($filename) ?></b>.
+        Kiểm tra <?= $total > 5 ? '5 dòng đầu' : 'dữ liệu' ?> bên dưới xem các cột đã vào đúng chỗ chưa, rồi bấm Xác nhận.
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;">
+          <thead>
+            <tr><?php foreach ($spec as $def): ?><th><?= e($def['display']) ?></th><?php endforeach; ?></tr>
+          </thead>
+          <tbody>
+            <?php foreach ($preview as $row): ?>
+              <tr>
+                <?php foreach ($spec as $field => $def): ?>
+                  <td><?= isset($row[$field]) && $row[$field] !== '' ? e($row[$field]) : '<span class="muted">—</span>' ?></td>
+                <?php endforeach; ?>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php if ($total > 5): ?>
+        <p class="muted" style="font-size:13px;margin:10px 0 0;">… và <?= $total - 5 ?> dòng nữa.</p>
+      <?php endif; ?>
+      <form method="post" style="margin-top:18px;display:flex;gap:10px;align-items:center;">
+        <input type="hidden" name="csrf" value="<?= e($csrfToken) ?>">
+        <input type="hidden" name="action" value="confirm">
+        <?php foreach ($extraFields as $name => $value): ?>
+          <input type="hidden" name="<?= e($name) ?>" value="<?= e((string) $value) ?>">
+        <?php endforeach; ?>
+        <button type="submit" class="btn">Xác nhận nhập <?= $total ?> dòng</button>
+        <a href="?" class="muted" style="font-size:13.5px;">Hủy, chọn file khác</a>
+      </form>
+    </div>
+    <?php
+}
