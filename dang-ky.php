@@ -47,12 +47,25 @@ $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
+
+    // Chan tao hang loat cua hang ao: token CSRF lay duoc chi bang 1 request GET nen mot mình no
+    // khong can duoc gi. Dung lai bo dem theo IP cua trang dang nhap, nhung o day dem LAN THANH
+    // CONG chu khong phai lan that bai - moi IP tao toi da RATE_LIMIT_MAX cua hang roi bi khoa
+    // RATE_LIMIT_LOCK_SECONDS. Nguoi dung that chi dang ky 1 lan nen han nay rat rong voi ho.
+    $khoaConLai = rateLimitSecondsLeft('signup');
+    if ($khoaConLai > 0) {
+        $error = 'Bạn đã tạo quá nhiều cửa hàng từ thiết bị này. Vui lòng thử lại sau '
+            . ceil($khoaConLai / 60) . ' phút, hoặc liên hệ 0945289666 để được hỗ trợ.';
+    }
+
     $companyName = post('company_name');
     $adminName = post('admin_name');
     $email = trim(strtolower(post('email')));
     $password = post('password');
 
-    if ($companyName === '' || $adminName === '' || $email === '' || strlen($password) < 6) {
+    if ($error !== null) {
+        // da bi khoa o tren - khong xu ly tiep
+    } elseif ($companyName === '' || $adminName === '' || $email === '' || strlen($password) < 6) {
         $error = 'Vui lòng nhập đủ Tên cửa hàng, Tên người quản trị, Email và Mật khẩu (tối thiểu 6 ký tự)';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Email không hợp lệ';
@@ -94,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 unset($user['password_hash']);
                 $_SESSION['user'] = $user;
                 logActivity('TENANT_SIGNUP', "tenant=$companyName email=$email");
+                rateLimitRecordFailure('signup');
 
                 redirect('index.php?welcome=1');
             } catch (Throwable $ex) {

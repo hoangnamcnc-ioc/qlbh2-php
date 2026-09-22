@@ -1,0 +1,9 @@
+# Thu muc chi chua anh san pham do nguoi dung tai len. Chan truy cap moi loai file script o day
+# lam LOP PHONG THU THU HAI: duong tai len hien da ep duoi file theo MIME that do may chu tu doc
+# (product_image_upload.php), ten file cung do he thong sinh ngau nhien - nhung neu ve sau co ai
+# noi long cho do thi lop nay van con chan.
+# Chi dung <FilesMatch> vi day la dang da biet chac chay duoc tren may chu nay (giong .htaccess
+# goc); cac chi thi Options/AddType co the bi cam o cap thu muc va gay loi 500 cho ca thu muc anh.
+<FilesMatch "\.(php|php[0-9]|phtml|phar|pl|py|cgi|sh)$">
+    Require all denied
+</FilesMatch>
