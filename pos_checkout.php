@@ -73,6 +73,31 @@ try {
         }
     }
 
+    // Bang gia rieng theo nhom khach (vd gia si). Phai nap TRUOC vong lap san pham vi san gia
+    // ben duoi lay gia trong bang gia nay lam moc - neu van lay gia le lam moc thi moi don ban
+    // si (thuong chi bang 30-50% gia le) deu bi chan oan.
+    $priceListOverrides = [];
+    if ($customerId) {
+        $plStmt = $pdo->prepare(
+            'SELECT g.price_list_id FROM customers c
+             JOIN customer_groups g ON g.id = c.group_id AND g.tenant_id = c.tenant_id
+             WHERE c.id = ? AND c.tenant_id = ?'
+        );
+        $plStmt->execute([$customerId, $tenantId]);
+        $priceListId = (int) ($plStmt->fetchColumn() ?: 0);
+        if ($priceListId) {
+            $ppStmt = $pdo->prepare(
+                'SELECT pp.product_id, pp.variant_id, pp.price FROM product_prices pp
+                 JOIN price_lists pl ON pl.id = pp.price_list_id
+                 WHERE pp.price_list_id = ? AND pl.tenant_id = ?'
+            );
+            $ppStmt->execute([$priceListId, $tenantId]);
+            foreach ($ppStmt->fetchAll() as $row) {
+                $priceListOverrides[$row['product_id'] . ':' . ($row['variant_id'] ?? '')] = (float) $row['price'];
+            }
+        }
+    }
+
     $subTotal = 0.0;
     $lineData = [];
 
@@ -113,6 +138,15 @@ try {
             $productName .= ' - ' . $variantRow['name'];
         }
 
+        // Neu khach thuoc nhom co bang gia rieng (gia si...) thi moc so sanh la gia trong bang
+        // gia do, khong phai gia le - nguoc lai se chan nham chinh gia ma cua hang da cau hinh.
+        $overrideKey = $productId . ':' . ($variantId ?? '');
+        $priceLabel = 'giá niêm yết';
+        if (isset($priceListOverrides[$overrideKey])) {
+            $listedPrice = $priceListOverrides[$overrideKey];
+            $priceLabel = 'giá theo bảng giá riêng của khách này';
+        }
+
         // Chot san gia ban PHIA MAY CHU. POS cho phep sua gia tung dong (tinh nang co y, de mac
         // ca tai quay), nhung gia gui len tu trinh duyet KHONG duoc tin tuyet doi: neu khong
         // kiem tra, chi can sua request la ban duoc gia 0d, va tran chiet khau 50% ben duoi cung
@@ -123,8 +157,8 @@ try {
             $sanGia = money($listedPrice * POS_MIN_PRICE_RATIO);
             throw new RuntimeException(
                 "Giá bán của \"$productName\" thấp hơn mức cho phép (tối thiểu $sanGia, tức "
-                . (int) (POS_MIN_PRICE_RATIO * 100) . '% giá niêm yết). '
-                . 'Nếu muốn bán rẻ hơn, hãy sửa giá bán của sản phẩm trong mục Sản phẩm.'
+                . (int) (POS_MIN_PRICE_RATIO * 100) . "% $priceLabel). "
+                . 'Nếu muốn bán rẻ hơn, hãy sửa lại giá bán của sản phẩm (hoặc bảng giá riêng) trước.'
             );
         }
 
