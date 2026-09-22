@@ -87,6 +87,11 @@ require_once __DIR__ . '/inc_header.php';
   <div style="display:flex;align-items:center;gap:12px;">
     <?php if ($order['status'] !== 'CANCELLED'): ?>
       <a href="order_print.php?id=<?= (int) $order['id'] ?>" target="_blank" class="btn btn-secondary">In hóa đơn</a>
+      <form method="post" action="order_copy.php" style="display:inline;">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+        <button type="submit" class="btn btn-secondary">Sao chép đơn</button>
+      </form>
       <a href="order_return_form.php?q=<?= urlencode($order['code']) ?>" class="btn btn-secondary">Đổi trả hàng</a>
       <a href="shipment_form.php?order_id=<?= (int) $order['id'] ?>" class="btn btn-secondary">Vận chuyển</a>
     <?php endif; ?>

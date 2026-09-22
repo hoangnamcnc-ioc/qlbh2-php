@@ -56,10 +56,28 @@ $totalNetUnreconciledStmt = $pdo->prepare(
 $totalNetUnreconciledStmt->execute($branchScopeParams);
 $totalNetUnreconciled = $totalNetUnreconciledStmt->fetch()['s'];
 $feePayerLabels = ['CUSTOMER' => 'Khách trả', 'SHOP' => 'Shop trả'];
+
+// Tong quan van chuyen (§5 dac ta): dem van don theo tung trang thai de nhin phat la biet dang
+// ton o khau nao, thay vi phai tu cuon het danh sach de dem.
+$byStatusStmt = $pdo->prepare(
+    'SELECT s.status, COUNT(*) AS n FROM shipments s JOIN orders o ON o.id = s.order_id
+     JOIN branches b ON b.id = o.branch_id WHERE b.tenant_id = ?' . $branchScopeSql . ' GROUP BY s.status'
+);
+$byStatusStmt->execute($branchScopeParams);
+$byStatus = array_column($byStatusStmt->fetchAll(), 'n', 'status');
 ?>
 
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Vận chuyển</h1>
 <p class="muted" style="margin-bottom:16px;">Theo dõi vận đơn nội bộ. Tạo vận đơn từ trang chi tiết đơn hàng.</p>
+
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+  <?php foreach ($statusLabels as $k => $label): ?>
+    <div class="card" style="padding:10px 16px;min-width:120px;">
+      <div class="muted" style="font-size:12px;"><?= e($label) ?></div>
+      <div style="font-size:20px;font-weight:700;<?= in_array($k, ['FAILED', 'RETURNED'], true) && (int) ($byStatus[$k] ?? 0) > 0 ? 'color:#dc2626;' : '' ?>"><?= (int) ($byStatus[$k] ?? 0) ?></div>
+    </div>
+  <?php endforeach; ?>
+</div>
 
 <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
   <div class="card" style="max-width:320px;">

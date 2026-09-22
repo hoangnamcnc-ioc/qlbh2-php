@@ -40,6 +40,14 @@ $paidAmountInput = $input['paid_amount'] ?? null;
 $paidAmountInput = $paidAmountInput === null || $paidAmountInput === '' ? null : max(0, (float) $paidAmountInput);
 $isDraft = !empty($input['draft']);
 $sourceIdInput = (int) ($input['source_id'] ?? 0) ?: null;
+$channelIdInput = (int) ($input['channel_id'] ?? 0) ?: null;
+$soldByInput = (int) ($input['sold_by_id'] ?? 0) ?: null;
+// Ten khach that: khi ban tai quay thuong chi co SDT nen khach moi duoc dat ten = SDT, nhung don
+// GIAO HANG thi bat buoc phai co ten nguoi nhan - order_form.php gui kem truong nay.
+$customerName = trim((string) ($input['customer_name'] ?? ''));
+// orders.source la ENUM('POS','ONLINE'). Don tao tu man hinh ban tai quay la POS; don giao hang
+// nhap tay (order_form.php) tinh la ONLINE, dung quy uoc nhu don tu trang dat hang cong khai.
+$sourceKind = ($input['source'] ?? '') === 'ONLINE' ? 'ONLINE' : 'POS';
 
 $pdo = db();
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
@@ -55,6 +63,26 @@ if ($sourceIdInput) {
     $sourceId = $srcStmt->fetchColumn() ?: null;
 }
 
+// Kenh ban hang cung phai thuoc dung cua hang hien tai - nhan id tu nguoi dung roi ghi thang se
+// gan don hang vao kenh cua cua hang khac.
+// Ghi nhan don cho MOT NHAN VIEN KHAC (vd chu cua hang bam ho luc nhan vien ban dang ban cho
+// khach khac) - anh huong truc tiep den hoa hong va bang luong, nen:
+//   - chi ADMIN/MANAGER duoc chon nguoi khac; thu ngan luon ghi chinh minh,
+//   - nguoi duoc chon phai thuoc dung cua hang va con hoat dong.
+$soldById = $user['id'];
+if ($soldByInput && $soldByInput !== (int) $user['id'] && hasRole('ADMIN', 'MANAGER')) {
+    $sbStmt = $pdo->prepare('SELECT id FROM users WHERE id = ? AND tenant_id = ? AND is_active = 1');
+    $sbStmt->execute([$soldByInput, $tenantId]);
+    $soldById = $sbStmt->fetchColumn() ?: $user['id'];
+}
+
+$channelId = null;
+if ($channelIdInput) {
+    $chStmt = $pdo->prepare('SELECT id FROM sales_channels WHERE id = ? AND is_active = 1 AND tenant_id = ?');
+    $chStmt->execute([$channelIdInput, $tenantId]);
+    $channelId = $chStmt->fetchColumn() ?: null;
+}
+
 try {
     $pdo->beginTransaction();
 
@@ -68,7 +96,7 @@ try {
         } else {
             $code = 'CUZN' . substr((string) (int) round(microtime(true) * 1000), -8);
             $pdo->prepare('INSERT INTO customers (code, name, phone, tenant_id) VALUES (?, ?, ?, ?)')
-                ->execute([$code, $customerPhone, $customerPhone, $tenantId]);
+                ->execute([$code, $customerName !== '' ? $customerName : $customerPhone, $customerPhone, $tenantId]);
             $customerId = (int) $pdo->lastInsertId();
         }
     }
@@ -358,9 +386,9 @@ try {
     $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
 
     $pdo->prepare(
-        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, source_id, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, tags, total_amount, paid_amount)
-         VALUES (?, ?, ?, ?, "POS", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    )->execute([$code, $branchId, $customerId, $user['id'], $sourceId, $initialStatus, $paymentStatus, $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $paidAmount]);
+        'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, source_id, channel_id, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, tags, total_amount, paid_amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([$code, $branchId, $customerId, $soldById, $sourceKind, $sourceId, $channelId, $initialStatus, $paymentStatus, $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $paidAmount]);
     $orderId = (int) $pdo->lastInsertId();
 
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, ?, ?)')

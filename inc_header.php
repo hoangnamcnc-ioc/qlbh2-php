@@ -10,6 +10,7 @@ $navGroups = [
     'Bán hàng' => array_merge(
         [
             'pos.php' => 'Bán hàng (POS)',
+            'order_form.php' => 'Tạo đơn giao hàng',
             'orders.php' => 'Danh sách đơn hàng',
             'order_returns.php' => 'Đơn trả hàng',
             'shipments.php' => 'Vận chuyển',
@@ -46,6 +47,7 @@ if ($isManagerUp) {
     ];
     $navGroups['Bảo hành'] = [
         'warranty_cards.php' => 'Phiếu bảo hành',
+        'warranty_claims.php' => 'Yêu cầu bảo hành',
         'warranty_policies.php' => 'Chính sách bảo hành',
     ];
     $navGroups['Tài chính & Báo cáo'] = [
@@ -63,6 +65,8 @@ if ($isManagerUp) {
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = [
         'settings.php' => 'Cấu hình',
+        'shipping_settings.php' => 'Cấu hình giao hàng',
+        'marketing_settings.php' => 'Cấu hình kênh marketing',
         'tenant_export.php' => 'Xuất dữ liệu của tôi',
         'gia_han.php' => 'Yêu cầu gia hạn',
     ];

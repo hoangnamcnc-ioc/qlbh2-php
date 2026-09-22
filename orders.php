@@ -74,9 +74,21 @@ $stmt->execute($params);
 $orders = $stmt->fetchAll();
 ?>
 
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-  <h1 style="font-size:24px;font-weight:600;">Danh sách đơn hàng</h1>
-  <a href="pos.php" class="btn">+ Tạo đơn hàng</a>
+<?php
+// Mang nguyen bo loc dang chon sang trang xuat file, de file tai ve khop dung nhung gi dang
+// hien tren man hinh (khong phai toan bo don hang).
+$exportQuery = http_build_query(array_filter([
+    'status' => $status, 'from' => $fromDate, 'to' => $toDate,
+    'staff_id' => $staffId ?: '', 'channel_id' => $channelId ?: '', 'source_id' => $sourceId ?: '',
+], static fn($v) => $v !== '' && $v !== 0));
+?>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
+  <h1 style="font-size:24px;font-weight:600;margin:0;">Danh sách đơn hàng</h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="orders_export.php<?= $exportQuery ? '?' . e($exportQuery) : '' ?>" class="btn btn-secondary">Xuất file</a>
+    <a href="order_form.php" class="btn btn-secondary">+ Đơn giao hàng</a>
+    <a href="pos.php" class="btn">+ Bán tại quầy</a>
+  </div>
 </div>
 
 <form style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">

@@ -33,6 +33,23 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       </select>
     </form>
   <?php endif; ?>
+  <?php if (hasRole('ADMIN', 'MANAGER')):
+      // Chu cua hang thuong bam ho luc nhan vien dang ban cho khach khac - phai ghi don cho dung
+      // nguoi ban thi hoa hong va bang luong moi dung. Thu ngan khong thay o nay (luon ghi chinh
+      // minh), va pos_checkout.php chan them mot lan nua o tang xu ly.
+      $staffStmt = db()->prepare('SELECT id, name FROM users WHERE tenant_id = ? AND is_active = 1 ORDER BY name');
+      $staffStmt->execute([currentTenantId()]);
+      $staffList = $staffStmt->fetchAll();
+  ?>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label class="muted" style="font-size:13px;margin:0;" for="sold-by">Nhân viên bán:</label>
+      <select id="sold-by" class="input" style="max-width:200px;">
+        <?php foreach ($staffList as $st): ?>
+          <option value="<?= (int) $st['id'] ?>" <?= (int) $st['id'] === (int) $currentUser['id'] ? 'selected' : '' ?>><?= e($st['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php if (!$branchId): ?>
@@ -665,6 +682,46 @@ function getManualDiscount(subTotal) {
   return Math.max(0, Math.min(amount, subTotal));
 }
 
+
+// Tu dien phi giao theo bieu phi khai bao o shipping_settings.php: do tu khoa khu vuc trong dia
+// chi nguoi dung vua go. Chi dien khi o phi dang de trong hoac dang bang phi goi y truoc do -
+// khong bao gio ghi de con so nhan vien da co y sua tay.
+const shippingZones = <?= json_encode(json_decode(getSetting('shipping_zones', '[]'), true) ?: [], JSON_UNESCAPED_UNICODE) ?>;
+const shippingDefaultFee = <?= (float) getSetting('shipping_default_fee', '0') ?>;
+let lastSuggestedFee = null;
+
+function boDau(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+}
+
+function phiTheoDiaChi(address) {
+  const a = boDau(address);
+  if (!a.trim()) return null;
+  for (const z of shippingZones) {
+    for (const kw of (z.keywords || [])) {
+      if (kw && a.includes(boDau(kw))) return Number(z.fee) || 0;
+    }
+  }
+  return shippingDefaultFee > 0 ? shippingDefaultFee : null;
+}
+
+function apDungPhiGoiY(addressEl, feeEl, onChange) {
+  const fee = phiTheoDiaChi(addressEl.value);
+  if (fee === null) return;
+  const cur = parseFloat(feeEl.value) || 0;
+  if (cur === 0 || (lastSuggestedFee !== null && cur === lastSuggestedFee)) {
+    feeEl.value = fee;
+    lastSuggestedFee = fee;
+    if (onChange) onChange();
+  }
+}
+
+(() => {
+  const addr = document.getElementById('delivery-address');
+  const fee = document.getElementById('shipping-fee');
+  if (addr && fee) addr.addEventListener('input', () => apDungPhiGoiY(addr, fee, updateTotals));
+})();
+
 function getShippingFee() {
   if (!document.getElementById('delivery-toggle').checked) return 0;
   return parseFloat(document.getElementById('shipping-fee').value) || 0;
@@ -763,6 +820,9 @@ function buildCheckoutPayload() {
     note: document.getElementById('order-note').value,
     tags: document.getElementById('order-tags').value,
     source_id: document.getElementById('order-source') ? (parseInt(document.getElementById('order-source').value, 10) || null) : null,
+    // O chon nhan vien chi hien voi ADMIN/MANAGER; thu ngan khong co o nay nen gui null va may
+    // chu se ghi chinh nguoi dang dang nhap.
+    sold_by_id: document.getElementById('sold-by') ? (parseInt(document.getElementById('sold-by').value, 10) || null) : null,
     paid_amount: document.getElementById('partial-payment-toggle').checked
       ? (parseFloat(document.getElementById('paid-amount').value) || 0)
       : null,

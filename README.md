@@ -2254,3 +2254,53 @@ thử: cộng tháng đúng số học (01/01/2027 + 12 tháng = 01/01/2028, kh�
 được, và **cả 3 trường hợp ap sai nhóm đều bị chặn** (cộng tháng cho khách không giới hạn, cộng
 tháng cho khách dùng thử, đặt `paid_until` cho khách dùng thử). Giao diện cũng hiện đúng nút theo
 từng loại gói.
+
+## Bù các khoảng trống so với đặc tả (`docs/feature-spec.md` của QLBH2-SOFT)
+
+Đối chiếu đặc tả với mã nguồn thật tìm ra 11 khoảng trống. Đã làm 8, còn 3 bị chặn bởi yếu tố
+ngoài (xem cuối mục).
+
+| Đặc tả | Đã làm |
+|---|---|
+| §4.1 Form tạo đơn ngoài POS | `order_form.php` — đơn giao hàng nhập tay |
+| §4.2 Xuất file đơn hàng | `orders_export.php` — giữ nguyên bộ lọc đang xem |
+| §4.3 Sao chép đơn | `order_copy.php` — nạp lại vào form để xem trước |
+| §3 Chọn nhân viên bán | ô chọn trên POS, chỉ ADMIN/MANAGER |
+| §5+§14 Cấu hình giao hàng | `shipping_settings.php` — biểu phí theo khu vực, tự điền |
+| §5 Tổng quan vận chuyển | dải đếm vận đơn theo trạng thái trên `shipments.php` |
+| §8 Cấu hình kênh marketing | `marketing_settings.php` |
+| §9 Danh sách yêu cầu bảo hành | `warranty_claims.php` — kèm bộ đếm theo trạng thái |
+
+### Quyết định quan trọng: KHÔNG nhân bản logic tạo đơn
+
+`order_form.php` **không tự viết** phần tạo đơn mà gửi dữ liệu sang chính `pos_checkout.php`
+(kèm `draft=1`, `is_delivery=1`). Lý do: endpoint đó đã xử lý combo, biến thể, sàn giá, bảng giá
+theo nhóm khách, khuyến mại, mã giảm giá, trừ tồn kho có khóa dòng, sổ quỹ, phiếu bảo hành và điểm
+tích lũy — **và đã được vá nhiều lỗi thật**. Một bản sao chắc chắn sẽ thiếu sót.
+
+`order_copy.php` cũng theo nguyên tắc đó: nó không tạo đơn mới mà nạp nội dung đơn cũ vào form để
+người dùng xem lại (hàng có thể đã hết, giá có thể đã đổi) rồi mới đi qua đúng luồng trên.
+
+Đổi lại, `pos_checkout.php` được bổ sung 4 tham số — `customer_name`, `channel_id`, `sold_by_id`,
+`source` — đều **lọc theo tenant** như mọi ID nhận từ người dùng. Riêng `sold_by_id` chỉ ADMIN/
+MANAGER được đặt khác chính mình (ảnh hưởng trực tiếp tới hoa hồng và bảng lương), thu ngân luôn
+ghi chính mình.
+
+### Điểm cần biết khi đọc lại
+
+- Luồng trạng thái đơn **không trừ kho ở bất kỳ bước nào** (`order_advance.php`): kho bị trừ ngay
+  lúc tạo đơn và được hoàn lại khi hủy (`order_cancel.php`). Đơn giao hàng tạo từ `order_form.php`
+  vì vậy cũng trừ kho ngay, nếu không thì hàng sẽ không bao giờ bị trừ.
+- Biểu phí giao hàng lưu JSON trong `store_settings` chứ không tạo bảng mới — biểu phí của một cửa
+  hàng nhỏ chỉ vài dòng, không đáng để thêm bảng + migration trên CSDL đang chạy thật.
+- `marketing_settings.php` chỉ **khai báo** kênh, phần mềm không tự gửi SMS/Email hàng loạt. Trang
+  nói thẳng điều này: gửi thật cần brandname đăng ký với nhà mạng và tên miền xác thực SPF/DKIM;
+  gửi khi chưa có thì tin vào hộp thư rác và tên miền bị đánh dấu.
+
+### Ba mục chưa làm và lý do
+
+| Đặc tả | Vì sao chưa |
+|---|---|
+| §5 Kết nối API hãng vận chuyển | Cần hợp đồng + API key của GHN/GHTK/ViettelPost. Hiện gõ tay tên hãng và mã vận đơn. |
+| §12 Hóa đơn điện tử / khai thuế | Cần hợp đồng với nhà cung cấp hóa đơn điện tử. `accounting.php` đã có ước tính thuế hộ kinh doanh và các sổ theo thông tư. |
+| §12 Marketplace ứng dụng | Chợ ứng dụng mở rộng — chỉ có nghĩa khi đã có hệ sinh thái nhà phát triển bên thứ ba. |
