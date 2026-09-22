@@ -165,7 +165,11 @@ if (hasRole('ADMIN', 'MANAGER')) {
     $obStockCount = (int) $stmt->fetchColumn();
 
     $obSteps = [
-        ['done' => $obProductCount > 0, 'label' => 'Thêm sản phẩm (hoặc nhập cả danh sách từ file Excel)', 'link' => 'products_import.php'],
+        // Tro ve DANH SACH san pham chu khong vao thang trang nhap Excel: nhan ghi "hoac nhap tu
+        // file Excel" nhung link chi dua toi 1 trong 2 loi, khien chu cua hang chi co vai mon
+        // muon go tay phai tu mo nguoc ra. Trang danh sach co san ca nut "+ Them san pham" lan
+        // nut "Nhap file".
+        ['done' => $obProductCount > 0, 'label' => 'Thêm sản phẩm (gõ tay hoặc nhập cả danh sách từ file Excel)', 'link' => 'products.php'],
         ['done' => $obStockCount > 0, 'label' => 'Khai báo tồn kho đang có', 'link' => 'inventory_import.php'],
         ['done' => $obOrderCount > 0, 'label' => 'Tạo đơn hàng thử (bán hàng tại POS)', 'link' => 'pos.php'],
         ['done' => $obEmployeeCount > 1, 'label' => 'Thêm nhân viên vào cửa hàng', 'link' => 'users.php'],

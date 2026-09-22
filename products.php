@@ -71,7 +71,13 @@ $categories = $categoriesStmt->fetchAll();
     </thead>
     <tbody>
       <?php if (!$products): ?>
-        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Chưa có sản phẩm nào.</td></tr>
+        <tr><td colspan="8" class="text-center muted" style="padding:32px 16px;">
+          <div style="font-weight:600;color:#334155;margin-bottom:6px;">Chưa có sản phẩm nào</div>
+          <div style="font-size:13px;">
+            Bấm <a href="product_form.php"><b>+ Thêm sản phẩm</b></a> để tạo mặt hàng đầu tiên,
+            hoặc <a href="products_import.php"><b>Nhập file</b></a> nếu bạn đã có sẵn danh sách trong Excel.
+          </div>
+        </td></tr>
       <?php endif; ?>
       <?php foreach ($products as $p): ?>
         <tr>

@@ -53,6 +53,34 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
   #quick-actions > summary,
   #pos-more-options > summary { display: none; }
 
+  /* Thanh thanh toan luon dinh day man hinh.
+     Ly do: do that tren ban dung thu cho thay nut Thanh toan nam o 963px trong khi man hinh
+     laptop cua hang chi cao 768px - tuc la thao tac lap lai nhieu nhat trong ngay KHONG BAO GIO
+     nhin thay duoc, phai cuon xuong mi lan ban. Tren dien thoai con te hon (nut o 1086px/man
+     hinh 812px) va khong co phim F1 de thay the.
+     Luu y: thu gon nhom nut phu theo @media max-width o duoi khong giai quyet duoc viec nay, vi
+     rang buoc that nam o CHIEU CAO man hinh chu khong phai chieu ngang - laptop 1366x768 thua
+     chieu ngang nhung thieu chieu cao. */
+  #pos-pay-bar {
+    position: fixed; bottom: 0; left: 250px; right: 0; z-index: 60;
+    display: flex; align-items: center; gap: 16px;
+    background: #fff; border-top: 1px solid #e2e8f0; box-shadow: 0 -2px 12px rgba(15,23,42,.10);
+    padding: 12px 24px;
+  }
+  #pos-pay-bar .pay-total { flex: 1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  #pos-pay-bar .pay-total > span:first-child { font-size: 14px; color: #475569; }
+  #pos-pay-bar #cart-total { font-size: 22px; font-weight: 700; color: #2563eb; }
+  #pos-pay-bar #checkout-btn { flex: 0 0 auto; min-width: 220px; padding: 12px 24px; font-weight: 600; }
+  /* Chua cho thanh co dinh, tranh che mat nut "Dat hang - xu ly sau" va dong goi y phim tat */
+  .content { padding-bottom: 96px; }
+
+  @media (max-width: 860px) {
+    /* Thanh ben o che do truot ra ngoai man hinh nen thanh thanh toan trai rong het be ngang */
+    #pos-pay-bar { left: 0; padding: 10px 14px; gap: 10px; }
+    #pos-pay-bar #checkout-btn { min-width: 150px; padding: 12px 16px; }
+    #pos-pay-bar #cart-total { font-size: 19px; }
+  }
+
   @media (max-width: 900px) {
     /* Dien thoai: xep 1 cot. Truoc day van giu 2 cot nen panel thanh toan bi ep con ~150px,
        gan nhu khong thao tac duoc tren dien thoai. */
@@ -248,9 +276,12 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <span>Phí giao hàng</span>
       <span id="shipping-fee-display">0</span>
     </div>
-    <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:12px;margin-bottom:12px;">
-      <span>Tổng tiền</span>
-      <span id="cart-total" style="font-size:20px;font-weight:700;color:#2563eb;">0</span>
+    <div id="pos-pay-bar">
+      <div class="pay-total">
+        <span>Tổng tiền</span>
+        <span id="cart-total">0</span>
+      </div>
+      <button id="checkout-btn" class="btn" <?= $branchId ? '' : 'disabled' ?>>Thanh toán <span class="kbd-hint">(F1)</span></button>
     </div>
 
     <div class="field">
@@ -271,7 +302,6 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <span id="cash-change" style="font-weight:600;">0</span>
     </div>
 
-    <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán <span class="kbd-hint">(F1)</span></button>
     <button id="draft-btn" class="btn btn-secondary" style="width:100%;padding:10px;font-weight:600;margin-top:8px;" <?= $branchId ? '' : 'disabled' ?>>Đặt hàng — xử lý sau (chưa thu tiền, chưa giao)</button>
     <p class="muted kbd-hint" style="font-size:11px;margin-top:8px;text-align:center;">
       F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F8 Khuyến mại · F9 Thêm dịch vụ · Alt+1 In đơn gần nhất

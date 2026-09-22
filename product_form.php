@@ -230,6 +230,11 @@ require_once __DIR__ . '/inc_header.php';
   <form method="post">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
 
+    <div class="field">
+      <label>Tên sản phẩm *</label>
+      <input class="input" name="name" required placeholder="vd: Nước ngọt Coca 330ml" value="<?= e($product['name'] ?? '') ?>">
+    </div>
+
     <div class="grid-2">
       <div class="field">
         <label>Mã SKU <span class="muted" style="font-weight:400;">(để trống sẽ tự sinh)</span></label>
@@ -243,11 +248,6 @@ require_once __DIR__ . '/inc_header.php';
         <label>Mã barcode</label>
         <input class="input" name="barcode" value="<?= e($product['barcode'] ?? '') ?>">
       </div>
-    </div>
-
-    <div class="field">
-      <label>Tên sản phẩm *</label>
-      <input class="input" name="name" required value="<?= e($product['name'] ?? '') ?>">
     </div>
 
     <div class="grid-2">

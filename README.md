@@ -2123,3 +2123,43 @@ Chỉ dùng `<FilesMatch>` — `Options`/`AddType` có thể bị cấm ở cấ
 mục ảnh. Đã kiểm chứng bằng cách đặt thật một file `.php` vào đó: trả **403**, không thực thi; file
 `.jpg` vẫn phục vụ bình thường; sau đó xóa file thử.
 
+## Thanh thanh toán dính đáy màn hình ở POS
+
+Đóng vai chủ cửa hàng mới, đăng ký rồi tự đi hết luồng bán hàng, đo được con số cụ thể:
+
+| | Chiều cao màn hình | Vị trí nút Thanh toán | |
+|---|---|---|---|
+| Máy tính | 768px | 963px | khuất **195px** |
+| Điện thoại | 812px | 1086px | khuất **274px** |
+
+Thao tác lặp lại nhiều nhất trong ngày **không bao giờ nhìn thấy được** — phải cuộn mỗi lần bán.
+Máy tính còn có phím **F1** cứu, nhưng dòng nhắc phím tắt cũng nằm dưới đáy nên người mới không
+biết; **điện thoại thì không có phím tắt nào**.
+
+Điều đáng nói: `pos.php` đã có sẵn cơ chế gom 15 nút phụ vào "⚙️ Chức năng khác", kèm bình luận ghi
+đúng vấn đề này — nhưng nó chỉ bật ở `max-width: 900px`, tức là theo **chiều ngang**. Ràng buộc
+thật lại nằm ở **chiều cao**: laptop 1366×768 ở cửa hàng thừa chiều ngang (nên 15 nút bung hết)
+nhưng thiếu chiều cao. Vì vậy cách thu gọn theo bề ngang không giải quyết được.
+
+Cách xử lý: tách hàng "Tổng tiền" + nút Thanh toán ra thành `#pos-pay-bar` **cố định ở đáy màn
+hình** cho mọi kích thước — `left: 250px` để không đè thanh bên, và `left: 0` dưới 860px khi thanh
+bên chuyển sang chế độ trượt. `.content` thêm `padding-bottom: 96px` để không che nút "Đặt hàng —
+xử lý sau" và dòng gợi ý phím tắt.
+
+Đã nghiệm thu bằng số sau khi sửa: máy tính nút ở 716–756px / màn hình 768px, điện thoại 763–803px
+/ 812px — **nằm trọn trong màn hình, không phải cuộn**; nút "Đặt hàng" bên dưới không bị che; tổng
+tiền cập nhật trực tiếp trên thanh; và bán thật một đơn qua nút đó thành công.
+
+## Ba điểm cản người mới khác đã sửa cùng đợt
+
+- **`product_form.php`**: "Tên sản phẩm" vốn là ô **thứ ba**, sau "Mã SKU" và "Mã vạch". Khi tự
+  đóng vai người dùng tôi đã nhập nhầm tên hàng vào ô mã vạch ngay lần đầu. Đã đưa "Tên sản phẩm"
+  lên **ô đầu tiên**, thêm placeholder `vd: Nước ngọt Coca 330ml` để không thể nhầm với hai ô mã.
+- **`index.php`**: bước 1 của checklist ghi "hoặc nhập từ file Excel" nhưng **chỉ** dẫn vào trang
+  Excel, khiến người chỉ có vài mặt hàng muốn gõ tay phải tự mò ngược ra. Nay trỏ về
+  `products.php` — nơi có sẵn **cả hai** nút.
+- **`products.php`**: danh sách rỗng chỉ nói "Chưa có sản phẩm nào." Nay chỉ thẳng hai lối đi kèm
+  liên kết.
+
+Điểm chưa làm (ghi lại để khỏi quên): nhãn `<label>` trong form sản phẩm chưa gắn `for`/`id` với ô
+nhập, nên bấm vào nhãn không đưa con trỏ vào ô tương ứng.
