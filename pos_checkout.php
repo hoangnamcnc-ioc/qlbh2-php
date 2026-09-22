@@ -44,6 +44,10 @@ $sourceIdInput = (int) ($input['source_id'] ?? 0) ?: null;
 $pdo = db();
 $allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
 
+// Gia ban tung dong khong duoc thap hon ti le nay so voi gia niem yet - cung nguong voi tran
+// chiet khau toan don ben duoi ($discount <= 50% $subTotal) de hai co che khong mau thuan nhau.
+const POS_MIN_PRICE_RATIO = 0.5;
+
 $sourceId = null;
 if ($sourceIdInput) {
     $srcStmt = $pdo->prepare('SELECT id FROM order_sources WHERE id = ? AND is_active = 1 AND tenant_id = ?');
@@ -83,26 +87,45 @@ try {
 
         // Xac nhan san pham thuc su thuoc tenant hien tai truoc khi ban - chan viec doan
         // product_id cua tenant khac de tao don hang/tru kho gia mao.
-        $typeStmt = $pdo->prepare('SELECT product_type, cost_price FROM products WHERE id = ? AND tenant_id = ?');
+        $typeStmt = $pdo->prepare('SELECT product_type, cost_price, sell_price, name FROM products WHERE id = ? AND tenant_id = ?');
         $typeStmt->execute([$productId, $tenantId]);
         $typeRow = $typeStmt->fetch();
         if (!$typeRow) {
             throw new RuntimeException('Sản phẩm không hợp lệ');
         }
         $productType = $typeRow['product_type'];
+        $listedPrice = (float) $typeRow['sell_price'];
+        $productName = (string) $typeRow['name'];
         // Chot gia von TAI THOI DIEM BAN vao chinh dong don hang - tranh loi bao cao lai gop qua
         // khu bi tinh lai sai moi khi gia nhap san pham thay doi sau nay (chi dung gia von hien
         // tai lam fallback cho du lieu cu chua co cost_price rieng, xem fix_add_cost_price.php).
         $costPrice = (float) $typeRow['cost_price'];
 
         if ($variantId) {
-            $ownVariant = $pdo->prepare('SELECT id, cost_price FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
+            $ownVariant = $pdo->prepare('SELECT id, cost_price, sell_price, name FROM product_variants WHERE id = ? AND product_id = ? AND tenant_id = ?');
             $ownVariant->execute([$variantId, $productId, $tenantId]);
             $variantRow = $ownVariant->fetch();
             if (!$variantRow) {
                 throw new RuntimeException('Biến thể sản phẩm không hợp lệ');
             }
             $costPrice = (float) $variantRow['cost_price'];
+            $listedPrice = (float) $variantRow['sell_price'];
+            $productName .= ' - ' . $variantRow['name'];
+        }
+
+        // Chot san gia ban PHIA MAY CHU. POS cho phep sua gia tung dong (tinh nang co y, de mac
+        // ca tai quay), nhung gia gui len tu trinh duyet KHONG duoc tin tuyet doi: neu khong
+        // kiem tra, chi can sua request la ban duoc gia 0d, va tran chiet khau 50% ben duoi cung
+        // bi vo hieu vi no tinh theo chinh $subTotal do client quyet dinh.
+        // Dung cung nguong 50% voi tran chiet khau de nhat quan: muon ban re hon nua thi sua gia
+        // niem yet cua san pham, khong lam ngam qua tung don.
+        if ($listedPrice > 0 && $unitPrice < $listedPrice * POS_MIN_PRICE_RATIO) {
+            $sanGia = money($listedPrice * POS_MIN_PRICE_RATIO);
+            throw new RuntimeException(
+                "Giá bán của \"$productName\" thấp hơn mức cho phép (tối thiểu $sanGia, tức "
+                . (int) (POS_MIN_PRICE_RATIO * 100) . '% giá niêm yết). '
+                . 'Nếu muốn bán rẻ hơn, hãy sửa giá bán của sản phẩm trong mục Sản phẩm.'
+            );
         }
 
         if ($productType === 'SERVICE') {

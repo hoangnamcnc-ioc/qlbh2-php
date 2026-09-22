@@ -45,7 +45,56 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
   <a href="#" id="offline-sync-now" style="margin-left:8px;">Đồng bộ ngay</a>
 </div>
 
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;" id="pos-app">
+<style>
+  /* Man hinh may tinh: 2 cot (gio hang rong, panel thanh toan ben phai) */
+  #pos-app { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+
+  /* Tren may tinh hien day du nhom nut phu, khong can dong/mo */
+  #quick-actions > summary,
+  #pos-more-options > summary { display: none; }
+
+  @media (max-width: 900px) {
+    /* Dien thoai: xep 1 cot. Truoc day van giu 2 cot nen panel thanh toan bi ep con ~150px,
+       gan nhu khong thao tac duoc tren dien thoai. */
+    #pos-app { grid-template-columns: 1fr; gap: 16px; }
+
+    /* 14 nut phu nam giua Gio hang va phan Thanh toan se day thao tac dung nhieu nhat (tinh
+       tien) xuong rat sau - gom lai thanh 1 dong, bam mo khi can. */
+    #quick-actions > summary {
+      display: block; cursor: pointer; margin-top: 16px; padding: 11px 14px;
+      background: #f1f5f9; border-radius: 8px; font-weight: 600; font-size: 14px;
+      color: #334155; list-style: none;
+    }
+    #quick-actions > summary::-webkit-details-marker { display: none; }
+    #quick-actions > summary::after { content: ' ▾'; }
+    #quick-actions[open] > summary::after { content: ' ▴'; }
+
+    /* Goi y phim tat vo nghia tren dien thoai (khong co ban phim vat ly) */
+    .kbd-hint { display: none; }
+
+    /* Panel thanh toan cao ~865px vi nhieu truong tuy chon (chiet khau, ma giam gia, giao hang,
+       ghi chu, tags) - voi 1 don ban tien mat binh thuong thi khong dung den, ma lai day nut
+       Thanh toan xuong rat sau. Gom lai, bam mo khi can. */
+    #pos-more-options > summary {
+      display: block; cursor: pointer; margin-bottom: 12px; padding: 11px 14px;
+      background: #f1f5f9; border-radius: 8px; font-weight: 600; font-size: 13.5px;
+      color: #334155; list-style: none;
+    }
+    #pos-more-options > summary::-webkit-details-marker { display: none; }
+    #pos-more-options > summary::after { content: ' ▾'; }
+    #pos-more-options[open] > summary::after { content: ' ▴'; }
+  }
+</style>
+<script>
+  // Mac dinh thu gon nhom nut phu tren man hinh nho; tren may tinh van mo san nhu truoc.
+  if (window.innerWidth <= 900) {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('quick-actions')?.removeAttribute('open');
+      document.getElementById('pos-more-options')?.removeAttribute('open');
+    });
+  }
+</script>
+<div id="pos-app">
   <div>
     <div id="order-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center;"></div>
 
@@ -81,9 +130,11 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       </table>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:16px;">
-      <?php if ($qa('qa_add_service')): ?><button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ (F9)</button><?php endif; ?>
-      <?php if ($qa('qa_promotions')): ?><button type="button" id="qa-promotions" class="btn btn-secondary">Khuyến mại (F8)</button><?php endif; ?>
+    <details id="quick-actions" open>
+      <summary>⚙️ Chức năng khác</summary>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:16px;">
+      <?php if ($qa('qa_add_service')): ?><button type="button" id="qa-add-service" class="btn btn-secondary">Thêm dịch vụ <span class="kbd-hint">(F9)</span></button><?php endif; ?>
+      <?php if ($qa('qa_promotions')): ?><button type="button" id="qa-promotions" class="btn btn-secondary">Khuyến mại <span class="kbd-hint">(F8)</span></button><?php endif; ?>
       <?php if ($qa('qa_gift')): ?><button type="button" id="qa-gift" class="btn btn-secondary">Đổi quà</button><?php endif; ?>
       <?php if ($qa('qa_clear_cart')): ?><button type="button" id="qa-clear-cart" class="btn btn-secondary">Xóa toàn bộ sản phẩm</button><?php endif; ?>
       <?php if ($qa('qa_customers')): ?><a href="customers.php" class="btn btn-secondary" style="text-align:center;">Thông tin khách hàng</a><?php endif; ?>
@@ -92,12 +143,13 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <?php if ($qa('qa_reports')): ?><a href="reports.php" class="btn btn-secondary" style="text-align:center;">Xem báo cáo</a><?php endif; ?>
       <?php if ($qa('qa_sales_settings')): ?><a href="sales_settings.php" class="btn btn-secondary" style="text-align:center;">Thiết lập chung</a><?php endif; ?>
       <?php if ($qa('qa_cashbook')): ?><a href="cashbook.php" class="btn btn-secondary" style="text-align:center;">Tạo phiếu thu/chi</a><?php endif; ?>
-      <?php if ($qa('qa_print_last')): ?><button type="button" id="qa-print-last" class="btn btn-secondary" disabled>In đơn gần nhất (Alt+1)</button><?php endif; ?>
+      <?php if ($qa('qa_print_last')): ?><button type="button" id="qa-print-last" class="btn btn-secondary" disabled>In đơn gần nhất <span class="kbd-hint">(Alt+1)</span></button><?php endif; ?>
       <?php if ($qa('qa_customer_display')): ?><button type="button" id="qa-customer-display" class="btn btn-secondary">Kết nối màn hình phụ</button><?php endif; ?>
       <?php if ($qa('qa_qr_payment')): ?><button type="button" id="qa-qr-payment" class="btn btn-secondary">Hiện mã QR thanh toán</button><?php endif; ?>
-      <?php if ($qa('qa_batches')): ?><button type="button" id="qa-batches" class="btn btn-secondary">Chọn lô tự động (Alt+5)</button><?php endif; ?>
+      <?php if ($qa('qa_batches')): ?><button type="button" id="qa-batches" class="btn btn-secondary">Chọn lô tự động <span class="kbd-hint">(Alt+5)</span></button><?php endif; ?>
       <?php if ($qa('qa_offline')): ?><button type="button" id="qa-offline" class="btn btn-secondary">Bán hàng Offline</button><?php endif; ?>
-    </div>
+      </div>
+    </details>
     <div id="service-picker" style="display:none;margin-top:8px;" class="card">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Chọn dịch vụ để thêm vào đơn</label>
       <select id="service-select" class="input">
@@ -131,6 +183,8 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       </select>
     </div>
 
+    <details id="pos-more-options" open>
+      <summary>Chiết khấu, mã giảm giá, giao hàng, ghi chú…</summary>
     <div class="field">
       <label>Chiết khấu đơn (F6, không bắt buộc)</label>
       <div style="display:flex;gap:8px;">
@@ -180,6 +234,7 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <label>Tags đơn hàng (cách nhau bằng dấu phẩy)</label>
       <input type="text" id="order-tags" class="input" placeholder="vd: khach quen, giao gap">
     </div>
+    </details>
 
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;">
       <span>Tạm tính</span>
@@ -207,7 +262,7 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
     </div>
 
     <div class="field">
-      <label>Tiền khách đưa (F2)</label>
+      <label>Tiền khách đưa <span class="kbd-hint">(F2)</span></label>
       <input type="number" min="0" id="cash-given" class="input" placeholder="0">
       <div id="cash-suggestions" style="display:none;gap:6px;margin-top:6px;flex-wrap:wrap;"></div>
     </div>
@@ -216,9 +271,9 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <span id="cash-change" style="font-weight:600;">0</span>
     </div>
 
-    <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán (F1)</button>
+    <button id="checkout-btn" class="btn" style="width:100%;padding:12px;font-weight:600;" <?= $branchId ? '' : 'disabled' ?>>Thanh toán <span class="kbd-hint">(F1)</span></button>
     <button id="draft-btn" class="btn btn-secondary" style="width:100%;padding:10px;font-weight:600;margin-top:8px;" <?= $branchId ? '' : 'disabled' ?>>Đặt hàng — xử lý sau (chưa thu tiền, chưa giao)</button>
-    <p class="muted" style="font-size:11px;margin-top:8px;text-align:center;">
+    <p class="muted kbd-hint" style="font-size:11px;margin-top:8px;text-align:center;">
       F1 Thanh toán · F2 Tiền khách đưa · F3 Tìm sản phẩm · F4 SĐT khách · F6 Chiết khấu · F7 Đổi hình thức TT · F8 Khuyến mại · F9 Thêm dịch vụ · Alt+1 In đơn gần nhất
     </p>
   </div>

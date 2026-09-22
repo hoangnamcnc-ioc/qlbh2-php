@@ -113,11 +113,11 @@ $orders = $stmt->fetchAll();
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
-      <tr><th style="width:32px;"></th><th>Mã đơn hàng</th><th>Ngày tạo</th><th>Khách hàng</th><th>Nhân viên</th><th>Kênh bán</th><th>Trạng thái</th><th>Thanh toán</th><th class="text-right">Tổng tiền</th></tr>
+      <tr><th style="width:32px;"></th><th>Mã đơn hàng</th><th>Ngày tạo</th><th>Khách hàng</th><th>Nhân viên</th><th>Kênh bán</th><th>Trạng thái</th><th>Thanh toán</th><th class="text-right">Tổng tiền</th><th></th></tr>
     </thead>
     <tbody>
       <?php if (!$orders): ?>
-        <tr><td colspan="9" class="text-center muted" style="padding:32px;">Không có đơn hàng nào khớp bộ lọc.</td></tr>
+        <tr><td colspan="10" class="text-center muted" style="padding:32px;">Không có đơn hàng nào khớp bộ lọc.</td></tr>
       <?php endif; ?>
       <?php foreach ($orders as $o): ?>
         <tr>
@@ -134,10 +134,15 @@ $orders = $stmt->fetchAll();
             <?php else: ?><span class="badge badge-red"><?= e($paymentStatusLabels['UNPAID']) ?></span><?php endif; ?>
           </td>
           <td class="text-right" style="font-weight:600;"><?= money($o['total_amount']) ?></td>
+          <td class="text-right" style="white-space:nowrap;">
+            <?php if ($o['status'] === 'COMPLETED'): ?>
+              <a href="order_return_form.php?q=<?= urlencode($o['code']) ?>" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">Đổi trả</a>
+            <?php endif; ?>
+          </td>
         </tr>
         <tr class="quick-row" data-row-for="<?= (int) $o['id'] ?>" style="display:none;">
           <td></td>
-          <td colspan="8" class="muted" style="font-size:13px;padding:8px 12px;background:#f8fafc;">Đang tải...</td>
+          <td colspan="9" class="muted" style="font-size:13px;padding:8px 12px;background:#f8fafc;">Đang tải...</td>
         </tr>
       <?php endforeach; ?>
     </tbody>
