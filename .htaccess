@@ -11,7 +11,14 @@ Header always set Content-Security-Policy "upgrade-insecure-requests;"
     Require all denied
 </FilesMatch>
 
-<FilesMatch "\.(sql|log|md)$">
+<FilesMatch "\.(sql|log|md|gz|zip|bak|old|ini|env|lock)$">
+    Require all denied
+</FilesMatch>
+
+# error_log khong co dau cham nen luat theo duoi file o tren KHONG bat duoc no. Hien may chu
+# dang tra 403 nhung do la mac dinh cua LiteSpeed - khai bao thang ra day de khong phu thuoc
+# vao mac dinh cua may chu (log loi thuong lo duong dan, cau truy van, doi khi ca du lieu that).
+<FilesMatch "^(error_log|\.env|\.git.*|composer\.(json|lock))$">
     Require all denied
 </FilesMatch>
 
