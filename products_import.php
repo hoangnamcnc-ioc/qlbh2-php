@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_xlsx.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
@@ -12,22 +13,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
 
     if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        $error = 'Vui lòng chọn file CSV để tải lên';
+        $error = 'Vui lòng chọn file để tải lên';
     } else {
-        $handle = fopen($_FILES['file']['tmp_name'], 'r');
-        if (!$handle) {
-            $error = 'Không đọc được file';
-        } else {
-            // Bỏ qua BOM UTF-8 nếu có
-            $bom = fread($handle, 3);
-            if ($bom !== "\xEF\xBB\xBF") rewind($handle);
+        try {
+            $rows = readImportRows($_FILES['file']['tmp_name'], $_FILES['file']['name']);
+        } catch (Throwable $e) {
+            $rows = null;
+            $error = 'Không đọc được file: ' . $e->getMessage();
+        }
 
-            $header = fgetcsv($handle);
+        if ($rows !== null) {
+            array_shift($rows); // bo dong tieu de
             $created = 0;
             $updated = 0;
             $skipped = 0;
 
-            while (($row = fgetcsv($handle)) !== false) {
+            foreach ($rows as $row) {
                 if (count($row) < 6) { $skipped++; continue; }
                 [$sku, $barcode, $name, $unit, $costPrice, $sellPrice] = array_pad($row, 7, null);
                 $sku = trim((string) $sku);
@@ -48,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $created++;
                 }
             }
-            fclose($handle);
             $result = "Đã thêm mới $created, cập nhật $updated, bỏ qua $skipped dòng không hợp lệ.";
             logActivity('IMPORT_PRODUCTS', "file={$_FILES['file']['name']} created=$created updated=$updated skipped=$skipped");
         }
@@ -66,13 +66,14 @@ require_once __DIR__ . '/inc_header.php';
 
 <div class="card" style="max-width:640px;">
   <p class="muted" style="margin:0 0 12px;">
-    File CSV cần có dòng tiêu đề: <code>sku,barcode,name,unit,cost_price,sell_price,is_active</code>.
+    Nhận file <b>Excel (.xlsx)</b> hoặc <b>CSV</b>, cần có dòng tiêu đề:
+    <code>sku,barcode,name,unit,cost_price,sell_price,is_active</code>.
     Sản phẩm trùng SKU sẽ được cập nhật, SKU mới sẽ được tạo mới.
     <a href="products_export.php">Tải file mẫu (xuất từ dữ liệu hiện tại)</a>.
   </p>
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
-    <div class="field"><label>Chọn file CSV</label><input class="input" type="file" name="file" accept=".csv" required></div>
+    <div class="field"><label>Chọn file Excel hoặc CSV</label><input class="input" type="file" name="file" accept=".csv,.xlsx" required></div>
     <button type="submit" class="btn">Nhập file</button>
   </form>
 </div>

@@ -50,7 +50,12 @@ $stmt->execute($params);
 $inventories = $stmt->fetchAll();
 ?>
 
-<h1 style="font-size:24px;font-weight:600;margin-bottom:24px;">Quản lý kho</h1>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+  <h1 style="font-size:24px;font-weight:600;margin:0;">Quản lý kho</h1>
+  <?php if (hasRole('ADMIN', 'MANAGER')): ?>
+    <a href="inventory_import.php" class="btn btn-secondary">Nhập tồn kho từ file</a>
+  <?php endif; ?>
+</div>
 
 <form style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
   <input type="text" name="q" class="input" style="max-width:260px;" placeholder="Tìm theo tên sản phẩm hoặc SKU..." value="<?= e($q) ?>">
