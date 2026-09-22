@@ -32,6 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('super_admin_tenants.php');
     }
 
+    // CA HAI thao tac gia han ("+1 nam" va "Dat han") deu dat plan = 'TRIAL', nen neu ap nham
+    // cho khach DA TRA PHI thi vo tinh ha ho xuong goi dung thu. Chan chung mot cho o day, truoc
+    // khi phan nhanh - an nut tren giao dien khong phai la kiem soat.
+    if (in_array($action, ['extend_trial', 'set_trial_end'], true)) {
+        $cur = $pdo->prepare('SELECT plan FROM tenants WHERE id = ?');
+        $cur->execute([$id]);
+        if ($cur->fetchColumn() === 'PAID') {
+            redirect('super_admin_tenants.php?err=paid');
+        }
+    }
+
     if ($action === 'toggle_active') {
         $pdo->prepare('UPDATE tenants SET is_active = 1 - is_active WHERE id = ?')->execute([$id]);
         logActivity('SUPER_ADMIN_TENANT_TOGGLE', 'tenant_id=' . $id);
@@ -48,13 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Nut "+1 nam" chi CONG duoc (days ep toi thieu 1), nen bam nham la khong lui lai duoc.
         // Day la duong dat thang han su dung ve dung ngay mong muon - ke ca ngay trong qua khu
         // (de ket thuc dung thu ngay lap tuc).
-        // Chan ca o tang xu ly chu khong chi an nut: dat han se chuyen goi ve TRIAL nen neu ap
-        // dung nham cho khach DA TRA PHI thi ho bi ha xuong dung thu.
-        $cur = $pdo->prepare('SELECT plan FROM tenants WHERE id = ?');
-        $cur->execute([$id]);
-        if ($cur->fetchColumn() === 'PAID') {
-            redirect('super_admin_tenants.php?err=paid');
-        }
         $date = trim($_POST['trial_end'] ?? '');
         $d = DateTime::createFromFormat('Y-m-d', $date);
         if (!$d || $d->format('Y-m-d') !== $date) {
@@ -241,14 +245,15 @@ require_once __DIR__ . '/inc_header.php';
                   <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="return confirm('Nâng cấp lên gói trả phí?')">Nâng cấp</button>
                 <?php endif; ?>
               </form>
+              <?php if ($t['plan'] !== 'PAID'): // ca 2 thao tac duoi day deu dat plan = 'TRIAL' ?>
               <form method="post" style="display:inline;">
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
                 <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
                 <input type="hidden" name="action" value="extend_trial">
                 <input type="hidden" name="days" value="365">
-                <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;">+1 năm</button>
+                <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;"
+                        onclick="return confirm('Cộng thêm 1 năm vào hạn dùng thử? Nếu bấm nhầm, dùng ô chọn ngày bên cạnh để đặt lại về đúng ngày.')">+1 năm</button>
               </form>
-              <?php if ($t['plan'] !== 'PAID'): // dat han se chuyen goi ve TRIAL, khong cho bam nham vao khach da tra phi ?>
               <form method="post" style="display:inline;">
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
                 <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">

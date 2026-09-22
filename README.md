@@ -2209,5 +2209,19 @@ thêm một lần nữa ở tầng xử lý (ẩn nút không phải là kiểm 
 PHP; lùi hạn về quá khứ **được**; đặt tiến **được**; ngày sai định dạng **bị từ chối**; chuyển cửa
 hàng sang `PAID` thì ô chọn ngày biến mất và POST thủ công cũng bị chặn, dữ liệu không đổi.
 
-Lưu ý còn lại: nút "+1 năm" cũng đặt `plan='TRIAL'` nên vẫn có thể hạ một khách đã trả phí xuống
-dùng thử — chưa chặn vì không nằm trong phạm vi lần sửa này.
+Nút **"+1 năm"** cũng đặt `plan='TRIAL'` nên có đúng cùng vấn đề, và đã được chặn cùng cách: ẩn với
+khách `PAID` trên giao diện, và chặn ở tầng xử lý. Chốt chặn của **cả hai** thao tác nay gộp vào
+một chỗ duy nhất, đặt trước khi phân nhánh hành động — để lần sau thêm thao tác gia hạn mới thì chỉ
+cần thêm tên nó vào một danh sách, thay vì nhớ chép lại đoạn kiểm tra.
+
+"+1 năm" nay cũng hỏi xác nhận trước khi bấm, kèm nhắc rằng nếu lỡ tay thì dùng ô chọn ngày bên
+cạnh để đặt lại.
+
+Đã kiểm chứng: khi còn `TRIAL` thì "+1 năm" chạy bình thường (31/12/2026 → 31/12/2027); chuyển cửa
+hàng sang `PAID` thì nút biến mất khỏi trang **và** gửi POST thủ công vẫn bị chặn, hạn lẫn gói đều
+không đổi.
+
+**Khoảng trống còn lại**: khách đã trả phí giờ không có nút gia hạn thủ công nào trên trang —
+`paid_until` chỉ được đặt qua thanh toán VNPay. Trước đây "+1 năm" cũng không gia hạn được cho họ
+(nó hạ họ về dùng thử), nên đây không phải là mất chức năng, nhưng là việc nên bổ sung: một nút
+cộng thêm tháng vào `paid_until` cho khách `PAID`.
