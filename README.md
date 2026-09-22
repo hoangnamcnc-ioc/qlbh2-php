@@ -2010,3 +2010,45 @@ lại để nhìn thấy nó. Việc đáng làm nhất là liên hệ trực ti
 
 Cũng đã kiểm tra tính toàn vẹn bản sao lưu (việc thường bị bỏ sót): tải bản `.sql.gz` mới nhất về,
 giải nén và xác nhận có đủ 58 bảng kèm dữ liệu thật — backup hoạt động đúng, không phải file rỗng.
+
+## Cổng kiểm tra tenant dùng chung (`layBanGhiCuaToi()`)
+
+Ba vòng rà soát liên tiếp đều tìm ra **cùng một loại lỗi**: nhận ID từ người dùng (POST/GET) rồi
+truy vấn `WHERE id = ?` mà quên kiểm tra bản ghi đó thuộc cửa hàng nào. Hậu quả đã tái hiện được
+trên production: bơm đơn hàng/phiếu thu giả vào sổ sách cửa hàng khác, xóa công nợ nhà cung cấp
+của họ, ép nhận đơn đặt hàng của họ (ghi đè cả giá vốn sản phẩm). Vá xong chỗ này thì lần sau lại
+sót chỗ khác — vì việc kiểm tra được **viết lại thủ công ở từng file**.
+
+Để chặn tận gốc, mọi chỗ nhận ID từ người dùng giờ đi qua một cổng duy nhất trong
+`inc_functions.php`:
+
+```php
+$order = layDonHangCuaToi($orderId);
+if (!$order) { redirect('orders.php'); }   // không tồn tại HOẶC không phải của mình
+```
+
+**Nguyên tắc**: không bao giờ viết `SELECT ... FROM <bảng> WHERE id = ?` trực tiếp với ID đến từ
+người dùng. Luôn dùng `layBanGhiCuaToi('<bảng>', $id)` hoặc các hàm gọi tắt
+(`layDonHangCuaToi`, `layPhieuNhapCuaToi`, `layDonDatHangCuaToi`, `layPhieuKiemHangCuaToi`,
+`layPhieuChuyenHangCuaToi`, `laySanPhamCuaToi`, `layKhachHangCuaToi`, `layNhaCungCapCuaToi`,
+`layChiNhanhCuaToi`).
+
+Cách mỗi bảng nối về tenant được khai báo **tập trung một chỗ** trong `layBanGhiCuaToi()`, nên khi
+viết code mới không cần nhớ bảng nào có `tenant_id` trực tiếp, bảng nào phải `JOIN branches`, bảng
+nào đi qua `orders`:
+
+| Nhóm | Cách xác định tenant | Ví dụ bảng |
+|---|---|---|
+| Có cột `tenant_id` | `WHERE tenant_id = ?` | `products`, `customers`, `suppliers`, `branches`, `coupons`, `gifts`, `promotions`, `price_lists` |
+| Qua chi nhánh | `JOIN branches ON ... AND b.tenant_id = ?` | `orders`, `stock_receipts`, `purchase_orders`, `stock_takes`, `inventory`, `cashbook_entries` |
+| Qua chi nhánh gửi | `JOIN branches ON b.id = from_branch_id` | `stock_transfers` |
+| Qua đơn hàng | `JOIN orders → branches` | `shipments`, `order_returns` |
+
+Gọi với tên bảng chưa khai báo sẽ **ném `InvalidArgumentException`** thay vì âm thầm trả về
+`null` — để không vô tình tạo ra một chỗ "luôn không tìm thấy" mà không ai phát hiện.
+
+Đã chuyển 8 điểm sang dùng cổng này (`order_advance`, `order_cancel`, `order_pay`, `order_revert`,
+`stock_receipt_pay`, `purchase_order_receive`, `stock_take_balance`, `pos_switch_branch`) và kiểm
+chứng từng cái trên production với 2 cửa hàng thật: thao tác trên dữ liệu của mình vẫn chạy đúng
+(hoàn tác đơn COMPLETED→SHIPPED, trả nợ phiếu nhập 0→50.000, công nợ NCC 300.000→250.000), còn
+thao tác trên dữ liệu cửa hàng khác thì không suy chuyển gì.

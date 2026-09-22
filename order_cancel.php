@@ -14,11 +14,7 @@ if ($reason === '__OTHER__') {
 }
 $reason = $reason ?: null;
 
-$stmt = $pdo->prepare(
-    'SELECT o.* FROM orders o JOIN branches b ON b.id = o.branch_id WHERE o.id = ? AND b.tenant_id = ?'
-);
-$stmt->execute([$orderId, currentTenantId()]);
-$order = $stmt->fetch();
+$order = layDonHangCuaToi($orderId);
 
 if ($order && $order['status'] !== 'CANCELLED') {
     $pdo->beginTransaction();

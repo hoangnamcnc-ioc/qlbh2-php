@@ -9,11 +9,7 @@ checkCsrf();
 $pdo = db();
 $takeId = (int) ($_POST['take_id'] ?? 0);
 
-$stmt = $pdo->prepare(
-    'SELECT t.* FROM stock_takes t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?'
-);
-$stmt->execute([$takeId, currentTenantId()]);
-$take = $stmt->fetch();
+$take = layPhieuKiemHangCuaToi($takeId);
 
 // MANAGER chỉ được cân bằng phiếu kiểm hàng của chi nhánh mình.
 if ($take && !hasRole('ADMIN') && (int) $take['branch_id'] !== effectiveBranchId($currentUser)) {

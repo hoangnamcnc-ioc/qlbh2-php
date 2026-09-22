@@ -311,3 +311,89 @@ function rateLimitReset(string $action): void
 {
     db()->prepare('DELETE FROM login_attempts WHERE ip_addr = ? AND action = ?')->execute([clientIp(), $action]);
 }
+
+// ============================================================================
+// CONG KIEM TRA DUNG CHUNG: lay 1 ban ghi theo ID va BAT BUOC thuoc tenant hien tai.
+//
+// Vi sao can: 3 vong ra soat lien tiep deu tim ra cung 1 loai loi - nhan ID tu nguoi dung
+// (POST/GET) roi truy van "WHERE id = ?" ma quen kiem tra ban ghi do thuoc cua hang nao. Hau
+// qua that da tai hien duoc tren production: bom don hang gia vao so sach cua hang khac, xoa
+// cong no NCC cua ho, ep nhan don dat hang cua ho. Moi lan vet 1 cho thi lan sau lai sot cho
+// khac, vi viec kiem tra duoc viet lai thu cong o tung file.
+//
+// Tu gio MOI cho nhan ID tu nguoi dung deu nen di qua cac ham duoi day thay vi tu viet query -
+// chi can nho "layDonHangCuaToi()" thay vi nho phai JOIN branches va so tenant_id.
+//
+// Cach dung:
+//     $order = layDonHangCuaToi($orderId);
+//     if (!$order) { redirect('orders.php'); }   // khong ton tai HOAC khong phai cua minh
+// ============================================================================
+
+/**
+ * Lay 1 ban ghi theo ID, chi tra ve neu ban ghi do thuoc tenant dang dang nhap - nguoc lai
+ * tra ve null (khong phan biet "khong ton tai" va "cua nguoi khac", tranh de lo su ton tai
+ * cua du lieu tenant khac).
+ *
+ * $table chi duoc nhan gia tri trong danh sach co dinh ben duoi, khong bao gio ghep truc tiep
+ * tu dau vao nguoi dung.
+ */
+function layBanGhiCuaToi(string $table, int $id): ?array
+{
+    if ($id <= 0) {
+        return null;
+    }
+
+    // Moi bang noi ve tenant theo 1 duong khac nhau - khai bao tap trung o day de khong con
+    // phai nho tung truong hop khi viet code moi.
+    $scopes = [
+        // Bang co cot tenant_id truc tiep
+        'branches' => "SELECT t.* FROM branches t WHERE t.id = ? AND t.tenant_id = ?",
+        'products' => "SELECT t.* FROM products t WHERE t.id = ? AND t.tenant_id = ?",
+        'customers' => "SELECT t.* FROM customers t WHERE t.id = ? AND t.tenant_id = ?",
+        'suppliers' => "SELECT t.* FROM suppliers t WHERE t.id = ? AND t.tenant_id = ?",
+        'users' => "SELECT t.* FROM users t WHERE t.id = ? AND t.tenant_id = ?",
+        'coupons' => "SELECT t.* FROM coupons t WHERE t.id = ? AND t.tenant_id = ?",
+        'gifts' => "SELECT t.* FROM gifts t WHERE t.id = ? AND t.tenant_id = ?",
+        'promotions' => "SELECT t.* FROM promotions t WHERE t.id = ? AND t.tenant_id = ?",
+        'price_lists' => "SELECT t.* FROM price_lists t WHERE t.id = ? AND t.tenant_id = ?",
+        'categories' => "SELECT t.* FROM categories t WHERE t.id = ? AND t.tenant_id = ?",
+        'brands' => "SELECT t.* FROM brands t WHERE t.id = ? AND t.tenant_id = ?",
+        'warranty_policies' => "SELECT t.* FROM warranty_policies t WHERE t.id = ? AND t.tenant_id = ?",
+
+        // Bang ke thua tenant qua chi nhanh
+        'orders' => "SELECT t.* FROM orders t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        'stock_receipts' => "SELECT t.* FROM stock_receipts t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        'purchase_orders' => "SELECT t.* FROM purchase_orders t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        'stock_takes' => "SELECT t.* FROM stock_takes t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        'cashbook_entries' => "SELECT t.* FROM cashbook_entries t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        'inventory' => "SELECT t.* FROM inventory t JOIN branches b ON b.id = t.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        // Chuyen hang: kiem tra theo chi nhanh GUI (chi nhanh nhan cung phai cung tenant vi
+        // form chi cho chon trong danh sach chi nhanh cua chinh tenant do)
+        'stock_transfers' => "SELECT t.* FROM stock_transfers t JOIN branches b ON b.id = t.from_branch_id WHERE t.id = ? AND b.tenant_id = ?",
+
+        // Bang ke thua qua don hang
+        'shipments' => "SELECT t.* FROM shipments t JOIN orders o ON o.id = t.order_id JOIN branches b ON b.id = o.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+        'order_returns' => "SELECT t.* FROM order_returns t JOIN orders o ON o.id = t.order_id JOIN branches b ON b.id = o.branch_id WHERE t.id = ? AND b.tenant_id = ?",
+    ];
+
+    if (!isset($scopes[$table])) {
+        // Sai ten bang la loi lap trinh, khong phai loi nguoi dung - bao that to thay vi am tham
+        // tra ve null (de khong vo tinh tao ra 1 cho "luon khong tim thay" ma khong ai biet).
+        throw new InvalidArgumentException("layBanGhiCuaToi(): chua khai bao cach xac dinh tenant cho bang \"$table\"");
+    }
+
+    $stmt = db()->prepare($scopes[$table]);
+    $stmt->execute([$id, currentTenantId()]);
+    return $stmt->fetch() ?: null;
+}
+
+/** Cac ham goi tat cho de doc tai noi su dung. */
+function layDonHangCuaToi(int $id): ?array { return layBanGhiCuaToi('orders', $id); }
+function layPhieuNhapCuaToi(int $id): ?array { return layBanGhiCuaToi('stock_receipts', $id); }
+function layDonDatHangCuaToi(int $id): ?array { return layBanGhiCuaToi('purchase_orders', $id); }
+function layPhieuKiemHangCuaToi(int $id): ?array { return layBanGhiCuaToi('stock_takes', $id); }
+function layPhieuChuyenHangCuaToi(int $id): ?array { return layBanGhiCuaToi('stock_transfers', $id); }
+function laySanPhamCuaToi(int $id): ?array { return layBanGhiCuaToi('products', $id); }
+function layKhachHangCuaToi(int $id): ?array { return layBanGhiCuaToi('customers', $id); }
+function layNhaCungCapCuaToi(int $id): ?array { return layBanGhiCuaToi('suppliers', $id); }
+function layChiNhanhCuaToi(int $id): ?array { return layBanGhiCuaToi('branches', $id); }

@@ -10,11 +10,7 @@ $pdo = db();
 $orderId = (int) ($_POST['order_id'] ?? 0);
 $amount = postFloat('amount');
 
-$stmt = $pdo->prepare(
-    'SELECT o.* FROM orders o JOIN branches b ON b.id = o.branch_id WHERE o.id = ? AND b.tenant_id = ?'
-);
-$stmt->execute([$orderId, currentTenantId()]);
-$order = $stmt->fetch();
+$order = layDonHangCuaToi($orderId);
 
 // Thu ngan (CASHIER) khong duoc ghi nhan thu no cho don cua chi nhanh khac.
 if ($order && !hasRole('ADMIN', 'MANAGER') && (int) $order['branch_id'] !== effectiveBranchId($currentUser)) {
