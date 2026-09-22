@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_xlsx.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
@@ -46,18 +47,13 @@ $stmt = $pdo->prepare(
 $stmt->execute($params);
 $entries = $stmt->fetchAll();
 
-header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename="so_quy.csv"');
-
-$out = fopen('php://output', 'w');
-fwrite($out, "\xEF\xBB\xBF");
-fputcsv($out, ['ma_phieu', 'loai', 'nguon', 'chung_tu_lien_quan', 'ly_do', 'hinh_thuc_tt', 'chi_nhanh', 'nguoi_tao', 'ngay', 'so_tien']);
+$rows = [['ma_phieu', 'loai', 'nguon', 'chung_tu_lien_quan', 'ly_do', 'hinh_thuc_tt', 'chi_nhanh', 'nguoi_tao', 'ngay', 'so_tien']];
 foreach ($entries as $en) {
-    fputcsv($out, [
+    $rows[] = [
         $en['code'], $typeLabels[$en['type']] ?? $en['type'],
         $en['auto_generated'] ? 'Tự động' : 'Thủ công', $en['order_code'] ?: ($en['receipt_code'] ?: ''),
         $en['reason'], $paymentLabels[$en['payment_method']] ?? $en['payment_method'], $en['branch_name'], $en['created_by_name'],
         $en['created_at'], $en['amount'],
-    ]);
+    ];
 }
-fclose($out);
+downloadXlsx($rows, 'so_quy.xlsx');

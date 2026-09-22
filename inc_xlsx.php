@@ -154,31 +154,203 @@ function readXlsxRows(string $filePath): array
 }
 
 /**
- * Doc file nhap lieu (CSV hoac XLSX, tu dong nhan biet theo duoi file) thanh mang 2 chieu dong
- * dang chuoi - dung chung cho moi man hinh "Nhap file" (san pham/khach hang/ton kho...) de khong
- * phai viet lai logic doc file o tung noi.
+ * Doc file .xlsx nguoi dung tai len thanh mang 2 chieu dong dang chuoi - dung chung cho moi man
+ * hinh "Nhap file" (san pham/khach hang/ton kho...) de khong phai viet lai logic doc file o tung
+ * noi. CHI nhan .xlsx (khong con nhan CSV) - thong nhat 1 dinh dang duy nhat, tranh nguoi dung
+ * nham lan giua 2 dinh dang khi Excel de xuat "Save As CSV" hay lam vo dau tieng Viet neu chon
+ * sai encoding.
  */
 function readImportRows(string $tmpPath, string $originalFilename): array
 {
     $ext = strtolower(pathinfo($originalFilename, PATHINFO_EXTENSION));
+    if ($ext !== 'xlsx') {
+        throw new RuntimeException('Chỉ nhận file Excel (.xlsx). Vui lòng chọn đúng định dạng file.');
+    }
+    return readXlsxRows($tmpPath);
+}
 
-    if ($ext === 'xlsx') {
-        return readXlsxRows($tmpPath);
+// ============================================================================
+// GHI file .xlsx (dung cho cac man hinh "Xuat file") - cung KHONG dung ZipArchive, tu dung ZIP
+// bang gzdeflate() (nguoc lai voi gzinflate() dung o phan doc phia tren).
+// ============================================================================
+
+/**
+ * Kiem tra 1 chuoi co nen ghi vao Excel duoi dang SO THAT hay khong. Khac voi is_numeric() don
+ * thuan: co CHU Y loai tru cac chuoi so bat dau bang "0" theo sau la chu so khac (vd so dien
+ * thoai "0901234567", ma vach "0123456789012") - so thuc khong bao gio viet voi so 0 dau vo
+ * nghia, nen day chac chan la du lieu dang TEXT can giu nguyen dinh dang (mat so 0 dau la loi
+ * xuat file rat pho bien va de bi bo sot).
+ */
+function xlsxIsPureNumber(string $value): bool
+{
+    if (!is_numeric($value)) {
+        return false;
+    }
+    return !preg_match('/^-?0[0-9]/', $value);
+}
+
+/** Escape 1 gia tri de nhung an toan vao XML (dung cho ten sheet, noi dung o...). */
+function xlsxEscapeXml(string $value): string
+{
+    return str_replace(
+        ['&', '<', '>', '"', "'"],
+        ['&amp;', '&lt;', '&gt;', '&quot;', '&apos;'],
+        $value
+    );
+}
+
+/**
+ * Dong goi danh sach file (['duong dan trong zip' => noi dung]) thanh 1 file ZIP hop le (dang
+ * byte thô) - tu viet local file header + central directory + EOCD theo dung chuan ZIP, khong
+ * dung ZipArchive (khong co tren hosting nay). Nen bang gzdeflate() (DEFLATE thuan, method=8).
+ */
+function xlsxBuildZip(array $files): string
+{
+    $localParts = [];
+    $centralParts = [];
+    $offset = 0;
+
+    foreach ($files as $name => $content) {
+        $crc = crc32($content);
+        $compressed = gzdeflate($content, 6);
+        $uncompressedSize = strlen($content);
+        $compressedSize = strlen($compressed);
+        $nameLen = strlen($name);
+
+        $localHeader = "\x50\x4b\x03\x04" // signature
+            . pack('v', 20)   // version needed
+            . pack('v', 0)    // flags
+            . pack('v', 8)    // method = DEFLATE
+            . pack('V', 0)    // mod time+date (khong quan trong, khong anh huong doc file)
+            . pack('V', $crc)
+            . pack('V', $compressedSize)
+            . pack('V', $uncompressedSize)
+            . pack('v', $nameLen)
+            . pack('v', 0)    // extra length
+            . $name;
+
+        $localParts[] = $localHeader . $compressed;
+
+        $centralParts[] = "\x50\x4b\x01\x02"
+            . pack('v', 20)   // version made by
+            . pack('v', 20)   // version needed
+            . pack('v', 0)    // flags
+            . pack('v', 8)    // method
+            . pack('V', 0)    // mod time+date
+            . pack('V', $crc)
+            . pack('V', $compressedSize)
+            . pack('V', $uncompressedSize)
+            . pack('v', $nameLen)
+            . pack('v', 0)    // extra length
+            . pack('v', 0)    // comment length
+            . pack('v', 0)    // disk number
+            . pack('v', 0)    // internal attrs
+            . pack('V', 0)    // external attrs
+            . pack('V', $offset) // offset cua local header
+            . $name;
+
+        $offset += strlen($localHeader) + $compressedSize;
     }
 
-    // Mac dinh coi la CSV (kem truong hop khong nhan dien duoc duoi file).
-    $handle = fopen($tmpPath, 'r');
-    if (!$handle) {
-        throw new RuntimeException('Không đọc được file');
+    $centralDir = implode('', $centralParts);
+    $centralDirOffset = $offset;
+    $centralDirSize = strlen($centralDir);
+    $count = count($files);
+
+    $eocd = "\x50\x4b\x05\x06"
+        . pack('v', 0)          // disk number
+        . pack('v', 0)          // disk voi central directory
+        . pack('v', $count)     // so entry tren disk nay
+        . pack('v', $count)     // tong so entry
+        . pack('V', $centralDirSize)
+        . pack('V', $centralDirOffset)
+        . pack('v', 0);         // comment length
+
+    return implode('', $localParts) . $centralDir . $eocd;
+}
+
+/**
+ * Tao noi dung file .xlsx (1 sheet) tu mang 2 chieu $rows (dong dau tien la tieu de). Gia tri so
+ * (is_numeric) duoc ghi dang so that trong Excel, con lai ghi dang chuoi (inlineStr - khong can
+ * bang sharedStrings rieng, don gian hoa dang ke bo ghi). Tra ve chuoi byte, dung ghi thang ra
+ * file hoac echo ra trinh duyet voi header Content-Type dung.
+ */
+function buildXlsxContent(array $rows): string
+{
+    $sheetRows = '';
+    foreach ($rows as $rowIndex => $row) {
+        $r = $rowIndex + 1;
+        $cells = '';
+        foreach (array_values($row) as $colIndex => $value) {
+            $colLetter = xlsxIndexToColumn($colIndex);
+            $ref = $colLetter . $r;
+            $value = (string) ($value ?? '');
+            if ($value !== '' && xlsxIsPureNumber($value)) {
+                $cells .= "<c r=\"{$ref}\"><v>" . xlsxEscapeXml($value) . '</v></c>';
+            } else {
+                $cells .= "<c r=\"{$ref}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">" . xlsxEscapeXml($value) . '</t></is></c>';
+            }
+        }
+        $sheetRows .= "<row r=\"{$r}\">{$cells}</row>";
     }
-    $bom = fread($handle, 3);
-    if ($bom !== "\xEF\xBB\xBF") {
-        rewind($handle);
+
+    $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        . "<sheetData>{$sheetRows}</sheetData>"
+        . '</worksheet>';
+
+    $workbookXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        . '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>'
+        . '</workbook>';
+
+    $workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        . '</Relationships>';
+
+    $rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        . '</Relationships>';
+
+    $contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        . '<Default Extension="xml" ContentType="application/xml"/>'
+        . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        . '</Types>';
+
+    return xlsxBuildZip([
+        '[Content_Types].xml' => $contentTypes,
+        '_rels/.rels' => $rootRels,
+        'xl/workbook.xml' => $workbookXml,
+        'xl/_rels/workbook.xml.rels' => $workbookRels,
+        'xl/worksheets/sheet1.xml' => $sheetXml,
+    ]);
+}
+
+/** Chuyen so thu tu cot (0-based) thanh chu cai "A", "B", ... "AA" - nguoc lai voi xlsxColumnToIndex(). */
+function xlsxIndexToColumn(int $index): string
+{
+    $col = '';
+    $index++;
+    while ($index > 0) {
+        $rem = ($index - 1) % 26;
+        $col = chr(ord('A') + $rem) . $col;
+        $index = intdiv($index - 1, 26);
     }
-    $rows = [];
-    while (($row = fgetcsv($handle)) !== false) {
-        $rows[] = $row;
-    }
-    fclose($handle);
-    return $rows;
+    return $col;
+}
+
+/** Xuat mang 2 chieu $rows thanh file .xlsx tai xuong ngay (dat header roi echo, exit luon). */
+function downloadXlsx(array $rows, string $filename): void
+{
+    $content = buildXlsxContent($rows);
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($content));
+    echo $content;
+    exit;
 }

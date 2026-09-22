@@ -63,21 +63,21 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="customers.php" class="muted" style="font-size:14px;">← Danh sách khách hàng</a>
-<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhập file khách hàng (Excel/CSV)</h1>
+<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhập file khách hàng (Excel)</h1>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
 <?php if ($result): ?><div class="alert alert-success"><?= e($result) ?></div><?php endif; ?>
 
 <div class="card" style="max-width:640px;">
   <p class="muted" style="margin:0 0 12px;">
-    Nhận file <b>Excel (.xlsx)</b> hoặc <b>CSV</b>, cần có dòng tiêu đề:
+    Nhận file <b>Excel (.xlsx)</b>, cần có dòng tiêu đề:
     <code>code,name,phone,address,debt,loyalty_points</code>.
     Khách trùng số điện thoại sẽ được cập nhật tên/địa chỉ, số mới sẽ được tạo khách hàng mới.
     <a href="customers_export.php">Tải file mẫu (xuất từ dữ liệu hiện tại)</a>.
   </p>
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
-    <div class="field"><label>Chọn file Excel hoặc CSV</label><input class="input" type="file" name="file" accept=".csv,.xlsx" required></div>
+    <div class="field"><label>Chọn file Excel (.xlsx)</label><input class="input" type="file" name="file" accept=".xlsx" required></div>
     <button type="submit" class="btn">Nhập file</button>
   </form>
 </div>

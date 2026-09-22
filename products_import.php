@@ -59,21 +59,21 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="products.php" class="muted" style="font-size:14px;">← Danh sách sản phẩm</a>
-<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhập file sản phẩm (Excel/CSV)</h1>
+<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhập file sản phẩm (Excel)</h1>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
 <?php if ($result): ?><div class="alert alert-success"><?= e($result) ?></div><?php endif; ?>
 
 <div class="card" style="max-width:640px;">
   <p class="muted" style="margin:0 0 12px;">
-    Nhận file <b>Excel (.xlsx)</b> hoặc <b>CSV</b>, cần có dòng tiêu đề:
+    Nhận file <b>Excel (.xlsx)</b>, cần có dòng tiêu đề:
     <code>sku,barcode,name,unit,cost_price,sell_price,is_active</code>.
     Sản phẩm trùng SKU sẽ được cập nhật, SKU mới sẽ được tạo mới.
     <a href="products_export.php">Tải file mẫu (xuất từ dữ liệu hiện tại)</a>.
   </p>
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
-    <div class="field"><label>Chọn file Excel hoặc CSV</label><input class="input" type="file" name="file" accept=".csv,.xlsx" required></div>
+    <div class="field"><label>Chọn file Excel (.xlsx)</label><input class="input" type="file" name="file" accept=".xlsx" required></div>
     <button type="submit" class="btn">Nhập file</button>
   </form>
 </div>

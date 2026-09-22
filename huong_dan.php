@@ -45,7 +45,8 @@ require_once __DIR__ . '/inc_header.php';
     <li><b>Nhập sản phẩm</b>: vào <b>Sản phẩm → Danh sách sản phẩm → Nhập file</b>. File cần có các cột theo đúng thứ tự: <code>sku, barcode, name, unit, cost_price, sell_price</code> (mã hàng, mã vạch, tên sản phẩm, đơn vị tính, giá vốn, giá bán). Sản phẩm trùng mã (SKU) sẽ được cập nhật, mã mới sẽ được tạo mới.</li>
     <li><b>Nhập tồn kho ban đầu</b>: sau khi đã có sản phẩm, vào <b>Sản phẩm → Quản lý kho → Nhập tồn kho từ file</b>, chọn chi nhánh rồi tải file có 2 cột: <code>sku, quantity</code> (mã hàng, số lượng tồn thực tế đang có). Số lượng nhập vào sẽ <b>thay thế</b> số tồn hiện có, không cộng dồn.</li>
     <li><b>Nhập khách hàng</b>: vào <b>Khách hàng → Danh sách khách hàng → Nhập file</b>. File cần các cột: <code>code, name, phone, address</code> (mã khách, tên, số điện thoại, địa chỉ) — cột mã khách có thể để trống, hệ thống tự sinh. Khách trùng số điện thoại sẽ được cập nhật, số mới sẽ được tạo khách hàng mới.</li>
-    <li>Cả 3 màn hình đều nhận <b>file Excel (.xlsx)</b> tải thẳng xuống từ Excel/Google Sheets, hoặc file CSV. Dòng đầu tiên của file phải là dòng tiêu đề (tên cột), dữ liệu bắt đầu từ dòng thứ 2.</li>
+    <li>Cả 3 màn hình chỉ nhận <b>file Excel (.xlsx)</b> — file tải thẳng xuống từ Excel/Google Sheets đều dùng được ngay. Dòng đầu tiên của file phải là dòng tiêu đề (tên cột), dữ liệu bắt đầu từ dòng thứ 2.</li>
+    <li>Các nút <b>Xuất file</b> ở danh sách sản phẩm/khách hàng/sổ quỹ cũng xuất ra file Excel (.xlsx) — có thể dùng ngay làm file mẫu để chỉnh sửa rồi nhập lại.</li>
     <li>Nhập xong, màn hình sẽ báo rõ: đã thêm mới bao nhiêu, cập nhật bao nhiêu, bỏ qua bao nhiêu dòng không hợp lệ — kiểm tra lại số liệu này để chắc chắn không sót dòng nào.</li>
   </ul>
 </div>
