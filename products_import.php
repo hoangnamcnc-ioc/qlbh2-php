@@ -59,7 +59,7 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="products.php" class="muted" style="font-size:14px;">← Danh sách sản phẩm</a>
-<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhập file sản phẩm (CSV)</h1>
+<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhập file sản phẩm (Excel/CSV)</h1>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
 <?php if ($result): ?><div class="alert alert-success"><?= e($result) ?></div><?php endif; ?>
