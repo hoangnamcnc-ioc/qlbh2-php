@@ -1894,3 +1894,119 @@ quét lại toàn bộ codebase bằng pattern grep mới để xác nhận khô
 Toàn bộ 8 bước đều cho kết quả đúng sau khi vá xong lỗi ở bước 4. Đã dọn sạch dữ liệu test (2
 tenant, sản phẩm, đơn hàng, phiếu nhập/chuyển, chấm công, khách hàng, coupon...) và xóa hết 5 script
 tạm, xác nhận lại bằng 404.
+
+## Rà soát bảo mật: nâng khóa brute-force từ session lên IP + DB
+
+Rà soát phát hiện khóa chống dò mật khẩu ở `inc_auth.php` tuy **có tồn tại** (5 lần sai → khóa 15
+phút) nhưng lưu trong `$_SESSION` — kẻ tấn công chỉ cần xóa cookie hoặc mở tab ẩn danh là được
+session mới tinh, bộ đếm về 0, **vô hiệu hoàn toàn cơ chế khóa**. Đây là kiểu lỗi dễ bỏ sót vì
+đọc code thì thấy "đã có chống brute-force" nên không ai soi lại.
+
+Đã chuyển sang bảng `login_attempts` (khóa theo IP, hỗ trợ nhiều loại hành động qua cột `action`),
+dùng chung cho cả đăng nhập và yêu cầu đặt lại mật khẩu. Kiểm chứng trên production: 5 lần sai →
+khóa đúng; sau đó **dùng cookie hoàn toàn mới vẫn bị khóa** (đây chính là điểm mà cơ chế cũ thất
+bại). Đã dọn sạch dữ liệu test sau khi xong.
+
+Cùng đợt này: tắt `display_errors` trên production (vẫn giữ `log_errors` để debug được) ở cả hai hệ
+thống, và thêm `.htaccess` chặn truy cập HTTP trực tiếp vào `config.php`/`schema.sql` (đã xác nhận
+trả về 403, trong khi `require` nội bộ của PHP không bị ảnh hưởng).
+
+## PHÁT HIỆN LỚN: chưa từng có email nào được gửi đi
+
+Trong lúc rà soát, người dùng xác nhận không nhận được email thông báo sao lưu. Chẩn đoán trực tiếp
+trên server cho kết quả dứt khoát:
+
+```
+mail() với From=no-reply@kt-soft.vn -> false
+mail() không đặt From               -> false
+fsockopen localhost:25              -> [111] Connection refused
+```
+
+**Hosting này không có mail server nội bộ**, nên `mail()` của PHP luôn thất bại. Nghĩa là toàn bộ
+email từ trước tới thời điểm này **chưa bao giờ rời khỏi server** — không phải "rơi vào spam".
+Hậu quả nặng nhất: chức năng **đặt lại mật khẩu** (cả QLBH-CLOUD lẫn admin kt-soft.vn) vô dụng,
+khách bấm "Quên mật khẩu" sẽ mất tài khoản vĩnh viễn. Kèm theo: nhắc hết hạn dùng thử, báo cáo
+tuần, xác nhận thanh toán, yêu cầu gia hạn đều không chạy.
+
+Kiểm tra DNS cũng cho thấy `kt-soft.vn` **chưa có SPF, DKIM, DMARC lẫn MX** — kể cả khi gửi được
+thì mail từ địa chỉ `@kt-soft.vn` cũng rất dễ bị Gmail chặn, và khách bấm Reply sẽ không tới đâu.
+
+**Cách khắc phục**: viết `inc_mail.php` — SMTP client tối giản có xác thực, thay toàn bộ 10 chỗ gọi
+`mail()` ở cả hai codebase bằng `sendMail()`. Một chi tiết quan trọng chỉ lộ ra khi bắt tay SMTP
+thật:
+
+| Cổng | Kết quả kiểm chứng |
+|---|---|
+| 587 (STARTTLS) — mặc định phổ biến | **Bị chặn**: mở được TCP nhưng không nhận được greeting, bật TLS thất bại |
+| 465 (SSL trực tiếp) | Bắt tay đầy đủ với `smtp.gmail.com`, hỗ trợ `AUTH LOGIN PLAIN` |
+
+Nếu làm theo mặc định 587 thì tính năng vẫn hỏng âm thầm y như cũ — nên code cố định dùng 465.
+Tiêu đề mã hóa MIME encoded-word và thân thư base64 để không vỡ tiếng Việt. Khi chưa cấu hình SMTP
+thì ghi `error_log` và trả về `false`, **không ném lỗi ra ngoài** — email hỏng không được phép làm
+vỡ luồng đăng nhập hay thanh toán đang chạy.
+
+Đã kiểm chứng end-to-end sau khi điền App Password: gửi thành công (Gmail nhận thư sau ~4 giây) và
+chạy thật luồng "Quên mật khẩu" của admin kt-soft.vn, không còn lỗi nào trong log. Mật khẩu ứng
+dụng để trong `config.php` / `admin/smtp_config.php` — cả hai đều gitignore (repo `kt-soft-web` là
+repo PUBLIC) và đã xác nhận không lộ qua HTTP.
+
+## Thanh toán online VNPay + IPN
+
+Giá QLBH-CLOUD hiện tư vấn theo quy mô từng khách, không có bảng giá cố định, nên không làm nút
+"mua ngay giá X". Thay vào đó: sau khi thống nhất giá qua điện thoại/Zalo, chủ hệ thống vào
+`super_admin_tenants.php` tạo link thanh toán riêng (nhập số tiền + số tháng) rồi gửi khách. Khách
+thanh toán xong, hệ thống tự nâng cấp tenant lên `PAID` và cộng dồn `paid_until`.
+
+Hai vấn đề được phát hiện khi tự soi lại code vừa viết:
+
+1. **Thiếu IPN.** Ban đầu chỉ có `vnpay_return.php` (VNPay chuyển hướng *trình duyệt khách* về).
+   Nếu khách trả tiền xong rồi đóng tab hoặc rớt mạng trước khi bị chuyển về thì đơn kẹt ở
+   `PENDING` vĩnh viễn — **tiền đã trừ nhưng gói không kích hoạt**, đúng kiểu lỗi tệ nhất với hệ
+   thống thanh toán. Đã bổ sung `vnpay_ipn.php`: VNPay gọi thẳng server-to-server nên không phụ
+   thuộc trình duyệt khách; có đối chiếu lại số tiền với đơn gốc theo khuyến nghị VNPay, và chặn
+   cộng dồn thời hạn 2 lần khi VNPay gọi IPN lặp lại.
+2. **Khoảng trắng trong `vnp_OrderInfo`.** PHP giải mã `$_GET` rồi ta mã hóa lại để dựng chuỗi ký;
+   khoảng trắng có thể đi ra dạng `+` nhưng quay về thành `%20`, làm chữ ký lệch và **từ chối oan
+   giao dịch hợp lệ**. Đã bỏ khoảng trắng khỏi `OrderInfo`.
+
+Cũng trong đợt này, bảng mới suýt đặt tên `payments` — trùng với bảng `payments` đã có sẵn (ghi
+nhận thanh toán đơn hàng POS). Vì dùng `CREATE TABLE IF NOT EXISTS` nên migration **im lặng không
+làm gì**, và lỗi chỉ lộ ra lúc chạy thật (`Unknown column 'p.order_code'`). Đã đổi tên thành
+`subscription_payments`. Đã kiểm chứng: gửi tham số giả mạo `vnp_ResponseCode=00` kèm chữ ký sai
+thì cả `vnpay_return.php` lẫn `vnpay_ipn.php` đều từ chối đúng.
+
+## Nhóm tính năng giữ chân khách hàng + trang trạng thái
+
+- **Email nhắc còn 3 ngày hết hạn dùng thử** và **báo cáo doanh thu hàng tuần**: hosting không có
+  SSH/cron riêng nên không đặt lịch được — thay vào đó kiểm tra ngay trên request của chính người
+  dùng khi họ mở app (đánh dấu qua `tenants.trial_reminder_sent_at` và `last_weekly_report_at` để
+  chỉ gửi 1 lần/kỳ). Báo cáo tuần chỉ gửi khi tuần đó thực sự có đơn hàng, tránh làm phiền bằng
+  email rỗng.
+- **Checklist làm quen** trên dashboard cho ADMIN/MANAGER (thêm sản phẩm → tạo đơn thử → thêm nhân
+  viên), tự biến mất vĩnh viễn khi cả 3 bước đã xong — không cần lưu trạng thái "đã ẩn" riêng vì
+  dữ liệu thật đã chứng minh họ đang dùng.
+- **`backup_cron.php`**: endpoint bảo vệ bằng token bí mật riêng (không liên quan phiên đăng nhập)
+  để hosting đặt lịch gọi hàng ngày, gọi lại `createBackup()` đã có sẵn.
+- **`status.php`** (bên kt-soft.vn): trang trạng thái công khai, kiểm tra trực tiếp lúc tải trang
+  (không lưu lịch sử) — website và kết nối DB của QLBH-CLOUD kèm thời gian phản hồi.
+- **Menu Nhân sự** bổ sung lối tắt "Nhân viên & phân quyền" (trước đây chỉ vào được qua Cấu hình).
+
+Nhân tiện sửa một lỗi có sẵn: `maybeSendTrialReminder()` dùng `$tenant['name']` nhưng câu `SELECT`
+không lấy cột `name` — email nhắc hết hạn bị thiếu tên cửa hàng.
+
+## Kiểm tra sức khỏe dữ liệu thật: 100% khách đăng ký chưa từng quay lại
+
+Khi rà soát, thay vì chỉ đọc code, đã truy vấn dữ liệu thật trên production:
+
+| Khách hàng | Đăng ký | Số lần hoạt động | Sản phẩm | Đơn hàng |
+|---|---|---|---|---|
+| PHƯỚC TẤN TÂY NGUYÊN | 15/09/2026 | 1 (chính là lúc đăng ký) | 0 | 0 |
+| HKD Chung Hiếu | 17/09/2026 | 1 (chính là lúc đăng ký) | 0 | 0 |
+
+Cả hai đăng ký xong **chưa từng đăng nhập lần thứ hai**. Toàn hệ thống: 0 sản phẩm, 0 khách hàng,
+0 đơn hàng. Nghĩa là vấn đề lớn nhất hiện tại không nằm ở thiếu tính năng hay lỗ hổng kỹ thuật, mà
+ở chỗ khách đăng ký xong thì bỏ đi — và checklist onboarding cũng không cứu được vì họ không quay
+lại để nhìn thấy nó. Việc đáng làm nhất là liên hệ trực tiếp hai khách này để hiểu lý do.
+
+Cũng đã kiểm tra tính toàn vẹn bản sao lưu (việc thường bị bỏ sót): tải bản `.sql.gz` mới nhất về,
+giải nén và xác nhận có đủ 58 bảng kèm dữ liệu thật — backup hoạt động đúng, không phải file rỗng.
