@@ -22,6 +22,9 @@ define('AUTH_SALT', 'change-this-to-a-random-long-string');
 // Bi mat de goi backup_cron.php tu dong (qua cron cua hosting) - doi thanh chuoi rieng cua ban.
 define('BACKUP_CRON_SECRET', 'change-this-to-another-random-long-string');
 
+// Khoa chay script kiem thu cach ly du lieu (test_isolation.php). De trong = tat.
+define('TEST_SECRET', '');
+
 // Gui email qua SMTP. KHONG dung ham mail() cua PHP vi nhieu hosting chia se khong co mail
 // server noi bo (mail() se luon that bai am tham). Voi Gmail: SMTP_PASS phai la "Mat khau ung
 // dung" (App Password) chu khong phai mat khau dang nhap thuong.

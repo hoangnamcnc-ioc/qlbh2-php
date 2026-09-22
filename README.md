@@ -2052,3 +2052,39 @@ Gọi với tên bảng chưa khai báo sẽ **ném `InvalidArgumentException`**
 chứng từng cái trên production với 2 cửa hàng thật: thao tác trên dữ liệu của mình vẫn chạy đúng
 (hoàn tác đơn COMPLETED→SHIPPED, trả nợ phiếu nhập 0→50.000, công nợ NCC 300.000→250.000), còn
 thao tác trên dữ liệu cửa hàng khác thì không suy chuyển gì.
+
+## Kiểm thử tự động cách ly dữ liệu (`test_isolation.php`)
+
+Rà soát bằng tay chỉ bắt được những gì người rà soát **nghĩ ra**. File `test_isolation.php` biến
+việc đó thành một lệnh chạy được, và bắt cả những chỗ phát sinh về sau:
+
+```
+https://app.kt-soft.vn/test_isolation.php?key=<TEST_SECRET>
+```
+
+`TEST_SECRET` khai báo trong `config.php`; để trống là tắt hẳn (trả 403). **Nên chạy trước mỗi lần
+deploy** thay đổi có đụng tới truy vấn dữ liệu.
+
+Script tự tạo 2 cửa hàng tạm A và B kèm dữ liệu mẫu đủ loại (chi nhánh, sản phẩm, tồn kho, khách
+hàng, NCC, phiếu nhập còn nợ, đơn đặt hàng, đơn bán chịu, phiếu kiểm hàng, quà tặng, khuyến mại,
+bảng giá), **đăng nhập thật qua HTTP** bằng tài khoản của A, rồi lần lượt thử truy cập dữ liệu của
+B — sau đó tự dọn sạch. Nó chỉ xóa đúng 2 tenant nó vừa tạo (nhớ id ngay từ đầu), không bao giờ
+đụng tới dữ liệu khách hàng thật.
+
+Ba loại phép thử, 38 phép tất cả:
+
+| Loại | Kiểm tra gì | Vì sao cần |
+|---|---|---|
+| Ghi dữ liệu | Chuyển POS sang chi nhánh của B rồi bán hàng, trả nợ phiếu nhập của B, xóa công nợ NCC của B, ép nhận đơn đặt hàng của B, hoàn tác/hủy/thu tiền đơn của B, cân bằng phiếu kiểm hàng của B | Đây đúng là 3 lỗ hổng thật đã tìm ra trong các vòng rà soát trước |
+| Đọc dữ liệu | Mở thẳng bằng ID các trang chi tiết của B; 11 trang danh sách không được lẫn dữ liệu của B | Rò rỉ kiểu "xem trộm" khó thấy hơn nhưng vẫn là lộ dữ liệu công ty khác |
+| **Đối chiếu dương** | Chính A vẫn xem được / thao tác được trên dữ liệu **của chính mình** | Quan trọng nhất: nếu không có, một trang lỗi hay một bản vá quá tay (chặn nhầm cả chủ sở hữu) sẽ khiến **mọi** phép thử "không thấy dữ liệu của B" đều đạt một cách vô nghĩa |
+
+Không kiểm tra mã HTTP trả về, vì hầu hết endpoint đều trả 302 dù thành công hay bị chặn — mà
+**đối chiếu thẳng hiệu ứng thực tế trên CSDL** (số tiền đã trả, công nợ, trạng thái đơn, số đơn của
+B trước/sau).
+
+Chạy 0 phép thử (vd lỗi kết nối) được báo là **HỎNG**, không phải "đạt hết" — kèm mã HTTP 500 để
+có thể nối vào quy trình deploy tự động.
+
+Lưu ý khi sửa script: LiteSpeed chặn user-agent mặc định của cURL bằng 403, nên mọi request nội bộ
+đều phải khai báo `CURLOPT_USERAGENT` (hằng `TEST_UA`).
