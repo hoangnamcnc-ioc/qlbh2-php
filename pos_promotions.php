@@ -5,12 +5,14 @@ requireLogin();
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = db();
-$promotions = $pdo->query(
+$promotionsStmt = $pdo->prepare(
     "SELECT name, min_order_amount, discount_percent FROM promotions
-     WHERE is_active = 1
+     WHERE is_active = 1 AND tenant_id = ?
        AND (start_date IS NULL OR start_date <= CURDATE())
        AND (end_date IS NULL OR end_date >= CURDATE())
      ORDER BY discount_percent DESC"
-)->fetchAll();
+);
+$promotionsStmt->execute([currentTenantId()]);
+$promotions = $promotionsStmt->fetchAll();
 
 echo json_encode($promotions, JSON_UNESCAPED_UNICODE);

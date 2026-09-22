@@ -136,7 +136,21 @@ function fmtQty($value): string
 function effectiveBranchId(array $user): int
 {
     if (in_array($user['role'], ['ADMIN', 'MANAGER'], true) && !empty($_SESSION['pos_branch_id'])) {
-        return (int) $_SESSION['pos_branch_id'];
+        // Lop bao ve thu hai: xac nhan lai chi nhanh dang chon trong phien thuc su thuoc tenant
+        // hien tai. Can thiet ngay ca khi pos_switch_branch.php da kiem tra, vi phien dang nhap
+        // cu (tao truoc khi va loi) co the con giu branch_id cua tenant khac. Chi kiem tra 1 lan
+        // moi request nho cache tinh - chi phi them toi da 1 cau SELECT theo khoa chinh.
+        static $verified = null;
+        $sessionBranchId = (int) $_SESSION['pos_branch_id'];
+        if ($verified === null || $verified['id'] !== $sessionBranchId) {
+            $stmt = db()->prepare('SELECT id FROM branches WHERE id = ? AND tenant_id = ?');
+            $stmt->execute([$sessionBranchId, (int) ($user['tenant_id'] ?? 0)]);
+            $verified = ['id' => $sessionBranchId, 'ok' => (bool) $stmt->fetchColumn()];
+        }
+        if ($verified['ok']) {
+            return $sessionBranchId;
+        }
+        unset($_SESSION['pos_branch_id']);
     }
     return (int) ($user['branch_id'] ?? 0);
 }

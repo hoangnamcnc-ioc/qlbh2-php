@@ -4,9 +4,13 @@ require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
-$logs = $pdo->query(
-    "SELECT * FROM activity_logs WHERE action LIKE 'EXPORT_%' OR action LIKE 'IMPORT_%' ORDER BY created_at DESC LIMIT 200"
-)->fetchAll();
+$logsStmt = $pdo->prepare(
+    "SELECT * FROM activity_logs
+     WHERE tenant_id = ? AND (action LIKE 'EXPORT_%' OR action LIKE 'IMPORT_%')
+     ORDER BY created_at DESC LIMIT 200"
+);
+$logsStmt->execute([currentTenantId()]);
+$logs = $logsStmt->fetchAll();
 
 $actionLabels = [
     'EXPORT_PRODUCTS' => 'Xuất sản phẩm', 'IMPORT_PRODUCTS' => 'Nhập sản phẩm',

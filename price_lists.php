@@ -12,16 +12,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '') {
         $error = 'Vui lòng nhập tên bảng giá';
     } else {
-        $pdo->prepare('INSERT INTO price_lists (name) VALUES (?)')->execute([$name]);
+        $pdo->prepare('INSERT INTO price_lists (name, tenant_id) VALUES (?, ?)')
+            ->execute([$name, currentTenantId()]);
         redirect('price_lists.php');
     }
 }
 
-$priceLists = $pdo->query(
+$plStmt = $pdo->prepare(
     'SELECT pl.*, (SELECT COUNT(*) FROM customer_groups WHERE price_list_id = pl.id) AS group_count,
             (SELECT COUNT(*) FROM product_prices WHERE price_list_id = pl.id) AS price_count
-     FROM price_lists pl ORDER BY pl.created_at DESC'
-)->fetchAll();
+     FROM price_lists pl WHERE pl.tenant_id = ? ORDER BY pl.created_at DESC'
+);
+$plStmt->execute([currentTenantId()]);
+$priceLists = $plStmt->fetchAll();
 
 require_once __DIR__ . '/inc_header.php';
 ?>

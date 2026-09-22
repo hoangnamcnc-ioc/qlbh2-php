@@ -5,10 +5,12 @@ requireLogin();
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = db();
-$gifts = $pdo->query(
+$giftsStmt = $pdo->prepare(
     "SELECT id, name, points_required, stock_qty FROM gifts
-     WHERE is_active = 1 AND (stock_qty IS NULL OR stock_qty > 0)
+     WHERE is_active = 1 AND (stock_qty IS NULL OR stock_qty > 0) AND tenant_id = ?
      ORDER BY points_required"
-)->fetchAll();
+);
+$giftsStmt->execute([currentTenantId()]);
+$gifts = $giftsStmt->fetchAll();
 
 echo json_encode($gifts, JSON_UNESCAPED_UNICODE);

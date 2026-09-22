@@ -19,10 +19,10 @@ $actionLabels = [
 ];
 
 $actionFilter = $_GET['action'] ?? '';
-$sql = 'SELECT * FROM activity_logs';
-$params = [];
+$sql = 'SELECT * FROM activity_logs WHERE tenant_id = ?';
+$params = [currentTenantId()];
 if ($actionFilter !== '' && array_key_exists($actionFilter, $actionLabels)) {
-    $sql .= ' WHERE action = ?';
+    $sql .= ' AND action = ?';
     $params[] = $actionFilter;
 }
 $sql .= ' ORDER BY created_at DESC LIMIT 200';
