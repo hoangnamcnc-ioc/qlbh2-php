@@ -9,8 +9,14 @@ checkCsrf();
 $pdo = db();
 $poId = (int) ($_POST['po_id'] ?? 0);
 
-$stmt = $pdo->prepare('SELECT * FROM purchase_orders WHERE id = ?');
-$stmt->execute([$poId]);
+// Don dat hang phai thuoc dung tenant hien tai - neu khong, co the ep don dat hang cua cua hang
+// khac thanh "da nhan": tang ton kho, doi gia von san pham va tang cong no NCC cua ho.
+$stmt = $pdo->prepare(
+    'SELECT po.* FROM purchase_orders po
+     JOIN branches b ON b.id = po.branch_id
+     WHERE po.id = ? AND b.tenant_id = ?'
+);
+$stmt->execute([$poId, currentTenantId()]);
 $po = $stmt->fetch();
 if (!$po || $po['status'] !== 'PENDING') redirect('purchase_order_view.php?id=' . $poId);
 

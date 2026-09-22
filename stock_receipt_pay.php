@@ -10,8 +10,15 @@ $pdo = db();
 $receiptId = (int) ($_POST['receipt_id'] ?? 0);
 $amount = postFloat('amount');
 
-$stmt = $pdo->prepare('SELECT * FROM stock_receipts WHERE id = ?');
-$stmt->execute([$receiptId]);
+// Phieu nhap phai thuoc dung tenant hien tai. Truoc day chi tim theo id, nen ADMIN/MANAGER cua
+// 1 cua hang co the POST receipt_id cua cua hang KHAC de xoa cong no NCC cua ho va bom phieu chi
+// gia vao so quy cua ho.
+$stmt = $pdo->prepare(
+    'SELECT sr.* FROM stock_receipts sr
+     JOIN branches b ON b.id = sr.branch_id
+     WHERE sr.id = ? AND b.tenant_id = ?'
+);
+$stmt->execute([$receiptId, currentTenantId()]);
 $receipt = $stmt->fetch();
 
 if ($receipt && $receipt['supplier_id'] && $amount > 0) {
