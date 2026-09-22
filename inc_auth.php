@@ -101,8 +101,13 @@ function checkTrialExpiry(): void
 /**
  * Gui email nhac con 3 ngay het han dung thu - chi gui 1 lan/tenant (danh dau qua
  * trial_reminder_sent_at). Khong dung cron (hosting khong co SSH/cron de tao job rieng) - kiem
- * tra ngay tren request cua chinh nguoi dung do khi ho dang nhap/dung app, đủ hiệu quả vì trial
- * chi 14 ngay va tenant TRIAL van dang hoat dong (mo app) trong khoang do.
+ * tra ngay tren request cua chinh nguoi dung do khi ho dang nhap/dung app.
+ *
+ * Danh doi cua cach nay: khach KHONG mo app trong 3 ngay cuoi thi khong nhan duoc email nhac -
+ * ma do lai dung la nhom de mat nhat. Dang ky hien cap 12 THANG dung thu (dang-ky.php), nen
+ * khoang cach giua luc dang ky va luc nhac la rat dai. Neu ve sau thay nhieu khach im lang roi
+ * het han ma khong ai nhac duoc, nen chuyen viec nhac sang cron (backup_cron.php da co san mau
+ * goi qua HTTP kem key).
  */
 function maybeSendTrialReminder(array $tenant): void
 {
