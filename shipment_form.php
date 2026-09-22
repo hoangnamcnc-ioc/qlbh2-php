@@ -60,7 +60,16 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="order_view.php?id=<?= (int) $orderId ?>" class="muted" style="font-size:14px;">← Đơn hàng <?= e($order['code']) ?></a>
-<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;"><?= $shipment ? 'Cập nhật' : 'Tạo' ?> vận đơn</h1>
+<h1 style="font-size:24px;font-weight:600;margin:8px 0 16px;"><?= $shipment ? 'Cập nhật' : 'Tạo' ?> vận đơn</h1>
+
+<?php hopDieuKienTrienKhai(
+    'Vận đơn ở đây do bạn <b>nhập tay</b>: sau khi gửi hàng cho hãng vận chuyển, chép mã vận đơn
+     họ cấp vào ô bên dưới rồi cập nhật trạng thái khi hàng đi đến đâu.',
+    [
+        'Muốn hệ thống <b>tự đẩy đơn sang hãng</b> và <b>tự cập nhật trạng thái</b>, cần hợp đồng
+         + API key của hãng (GHN, GHTK, ViettelPost...) và lập trình phần kết nối.',
+    ]
+); ?>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
 

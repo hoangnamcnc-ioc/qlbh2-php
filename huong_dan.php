@@ -22,8 +22,9 @@ require_once __DIR__ . '/inc_header.php';
     <a href="#so-quy-bao-cao">10. Sổ quỹ &amp; báo cáo</a>
     <a href="#ke-toan">11. Kế toán &amp; thuế</a>
     <a href="#nhan-su">12. Nhân sự (chấm công, lương)</a>
-    <a href="#cau-hinh">13. Cấu hình &amp; tài khoản</a>
-    <a href="#faq">14. Câu hỏi thường gặp</a>
+    <a href="#dieu-kien">13. Chức năng cần chuẩn bị thêm</a>
+    <a href="#cau-hinh">14. Cấu hình &amp; tài khoản</a>
+    <a href="#faq">15. Câu hỏi thường gặp</a>
   </div>
 </div>
 
@@ -183,8 +184,52 @@ require_once __DIR__ . '/inc_header.php';
   </ul>
 </div>
 
+<div class="card" id="dieu-kien" style="margin-bottom:24px;">
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">13. Chức năng cần chuẩn bị thêm mới chạy thật được</h2>
+  <p class="muted" style="margin:0 0 10px;">
+    Nói trước để bạn khỏi bất ngờ giữa chừng. Mấy chức năng dưới đây <b>đã có sẵn trong phần mềm</b>
+    và dùng được ngay theo cách nhập tay — nhưng muốn <b>tự động</b> thì phải có thêm thứ ở bên
+    ngoài (hợp đồng, tài khoản dịch vụ), không phải cứ bật là chạy. Mỗi trang đều có ghi rõ lại.
+  </p>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead><tr><th>Chức năng</th><th>Hiện dùng được gì</th><th>Cần thêm gì để tự động</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Vận chuyển</b></td>
+        <td>Ghi mã vận đơn, trạng thái giao, đối soát COD — nhập tay</td>
+        <td>Hợp đồng + API key của hãng vận chuyển (GHN, GHTK, ViettelPost...) và lập trình phần kết nối</td>
+      </tr>
+      <tr>
+        <td><b>Hóa đơn điện tử</b></td>
+        <td>Ước tính thuế hộ kinh doanh + các sổ theo thông tư (xuất được để nộp thuế)</td>
+        <td>Tài khoản nhà cung cấp hóa đơn điện tử được Tổng cục Thuế công nhận + lập trình kết nối</td>
+      </tr>
+      <tr>
+        <td><b>Marketing (SMS/Email)</b></td>
+        <td>Lưu nội dung chiến dịch và tệp khách hàng mục tiêu</td>
+        <td>SMS: brandname đăng ký với nhà mạng. Email: tên miền riêng đã cấu hình SPF/DKIM</td>
+      </tr>
+      <tr>
+        <td><b>Sàn TMĐT</b> (Shopee, Lazada, TikTok)</td>
+        <td>Thống kê doanh thu theo kênh — đơn nhập tay hoặc nhập từ file</td>
+        <td>Tài khoản người bán + quyền truy cập API của từng sàn (mỗi sàn duyệt riêng)</td>
+      </tr>
+      <tr>
+        <td><b>Đặt hàng online</b></td>
+        <td><b>Chạy thật ngay</b> — bật lên là có đường dẫn gửi khách</td>
+        <td>Chỉ thiếu thanh toán trước: khách đặt xong, cửa hàng gọi lại xác nhận và thu tiền khi giao</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="margin:10px 0 0;">
+    Cần hỗ trợ đấu nối những phần trên, liên hệ KT-SOFT: <b>0945289666</b>.
+  </p>
+</div>
+
 <div class="card" id="cau-hinh" style="margin-bottom:24px;">
-  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">13. Cấu hình &amp; tài khoản</h2>
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">14. Cấu hình &amp; tài khoản</h2>
   <ul style="line-height:1.9;">
     <li><b>Cấu hình</b>: tên cửa hàng, logo, màu thương hiệu, mẫu in hóa đơn, bật/tắt bán hàng online, cho phép tồn kho âm hay không.</li>
     <li><b>Chi nhánh &amp; nhân viên</b>: thêm chi nhánh mới, tạo tài khoản nhân viên và phân quyền ADMIN/MANAGER/CASHIER theo từng chi nhánh.</li>
@@ -195,7 +240,7 @@ require_once __DIR__ . '/inc_header.php';
 </div>
 
 <div class="card" id="faq" style="margin-bottom:24px;">
-  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">14. Câu hỏi thường gặp</h2>
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">15. Câu hỏi thường gặp</h2>
   <div style="display:grid;gap:14px;">
     <div>
       <b>Mất mạng giữa lúc bán hàng thì sao?</b>

@@ -2304,3 +2304,29 @@ ghi chính mình.
 | §5 Kết nối API hãng vận chuyển | Cần hợp đồng + API key của GHN/GHTK/ViettelPost. Hiện gõ tay tên hãng và mã vận đơn. |
 | §12 Hóa đơn điện tử / khai thuế | Cần hợp đồng với nhà cung cấp hóa đơn điện tử. `accounting.php` đã có ước tính thuế hộ kinh doanh và các sổ theo thông tư. |
 | §12 Marketplace ứng dụng | Chợ ứng dụng mở rộng — chỉ có nghĩa khi đã có hệ sinh thái nhà phát triển bên thứ ba. |
+
+## Ghi chú "Điều kiện triển khai" hiện ngay trên từng chức năng
+
+Vấn đề thật: một số chức năng chỉ là **khung nội bộ** — muốn chạy tự động thì khách phải có thứ gì
+đó ở bên ngoài (hợp đồng hãng vận chuyển, tài khoản hóa đơn điện tử, brandname SMS...). Nếu không
+nói rõ **ngay tại chỗ**, khách sẽ tưởng đã dùng được rồi và chỉ phát hiện khi cần gấp.
+
+Hàm dùng chung `hopDieuKienTrienKhai()` trong `inc_functions.php` vẽ một hộp thống nhất gồm ba
+phần: **phần mềm hiện làm được gì** (nói trước, để không bị hiểu nhầm là "chưa có gì"), **cần thêm
+gì để chạy thật**, và một dòng kết. Đã gắn vào 6 trang:
+
+| Trang | Nội dung |
+|---|---|
+| `shipments.php`, `shipment_form.php` | Theo dõi vận đơn + đối soát COD đầy đủ, nhưng nhập tay — cần hợp đồng và API key hãng vận chuyển |
+| `accounting.php` | Đã có ước tính thuế và các sổ theo thông tư — riêng phát hành hóa đơn điện tử cần nhà cung cấp được Tổng cục Thuế công nhận |
+| `campaigns.php`, `marketing_settings.php` | Lưu chiến dịch, chưa tự gửi — SMS cần brandname đăng ký với nhà mạng, email cần tên miền có SPF/DKIM |
+| `channels.php` | Thống kê doanh thu theo kênh, chưa nối API sàn — mỗi sàn duyệt quyền riêng |
+| `online_shop_settings.php` | **Chạy thật ngay**, chỉ thiếu thanh toán trước |
+
+Ngoài ra `huong_dan.php` có thêm **mục 13 "Chức năng cần chuẩn bị thêm mới chạy thật được"** —
+bảng tổng hợp 5 dòng để khách nắm toàn cảnh mà không phải mở từng trang. Các mục sau đó được đánh
+số lại (Cấu hình 13→14, Câu hỏi thường gặp 14→15) cho khỏi trùng.
+
+Giọng của các ghi chú cố ý **nói cái được trước, cái thiếu sau**, và luôn kèm câu "chưa có thì vẫn
+dùng bình thường theo cách nhập tay" — vì phần lớn các chức năng này thật sự đã dùng được, chỉ là
+chưa tự động.

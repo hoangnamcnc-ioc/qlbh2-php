@@ -52,9 +52,19 @@ require_once __DIR__ . '/inc_header.php';
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Kênh bán hàng</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">
   Khai báo các kênh bán hàng (Shopee, Facebook, Website...) để gắn vào đơn hàng và thống kê doanh
-  thu theo kênh. Đây là khung dữ liệu nội bộ — <b>chưa kết nối API thật</b> của các sàn/nền tảng,
-  đơn hàng từ các kênh này cần nhập tay hoặc import, gắn đúng kênh khi tạo/sửa đơn.
+  thu theo từng kênh.
 </p>
+
+<?php hopDieuKienTrienKhai(
+    'Phần mềm <b>thống kê doanh thu theo kênh</b> đầy đủ, nhưng <b>chưa kết nối API thật</b> của
+     các sàn — đơn từ Shopee/Lazada/TikTok cần nhập tay hoặc nhập từ file, nhớ gắn đúng kênh khi
+     tạo/sửa đơn.',
+    [
+        'Đăng ký tài khoản người bán và xin quyền truy cập API của từng sàn (mỗi sàn duyệt riêng).',
+        'Nhờ lập trình phần đồng bộ đơn cho từng sàn — mỗi sàn một giao thức khác nhau, không dùng chung được.',
+    ],
+    'Riêng kênh <b>Website</b> thì đã chạy thật: xem <a href="online_shop_settings.php">Đặt hàng online</a>.'
+); ?>
 
 <div class="card" style="max-width:560px;margin-bottom:24px;">
   <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Thêm kênh bán hàng</h2>

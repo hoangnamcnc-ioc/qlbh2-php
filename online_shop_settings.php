@@ -20,7 +20,20 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <a href="settings.php" class="muted" style="font-size:14px;">← Cấu hình</a>
-<h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Đặt hàng Online</h1>
+<h1 style="font-size:24px;font-weight:600;margin:8px 0 16px;">Đặt hàng Online</h1>
+
+<?php hopDieuKienTrienKhai(
+    'Trang đặt hàng công khai <b>chạy thật ngay, không cần đăng ký gì thêm</b> — bật lên là có
+     đường dẫn để gửi cho khách.',
+    [
+        'Sản phẩm phải <b>đang bán</b> và <b>còn tồn kho</b> ở chi nhánh bán online thì khách mới thấy.',
+        'Khách <b>chưa thanh toán online được</b> — đơn về ở trạng thái <b>Đặt hàng / Chưa thanh toán</b>,
+         cửa hàng gọi lại xác nhận rồi thu tiền khi giao. Muốn khách trả trước qua thẻ/QR thì cần
+         tài khoản cổng thanh toán và lập trình thêm.',
+        'Phải có người <b>xem đơn mới hằng ngày</b> ở Danh sách đơn hàng — hệ thống không tự gọi
+         điện hay tự giao hàng.',
+    ]
+); ?>
 
 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Đã lưu cấu hình</div><?php endif; ?>
 

@@ -388,18 +388,17 @@ require_once __DIR__ . '/inc_header.php';
 
 <div class="card" style="max-width:640px;">
   <h2 style="font-size:15px;font-weight:600;margin:0 0 12px;">Hóa đơn điện tử</h2>
-  <p style="margin:0 0 12px;">
-    Tính năng phát hành hóa đơn điện tử yêu cầu kết nối với nhà cung cấp được Tổng cục Thuế
-    công nhận (vd Viettel, VNPT, MISA, M-Invoice...).
-  </p>
-  <p class="muted" style="margin:0;">
-    QLBH-CLOUD hiện <b>chưa tích hợp API thật</b> với các nhà cung cấp này. Để dùng được, bạn cần:
-  </p>
-  <ol class="muted" style="margin:8px 0 0;padding-left:20px;">
-    <li>Đăng ký tài khoản với 1 nhà cung cấp hóa đơn điện tử.</li>
-    <li>Lấy API key/thông tin kết nối họ cung cấp.</li>
-    <li>Nhờ lập trình lại phần này để gọi API thật của nhà cung cấp đó khi hoàn thành đơn hàng.</li>
-  </ol>
+  <?php hopDieuKienTrienKhai(
+      'Phần mềm đã tính sẵn <b>ước tính thuế hộ kinh doanh</b> và lập các <b>sổ theo thông tư</b>
+       ở phần trên, nhưng <b>chưa phát hành được hóa đơn điện tử</b> — việc đó bắt buộc phải qua
+       nhà cung cấp được Tổng cục Thuế công nhận.',
+      [
+          'Đăng ký tài khoản với một nhà cung cấp hóa đơn điện tử (Viettel, VNPT, MISA, M-Invoice...).',
+          'Lấy API key / thông tin kết nối họ cấp.',
+          'Nhờ lập trình phần kết nối để tự phát hành hóa đơn khi hoàn thành đơn hàng.',
+      ],
+      'Chưa có thì vẫn xuất được các sổ ở trên để nộp thuế theo cách thông thường.'
+  ); ?>
 </div>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

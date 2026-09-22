@@ -41,12 +41,16 @@ require_once __DIR__ . '/inc_header.php';
 
 <?php if ($saved): ?><div class="alert alert-success">Đã lưu cấu hình kênh marketing.</div><?php endif; ?>
 
-<div class="alert alert-warning" style="max-width:720px;">
-  <b>Nói rõ để bạn không bị bất ngờ:</b> phần mềm <b>lưu</b> chiến dịch và cho <b>xuất danh sách
-  người nhận</b>, nhưng <b>không tự gửi</b> SMS/Email hàng loạt. Gửi thật cần tài khoản gateway
-  riêng — SMS brandname phải đăng ký với nhà mạng, email hàng loạt cần tên miền đã xác thực
-  SPF/DKIM. Gửi khi chưa có những thứ đó thì tin rơi vào hộp thư rác và tên miền bị đánh dấu.
-</div>
+<?php hopDieuKienTrienKhai(
+    'Những gì khai báo ở đây được dùng để hiển thị đúng tên người gửi trên chiến dịch. Phần mềm
+     <b>chưa tự gửi</b> SMS/Email hàng loạt.',
+    [
+        '<b>SMS</b>: brandname đã đăng ký với nhà mạng + tài khoản nhà cung cấp SMS.',
+        '<b>Email</b>: tên miền riêng đã cấu hình SPF và DKIM.',
+        'Lập trình phần kết nối với nhà cung cấp bạn chọn.',
+    ],
+    'Khai báo sẵn ở đây trước cũng có ích: khi làm phần gửi thật thì không phải nhập lại.'
+); ?>
 
 <form method="post">
   <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">

@@ -70,6 +70,18 @@ $byStatus = array_column($byStatusStmt->fetchAll(), 'n', 'status');
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Vận chuyển</h1>
 <p class="muted" style="margin-bottom:16px;">Theo dõi vận đơn nội bộ. Tạo vận đơn từ trang chi tiết đơn hàng.</p>
 
+<?php hopDieuKienTrienKhai(
+    'Phần mềm <b>theo dõi vận đơn và đối soát COD</b> đầy đủ: ghi mã vận đơn, hãng vận chuyển,
+     trạng thái giao, phí và tiền thu hộ, đối chiếu số tiền hãng đã trả. Nhưng <b>chưa gọi API
+     thật</b> của hãng vận chuyển — mã vận đơn và trạng thái do nhân viên nhập/cập nhật tay.',
+    [
+        'Ký hợp đồng với một hãng vận chuyển (GHN, GHTK, ViettelPost, J&amp;T...).',
+        'Lấy API key / thông tin kết nối họ cấp cho tài khoản của bạn.',
+        'Nhờ lập trình phần kết nối để tự đẩy đơn sang hãng và tự cập nhật trạng thái giao về.',
+    ],
+    'Chưa có những thứ trên thì vẫn dùng bình thường theo cách nhập tay — chỉ là không tự động.'
+); ?>
+
 <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
   <?php foreach ($statusLabels as $k => $label): ?>
     <div class="card" style="padding:10px 16px;min-width:120px;">

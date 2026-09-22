@@ -212,6 +212,36 @@ function setSetting(string $key, string $value): void
     )->execute([currentTenantId(), $key, $value]);
 }
 
+/**
+ * Hop "Dieu kien de dung duoc tinh nang nay" - hien ngay tren trang cua tinh nang do.
+ *
+ * Vi sao can: mot so tinh nang chi la KHUNG NOI BO, muon chay that thi khach phai co thu gi do o
+ * ben ngoai (hop dong voi hang van chuyen, tai khoan hoa don dien tu, brandname SMS...). Neu
+ * khong noi ro ngay tai cho, khach se tuong da dung duoc roi va chi phat hien khi can gap.
+ *
+ * @param string   $lamDuocGi Phan mem HIEN TAI lam duoc gi (noi truoc, de khong bi hieu la "chua co gi")
+ * @param string[] $dieuKien  Nhung thu khach phai co/phai lam de dung that
+ * @param string   $ghiChu    Dong ket, tuy chon
+ */
+function hopDieuKienTrienKhai(string $lamDuocGi, array $dieuKien, string $ghiChu = ''): void
+{
+    ?>
+    <div class="alert alert-warning" style="max-width:760px;">
+      <div style="font-weight:600;margin-bottom:6px;">Điều kiện để dùng được tính năng này</div>
+      <p style="margin:0 0 8px;"><?= $lamDuocGi ?></p>
+      <?php if ($dieuKien): ?>
+        <p style="margin:0 0 4px;">Để chạy thật, bạn cần:</p>
+        <ol style="margin:0;padding-left:20px;">
+          <?php foreach ($dieuKien as $dk): ?><li><?= $dk ?></li><?php endforeach; ?>
+        </ol>
+      <?php endif; ?>
+      <?php if ($ghiChu !== ''): ?>
+        <p style="margin:8px 0 0;"><?= $ghiChu ?></p>
+      <?php endif; ?>
+    </div>
+    <?php
+}
+
 /** Tự động tạo phiếu bảo hành cho các dòng sản phẩm có bật has_warranty trong 1 đơn hàng đã hoàn thành. */
 function createWarrantyCardsForOrder(int $orderId, ?int $customerId, int $createdById): void
 {

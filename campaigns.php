@@ -39,10 +39,21 @@ require_once __DIR__ . '/inc_header.php';
 ?>
 
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Marketing</h1>
-<div class="alert alert-warning" style="max-width:640px;">
-  Đây chỉ là nơi lưu trữ nội dung chiến dịch nội bộ — hệ thống <b>chưa gửi SMS/Email thật</b>.
-  Muốn gửi thật cần cấu hình tài khoản dịch vụ SMS/Email (vd Twilio, eSMS, SendGrid...).
-</div>
+<?php hopDieuKienTrienKhai(
+    'Phần mềm <b>lưu nội dung chiến dịch</b> và tệp khách hàng mục tiêu, nhưng <b>chưa tự gửi
+     SMS/Email hàng loạt</b> — hiện bạn soạn ở đây rồi mang nội dung sang công cụ gửi bên ngoài.',
+    [
+        '<b>Gửi SMS</b>: đăng ký <b>brandname</b> với nhà mạng (tên hiển thị khi khách nhận tin)
+         và mở tài khoản với một nhà cung cấp SMS (Viettel, VNPT, eSMS...). Tin nhắn quảng cáo
+         không có brandname sẽ bị nhà mạng chặn.',
+        '<b>Gửi Email</b>: có tên miền riêng đã cấu hình <b>SPF và DKIM</b>. Gửi email hàng loạt
+         từ tên miền chưa xác thực thì thư rơi thẳng vào hộp thư rác và tên miền bị đánh dấu.',
+        'Khai báo thông tin ở <a href="marketing_settings.php">Cấu hình kênh marketing</a>, rồi
+         nhờ lập trình phần kết nối với nhà cung cấp bạn đã chọn.',
+    ],
+    'Theo quy định, tin quảng cáo phải có cách để khách <b>từ chối nhận</b> — khai báo câu đó ở
+     phần chân trang trong Cấu hình kênh marketing.'
+); ?>
 
 <div class="card" style="max-width:640px;margin:16px 0 24px;">
   <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Tạo chiến dịch</h2>
