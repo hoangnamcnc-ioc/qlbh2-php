@@ -2098,3 +2098,28 @@ Hai lưu ý nữa rút ra khi mở rộng script:
 - **Phép thử chuyển hàng chéo hiện còn yếu.** Nó đạt cả khi chưa vá, vì sản phẩm của cửa hàng khác
   không có tồn kho ở chi nhánh mình nên lệnh chuyển tự hỏng vì thiếu hàng. Bản vá vẫn cần (chặn từ
   gốc thay vì dựa vào một tác dụng phụ), nhưng đừng coi phép thử đó là bằng chứng mạnh.
+
+## Chống tạo hàng loạt cửa hàng ảo (`dang-ky.php`)
+
+Token CSRF lấy được chỉ bằng một request GET, nên **một mình nó không chặn được gì** — trước đây
+một script có thể tạo vô hạn cửa hàng, làm phình CSDL dùng chung và rác danh sách quản trị hệ thống.
+
+Nay dùng lại bộ đếm theo IP của trang đăng nhập (bảng `login_attempts`), nhưng với hành động
+`signup` và đếm **lần thành công** chứ không phải lần thất bại: mỗi IP tạo tối đa `RATE_LIMIT_MAX`
+(5) cửa hàng rồi bị khóa `RATE_LIMIT_LOCK_SECONDS` (15 phút). Người dùng thật chỉ đăng ký một lần
+nên hạn này rất rộng với họ.
+
+Đã kiểm chứng trên production: 5 lần đầu tạo được, lần thứ 6 bị chặn đúng thông báo — sau đó xóa
+sạch 5 cửa hàng thử và gỡ khóa.
+
+## Thư mục ảnh tải lên không chạy được script (`uploads/.htaccess`)
+
+Đường tải ảnh vốn đã an toàn: kiểu file lấy từ MIME do **máy chủ tự đọc** (không tin phần mở rộng
+người dùng gửi), đuôi file ép theo bảng trắng, tên file do hệ thống sinh ngẫu nhiên. `uploads/` nay
+thêm lớp thứ hai chặn truy cập mọi file `.php/.phtml/.phar/.pl/.py/.cgi/.sh`, phòng khi về sau có
+ai nới lỏng chỗ trên.
+
+Chỉ dùng `<FilesMatch>` — `Options`/`AddType` có thể bị cấm ở cấp thư mục và gây lỗi 500 cho cả thư
+mục ảnh. Đã kiểm chứng bằng cách đặt thật một file `.php` vào đó: trả **403**, không thực thi; file
+`.jpg` vẫn phục vụ bình thường; sau đó xóa file thử.
+
