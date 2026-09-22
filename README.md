@@ -2221,7 +2221,36 @@ cạnh để đặt lại.
 hàng sang `PAID` thì nút biến mất khỏi trang **và** gửi POST thủ công vẫn bị chặn, hạn lẫn gói đều
 không đổi.
 
-**Khoảng trống còn lại**: khách đã trả phí giờ không có nút gia hạn thủ công nào trên trang —
-`paid_until` chỉ được đặt qua thanh toán VNPay. Trước đây "+1 năm" cũng không gia hạn được cho họ
-(nó hạ họ về dùng thử), nên đây không phải là mất chức năng, nhưng là việc nên bổ sung: một nút
-cộng thêm tháng vào `paid_until` cho khách `PAID`.
+### Gia hạn thủ công cho khách đã trả phí (đã bổ sung)
+
+Trước đây `paid_until` **chỉ** được đặt qua thanh toán VNPay, nên khách gia hạn bằng chuyển khoản
+tay thì không xử lý được trên trang. Nay khách `PAID` có ba thao tác:
+
+| Nút | Làm gì | Khi nào hiện |
+|---|---|---|
+| **+12 tháng** | Cộng 12 tháng vào `paid_until` | chỉ khi đã có hạn |
+| **Đặt hạn** | Đặt `paid_until` về đúng ngày chọn | luôn hiện |
+| **Bỏ hạn** | Đặt `paid_until = NULL` (dùng vô thời hạn) | chỉ khi đang có hạn |
+
+"+12 tháng" dùng **đúng công thức của `vnpay_ipn.php`** — `DATE_ADD(GREATEST(COALESCE(paid_until,
+NOW()), NOW()), INTERVAL ? MONTH)` — để gia hạn tay và gia hạn online cho ra cùng kết quả: cộng
+tiếp từ hạn cũ nếu còn hiệu lực, cộng từ hôm nay nếu đã hết hạn.
+
+**Cái bẫy quan trọng nhất ở đây**: `paid_until = NULL` nghĩa là **không giới hạn**, nên cộng thêm
+tháng vào đó sẽ biến "không giới hạn" thành "có hạn" — đúng điều ngược với ý người bấm. Vì vậy
+"+12 tháng" bị **ẩn** với khách đang không giới hạn, **và** bị chặn ở tầng xử lý. Muốn đặt hạn cho
+khách đang không giới hạn thì phải dùng ô chọn ngày — một việc có chủ ý, không phải lỡ tay.
+
+Chốt chặn nay chặn **đúng chiều cho từng nhóm**, gộp ở một chỗ trước khi phân nhánh: nhóm dùng thử
+(`extend_trial`, `set_trial_end`) chặn với khách `PAID`; nhóm trả phí (`extend_paid`,
+`set_paid_until`) chặn với khách `TRIAL`. Mỗi trường hợp có thông báo riêng nói rõ nên dùng nhóm
+nút nào.
+
+Cột đổi tên thành **"Hạn sử dụng"** (trước là "Hạn dùng thử") vì giờ quản lý cả hai loại, và hiện
+thêm ngày hết hạn cụ thể cho cả khách trả phí.
+
+Đã kiểm chứng bằng 3 cửa hàng tạm — trả phí có hạn / trả phí không giới hạn / dùng thử — với 7 phép
+thử: cộng tháng đúng số học (01/01/2027 + 12 tháng = 01/01/2028, khớp VNPay), đặt hạn được, bỏ hạn
+được, và **cả 3 trường hợp ap sai nhóm đều bị chặn** (cộng tháng cho khách không giới hạn, cộng
+tháng cho khách dùng thử, đặt `paid_until` cho khách dùng thử). Giao diện cũng hiện đúng nút theo
+từng loại gói.

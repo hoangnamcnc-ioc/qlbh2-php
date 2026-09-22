@@ -32,14 +32,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('super_admin_tenants.php');
     }
 
-    // CA HAI thao tac gia han ("+1 nam" va "Dat han") deu dat plan = 'TRIAL', nen neu ap nham
-    // cho khach DA TRA PHI thi vo tinh ha ho xuong goi dung thu. Chan chung mot cho o day, truoc
-    // khi phan nhanh - an nut tren giao dien khong phai la kiem soat.
-    if (in_array($action, ['extend_trial', 'set_trial_end'], true)) {
-        $cur = $pdo->prepare('SELECT plan FROM tenants WHERE id = ?');
+    // Cac thao tac gia han gan chat voi GOI hien tai: nhom dung thu dat plan='TRIAL', nhom tra
+    // phi ghi vao paid_until. Ap nham chieu nao cung sai (vd "+1 nam" dung thu se ha mot khach
+    // da tra phi xuong dung thu), nen chan chung mot cho o day truoc khi phan nhanh - an nut
+    // tren giao dien khong phai la kiem soat.
+    $nhomDungThu = ['extend_trial', 'set_trial_end'];
+    $nhomTraPhi  = ['extend_paid', 'set_paid_until'];
+    if (in_array($action, $nhomDungThu, true) || in_array($action, $nhomTraPhi, true)) {
+        $cur = $pdo->prepare('SELECT plan, paid_until FROM tenants WHERE id = ?');
         $cur->execute([$id]);
-        if ($cur->fetchColumn() === 'PAID') {
+        $curRow = $cur->fetch();
+        $dangTraPhi = $curRow && $curRow['plan'] === 'PAID';
+
+        if (in_array($action, $nhomDungThu, true) && $dangTraPhi) {
             redirect('super_admin_tenants.php?err=paid');
+        }
+        if (in_array($action, $nhomTraPhi, true) && !$dangTraPhi) {
+            redirect('super_admin_tenants.php?err=trial');
+        }
+        // paid_until = NULL nghia la KHONG GIOI HAN. Cong them thang vao do se bien "khong gioi
+        // han" thanh "co han" - dung la dieu nguoc voi y muon khi bam nut gia han. Muon dat han
+        // cho khach dang khong gioi han thi phai dung o chon ngay (viec co y, khong phai lo tay).
+        if ($action === 'extend_paid' && $curRow['paid_until'] === null) {
+            redirect('super_admin_tenants.php?err=unlimited');
         }
     }
 
@@ -67,6 +82,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("UPDATE tenants SET plan = 'TRIAL', trial_ends_at = ? WHERE id = ?")
             ->execute([$d->format('Y-m-d') . ' 23:59:59', $id]);
         logActivity('SUPER_ADMIN_TENANT_SET_TRIAL_END', "tenant_id=$id date=$date");
+    } elseif ($action === 'extend_paid') {
+        // Dung dung cong thuc cua VNPay (vnpay_ipn.php) de gia han tay va gia han online cho ra
+        // cung ket qua: cong tiep tu han cu neu con hieu luc, tu hom nay neu da het han.
+        $months = max(1, min(120, (int) ($_POST['months'] ?? 12)));
+        $pdo->prepare(
+            "UPDATE tenants SET paid_until = DATE_ADD(GREATEST(COALESCE(paid_until, NOW()), NOW()), INTERVAL ? MONTH) WHERE id = ?"
+        )->execute([$months, $id]);
+        logActivity('SUPER_ADMIN_TENANT_EXTEND_PAID', "tenant_id=$id months=$months");
+    } elseif ($action === 'set_paid_until') {
+        if (($_POST['unlimited'] ?? '') === '1') {
+            $pdo->prepare('UPDATE tenants SET paid_until = NULL WHERE id = ?')->execute([$id]);
+            logActivity('SUPER_ADMIN_TENANT_PAID_UNLIMITED', "tenant_id=$id");
+        } else {
+            $date = trim($_POST['paid_until'] ?? '');
+            $d = DateTime::createFromFormat('Y-m-d', $date);
+            if (!$d || $d->format('Y-m-d') !== $date) {
+                redirect('super_admin_tenants.php?err=date');
+            }
+            $pdo->prepare('UPDATE tenants SET paid_until = ? WHERE id = ?')
+                ->execute([$d->format('Y-m-d') . ' 23:59:59', $id]);
+            logActivity('SUPER_ADMIN_TENANT_SET_PAID_UNTIL', "tenant_id=$id date=$date");
+        }
     } elseif ($action === 'resolve_renewal') {
         $reqId = (int) ($_POST['req_id'] ?? 0);
         $pdo->prepare("UPDATE renewal_requests SET status = 'DONE' WHERE id = ? AND tenant_id = ?")->execute([$reqId, $id]);
@@ -119,6 +156,12 @@ require_once __DIR__ . '/inc_header.php';
 <?php if ($error): ?><div class="alert alert-error" style="margin-bottom:20px;"><?= e($error) ?></div><?php endif; ?>
 <?php if (($_GET['err'] ?? '') === 'date'): ?>
   <div class="alert alert-error" style="margin-bottom:20px;">Ngày không hợp lệ — chưa thay đổi hạn dùng thử của cửa hàng nào.</div>
+<?php endif; ?>
+<?php if (($_GET['err'] ?? '') === 'trial'): ?>
+  <div class="alert alert-error" style="margin-bottom:20px;">Cửa hàng này đang ở <b>gói dùng thử</b> — dùng nhóm nút "hạn dùng thử" cho họ. Chưa thay đổi gì.</div>
+<?php endif; ?>
+<?php if (($_GET['err'] ?? '') === 'unlimited'): ?>
+  <div class="alert alert-error" style="margin-bottom:20px;">Cửa hàng này đang <b>không giới hạn hạn sử dụng</b> — cộng thêm tháng sẽ biến thành có hạn, ngược với ý muốn. Nếu thật sự muốn đặt hạn, hãy dùng ô chọn ngày. Chưa thay đổi gì.</div>
 <?php endif; ?>
 <?php if (($_GET['err'] ?? '') === 'paid'): ?>
   <div class="alert alert-error" style="margin-bottom:20px;">Cửa hàng này đang ở <b>gói trả phí</b> — không đặt hạn dùng thử cho họ được (sẽ vô tình hạ họ về gói dùng thử). Chưa thay đổi gì.</div>
@@ -183,7 +226,7 @@ require_once __DIR__ . '/inc_header.php';
     <thead>
       <tr>
         <th>Cửa hàng</th><th>Email quản trị</th><th>Ngày đăng ký</th><th>Gói</th>
-        <th>Hạn dùng thử</th><th class="text-right">NV</th><th class="text-right">SP</th>
+        <th>Hạn sử dụng</th><th class="text-right">NV</th><th class="text-right">SP</th>
         <th class="text-right">Đơn hàng</th><th>Hoạt động gần nhất</th><th>Trạng thái</th><th></th>
       </tr>
     </thead>
@@ -216,6 +259,7 @@ require_once __DIR__ . '/inc_header.php';
                 <?php else: ?>
                   Còn <?= (int) $paidDaysLeft ?> ngày
                 <?php endif; ?>
+                <div class="muted" style="font-size:11px;"><?= date('d/m/Y', strtotime($t['paid_until'])) ?></div>
               <?php endif; ?>
             <?php elseif (!$t['trial_ends_at']): ?>
               <span class="muted">—</span>
@@ -264,6 +308,37 @@ require_once __DIR__ . '/inc_header.php';
                 <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;"
                         onclick="return confirm('Đặt lại hạn dùng thử về đúng ngày đã chọn? Có thể chọn ngày trong quá khứ để kết thúc dùng thử ngay.')">Đặt hạn</button>
               </form>
+              <?php else: // khach DA TRA PHI: gia han vao paid_until, khong dung toi han dung thu ?>
+                <?php if ($t['paid_until']): ?>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                  <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+                  <input type="hidden" name="action" value="extend_paid">
+                  <input type="hidden" name="months" value="12">
+                  <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;"
+                          onclick="return confirm('Gia hạn thêm 12 tháng cho khách trả phí này? Nếu bấm nhầm, dùng ô chọn ngày bên cạnh để đặt lại.')">+12 tháng</button>
+                </form>
+                <?php endif; ?>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                  <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+                  <input type="hidden" name="action" value="set_paid_until">
+                  <input type="date" name="paid_until" required
+                         value="<?= e($t['paid_until'] ? date('Y-m-d', strtotime($t['paid_until'])) : date('Y-m-d', strtotime('+12 months'))) ?>"
+                         style="padding:3px 6px;font-size:11px;border:1px solid #cbd5e1;border-radius:6px;">
+                  <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;"
+                          onclick="return confirm('Đặt hạn trả phí về đúng ngày đã chọn?')">Đặt hạn</button>
+                </form>
+                <?php if ($t['paid_until']): ?>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                  <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+                  <input type="hidden" name="action" value="set_paid_until">
+                  <input type="hidden" name="unlimited" value="1">
+                  <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;"
+                          onclick="return confirm('Bỏ hạn sử dụng của khách này (dùng vô thời hạn)?')">Bỏ hạn</button>
+                </form>
+                <?php endif; ?>
               <?php endif; ?>
               <form method="post" style="display:inline;">
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
