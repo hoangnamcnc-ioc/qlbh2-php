@@ -2187,3 +2187,27 @@ các ô `SL:` / `Tối thiểu:` / `Tối đa:` / `Vị trí kho:` trong bảng 
 combo, có bảng giá) rồi soi: **không nhãn nào trỏ tới `id` không tồn tại, không `id` nào bị trùng**
 (kể cả `f-pl-29`/`f-pl-30` sinh trong vòng lặp), và lưu lại sản phẩm vẫn đúng toàn bộ giá trị — kể
 cả hai mức giá theo bảng giá.
+
+## Đặt lại hạn dùng thử theo ngày cụ thể (`super_admin_tenants.php`)
+
+Trang quản trị hệ thống chỉ có nút **"+1 năm"**, và trong code số ngày bị ép `max(1, ...)` nên nó
+**chỉ cộng được, không bao giờ lùi**. Bấm nhầm là không sửa lại được từ giao diện — thực tế đã xảy
+ra: một cửa hàng bị bấm hai lần, hạn nhảy từ 17/09/2027 lên 16/09/2029 (1091 ngày).
+
+Thêm hành động `set_trial_end`: một ô chọn ngày điền sẵn hạn hiện tại, bấm "Đặt hạn" là ghi thẳng
+về đúng ngày đó (`23:59:59`). **Cho phép cả ngày trong quá khứ** — đó là cách kết thúc dùng thử
+ngay lập tức. Ngày sai định dạng bị từ chối và báo rõ, không thay đổi gì.
+
+Cột "HẠN DÙNG THỬ" nay hiện thêm **ngày hết hạn cụ thể** dưới số ngày còn lại. Chỉ nhìn "Còn 1091
+ngày" thì rất khó nhận ra vừa bấm nhầm; thấy "16/09/2029" thì nhận ra ngay.
+
+**Chốt chặn gói trả phí**: đặt hạn dùng thử sẽ chuyển `plan` về `TRIAL`, nên nếu áp nhầm cho khách
+**đã trả phí** thì vô tình hạ họ xuống dùng thử. Ô chọn ngày được ẩn với khách `PAID`, **và** chặn
+thêm một lần nữa ở tầng xử lý (ẩn nút không phải là kiểm soát).
+
+Đã kiểm chứng bằng tài khoản quản trị tạm trong tenant #1 (tạo, thử, xóa ngay): trang không lỗi
+PHP; lùi hạn về quá khứ **được**; đặt tiến **được**; ngày sai định dạng **bị từ chối**; chuyển cửa
+hàng sang `PAID` thì ô chọn ngày biến mất và POST thủ công cũng bị chặn, dữ liệu không đổi.
+
+Lưu ý còn lại: nút "+1 năm" cũng đặt `plan='TRIAL'` nên vẫn có thể hạ một khách đã trả phí xuống
+dùng thử — chưa chặn vì không nằm trong phạm vi lần sửa này.

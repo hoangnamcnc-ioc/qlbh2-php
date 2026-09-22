@@ -44,6 +44,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "UPDATE tenants SET plan = 'TRIAL', trial_ends_at = DATE_ADD(GREATEST(COALESCE(trial_ends_at, NOW()), NOW()), INTERVAL ? DAY) WHERE id = ?"
         )->execute([$days, $id]);
         logActivity('SUPER_ADMIN_TENANT_EXTEND', "tenant_id=$id days=$days");
+    } elseif ($action === 'set_trial_end') {
+        // Nut "+1 nam" chi CONG duoc (days ep toi thieu 1), nen bam nham la khong lui lai duoc.
+        // Day la duong dat thang han su dung ve dung ngay mong muon - ke ca ngay trong qua khu
+        // (de ket thuc dung thu ngay lap tuc).
+        // Chan ca o tang xu ly chu khong chi an nut: dat han se chuyen goi ve TRIAL nen neu ap
+        // dung nham cho khach DA TRA PHI thi ho bi ha xuong dung thu.
+        $cur = $pdo->prepare('SELECT plan FROM tenants WHERE id = ?');
+        $cur->execute([$id]);
+        if ($cur->fetchColumn() === 'PAID') {
+            redirect('super_admin_tenants.php?err=paid');
+        }
+        $date = trim($_POST['trial_end'] ?? '');
+        $d = DateTime::createFromFormat('Y-m-d', $date);
+        if (!$d || $d->format('Y-m-d') !== $date) {
+            redirect('super_admin_tenants.php?err=date');
+        }
+        $pdo->prepare("UPDATE tenants SET plan = 'TRIAL', trial_ends_at = ? WHERE id = ?")
+            ->execute([$d->format('Y-m-d') . ' 23:59:59', $id]);
+        logActivity('SUPER_ADMIN_TENANT_SET_TRIAL_END', "tenant_id=$id date=$date");
     } elseif ($action === 'resolve_renewal') {
         $reqId = (int) ($_POST['req_id'] ?? 0);
         $pdo->prepare("UPDATE renewal_requests SET status = 'DONE' WHERE id = ? AND tenant_id = ?")->execute([$reqId, $id]);
@@ -94,6 +113,12 @@ require_once __DIR__ . '/inc_header.php';
 <?php endif; ?>
 
 <?php if ($error): ?><div class="alert alert-error" style="margin-bottom:20px;"><?= e($error) ?></div><?php endif; ?>
+<?php if (($_GET['err'] ?? '') === 'date'): ?>
+  <div class="alert alert-error" style="margin-bottom:20px;">Ngày không hợp lệ — chưa thay đổi hạn dùng thử của cửa hàng nào.</div>
+<?php endif; ?>
+<?php if (($_GET['err'] ?? '') === 'paid'): ?>
+  <div class="alert alert-error" style="margin-bottom:20px;">Cửa hàng này đang ở <b>gói trả phí</b> — không đặt hạn dùng thử cho họ được (sẽ vô tình hạ họ về gói dùng thử). Chưa thay đổi gì.</div>
+<?php endif; ?>
 <?php if ($newPaymentLink): ?>
   <div class="alert alert-success" style="margin-bottom:20px;">
     ✅ Đã tạo link thanh toán — gửi link này cho khách hàng:<br>
@@ -192,8 +217,10 @@ require_once __DIR__ . '/inc_header.php';
               <span class="muted">—</span>
             <?php elseif ($daysLeft < 0): ?>
               <span style="color:#dc2626;font-weight:600;">Đã hết hạn</span>
+              <div class="muted" style="font-size:11px;"><?= date('d/m/Y', strtotime($t['trial_ends_at'])) ?></div>
             <?php else: ?>
               Còn <?= (int) $daysLeft ?> ngày
+              <div class="muted" style="font-size:11px;"><?= date('d/m/Y', strtotime($t['trial_ends_at'])) ?></div>
             <?php endif; ?>
           </td>
           <td class="text-right"><?= (int) $t['user_count'] ?></td>
@@ -221,6 +248,18 @@ require_once __DIR__ . '/inc_header.php';
                 <input type="hidden" name="days" value="365">
                 <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;">+1 năm</button>
               </form>
+              <?php if ($t['plan'] !== 'PAID'): // dat han se chuyen goi ve TRIAL, khong cho bam nham vao khach da tra phi ?>
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+                <input type="hidden" name="action" value="set_trial_end">
+                <input type="date" name="trial_end" required
+                       value="<?= e($t['trial_ends_at'] ? date('Y-m-d', strtotime($t['trial_ends_at'])) : date('Y-m-d')) ?>"
+                       style="padding:3px 6px;font-size:11px;border:1px solid #cbd5e1;border-radius:6px;">
+                <button type="submit" class="btn btn-secondary" style="padding:4px 8px;font-size:11px;"
+                        onclick="return confirm('Đặt lại hạn dùng thử về đúng ngày đã chọn? Có thể chọn ngày trong quá khứ để kết thúc dùng thử ngay.')">Đặt hạn</button>
+              </form>
+              <?php endif; ?>
               <form method="post" style="display:inline;">
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
                 <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
