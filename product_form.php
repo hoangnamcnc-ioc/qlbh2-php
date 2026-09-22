@@ -231,37 +231,37 @@ require_once __DIR__ . '/inc_header.php';
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
 
     <div class="field">
-      <label>Tên sản phẩm *</label>
-      <input class="input" name="name" required placeholder="vd: Nước ngọt Coca 330ml" value="<?= e($product['name'] ?? '') ?>">
+      <label for="f-name">Tên sản phẩm *</label>
+      <input id="f-name" class="input" name="name" required placeholder="vd: Nước ngọt Coca 330ml" value="<?= e($product['name'] ?? '') ?>">
     </div>
 
     <div class="grid-2">
       <div class="field">
-        <label>Mã SKU <span class="muted" style="font-weight:400;">(để trống sẽ tự sinh)</span></label>
+        <label for="f-sku">Mã SKU <span class="muted" style="font-weight:400;">(để trống sẽ tự sinh)</span></label>
         <?php if ($product): ?>
-          <input class="input" value="<?= e($product['sku']) ?>" disabled>
+          <input class="input" id="f-sku" value="<?= e($product['sku']) ?>" disabled>
         <?php else: ?>
-          <input class="input" name="sku" placeholder="Bỏ trống để hệ thống tự tạo mã">
+          <input class="input" id="f-sku" name="sku" placeholder="Bỏ trống để hệ thống tự tạo mã">
         <?php endif; ?>
       </div>
       <div class="field">
-        <label>Mã barcode</label>
-        <input class="input" name="barcode" value="<?= e($product['barcode'] ?? '') ?>">
+        <label for="f-barcode">Mã barcode</label>
+        <input id="f-barcode" class="input" name="barcode" value="<?= e($product['barcode'] ?? '') ?>">
       </div>
     </div>
 
     <div class="grid-2">
       <div class="field">
-        <label>Đơn vị tính</label>
-        <input class="input" name="unit" value="<?= e($product['unit'] ?? '') ?>">
+        <label for="f-unit">Đơn vị tính</label>
+        <input id="f-unit" class="input" name="unit" value="<?= e($product['unit'] ?? '') ?>">
       </div>
       <div></div>
     </div>
 
     <div class="grid-2">
       <div class="field">
-        <label>Loại sản phẩm</label>
-        <select class="input" name="product_type">
+        <label for="f-product-type">Loại sản phẩm</label>
+        <select id="f-product-type" class="input" name="product_type">
           <?php $pt = $product['product_type'] ?? 'PRODUCT'; ?>
           <option value="PRODUCT" <?= $pt === 'PRODUCT' ? 'selected' : '' ?>>Hàng hóa</option>
           <option value="SERVICE" <?= $pt === 'SERVICE' ? 'selected' : '' ?>>Dịch vụ (không quản lý tồn kho)</option>
@@ -273,8 +273,8 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="grid-2">
       <div class="field">
-        <label>Danh mục (<a href="categories.php" class="muted">quản lý</a>)</label>
-        <select class="input" name="category_id">
+        <label for="f-category">Danh mục (<a href="categories.php" class="muted">quản lý</a>)</label>
+        <select id="f-category" class="input" name="category_id">
           <option value="">— Không chọn —</option>
           <?php foreach ($categories as $c): ?>
             <option value="<?= (int) $c['id'] ?>" <?= ($product['category_id'] ?? null) == $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
@@ -282,8 +282,8 @@ require_once __DIR__ . '/inc_header.php';
         </select>
       </div>
       <div class="field">
-        <label>Nhãn hiệu (<a href="brands.php" class="muted">quản lý</a>)</label>
-        <select class="input" name="brand_id">
+        <label for="f-brand">Nhãn hiệu (<a href="brands.php" class="muted">quản lý</a>)</label>
+        <select id="f-brand" class="input" name="brand_id">
           <option value="">— Không chọn —</option>
           <?php foreach ($brands as $b): ?>
             <option value="<?= (int) $b['id'] ?>" <?= ($product['brand_id'] ?? null) == $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
@@ -294,23 +294,23 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="grid-2">
       <div class="field">
-        <label>Giá vốn</label>
-        <input class="input" type="number" min="0" name="cost_price" value="<?= e((string) ($product['cost_price'] ?? '0')) ?>">
+        <label for="f-cost-price">Giá vốn</label>
+        <input id="f-cost-price" class="input" type="number" min="0" name="cost_price" value="<?= e((string) ($product['cost_price'] ?? '0')) ?>">
       </div>
       <div class="field">
-        <label>Giá bán</label>
-        <input class="input" type="number" min="0" name="sell_price" value="<?= e((string) ($product['sell_price'] ?? '0')) ?>">
+        <label for="f-sell-price">Giá bán</label>
+        <input id="f-sell-price" class="input" type="number" min="0" name="sell_price" value="<?= e((string) ($product['sell_price'] ?? '0')) ?>">
       </div>
     </div>
 
     <div class="grid-2">
       <div class="field">
-        <label>Khối lượng (gram)</label>
-        <input class="input" type="number" min="0" name="weight_grams" value="<?= e((string) ($product['weight_grams'] ?? '0')) ?>">
+        <label for="f-weight">Khối lượng (gram)</label>
+        <input id="f-weight" class="input" type="number" min="0" name="weight_grams" value="<?= e((string) ($product['weight_grams'] ?? '0')) ?>">
       </div>
       <div class="field">
-        <label>Thuế suất (<a href="tax_rates.php" class="muted">quản lý</a>)</label>
-        <select class="input" name="tax_rate_id">
+        <label for="f-tax-rate">Thuế suất (<a href="tax_rates.php" class="muted">quản lý</a>)</label>
+        <select id="f-tax-rate" class="input" name="tax_rate_id">
           <option value="">— Không áp dụng —</option>
           <?php foreach ($taxRates as $t): ?>
             <option value="<?= (int) $t['id'] ?>" <?= ($product['tax_rate_id'] ?? null) == $t['id'] ? 'selected' : '' ?>><?= e($t['name']) ?> (<?= number_format((float) $t['rate_percent'], 1) ?>%)</option>
@@ -324,8 +324,8 @@ require_once __DIR__ . '/inc_header.php';
     </div>
 
     <div class="field">
-      <label>Chính sách bảo hành mặc định (khi bán sẽ tự tạo phiếu bảo hành theo chính sách này)</label>
-      <select class="input" name="warranty_policy_id">
+      <label for="f-warranty-policy">Chính sách bảo hành mặc định (khi bán sẽ tự tạo phiếu bảo hành theo chính sách này)</label>
+      <select id="f-warranty-policy" class="input" name="warranty_policy_id">
         <option value="">— Mặc định 12 tháng —</option>
         <?php foreach ($warrantyPolicies as $wp): ?>
           <option value="<?= (int) $wp['id'] ?>" <?= ($product['warranty_policy_id'] ?? null) == $wp['id'] ? 'selected' : '' ?>><?= e($wp['name']) ?> (<?= (int) $wp['duration_months'] ?> tháng)</option>
@@ -334,17 +334,17 @@ require_once __DIR__ . '/inc_header.php';
     </div>
 
     <div class="field">
-      <label>Tags (cách nhau bằng dấu phẩy)</label>
-      <input class="input" name="tags" value="<?= e($product['tags'] ?? '') ?>" placeholder="vd: ban chay, moi ve">
+      <label for="f-tags">Tags (cách nhau bằng dấu phẩy)</label>
+      <input id="f-tags" class="input" name="tags" value="<?= e($product['tags'] ?? '') ?>" placeholder="vd: ban chay, moi ve">
     </div>
 
     <?php if ($product && $priceLists): ?>
     <div class="field">
-      <label>Giá riêng theo bảng giá (<a href="price_lists.php" class="muted">quản lý</a>)</label>
+      <label for="f-pl-<?= (int) $priceLists[0]['id'] ?>">Giá riêng theo bảng giá (<a href="price_lists.php" class="muted">quản lý</a>)</label>
       <?php foreach ($priceLists as $pl): ?>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <span class="muted" style="font-size:13px;width:160px;"><?= e($pl['name']) ?></span>
-          <input class="input" type="number" min="0" step="1000" name="price_list_id[<?= (int) $pl['id'] ?>]"
+          <label class="muted" for="f-pl-<?= (int) $pl['id'] ?>" style="font-size:13px;width:160px;margin-bottom:0;"><?= e($pl['name']) ?></label>
+          <input class="input" id="f-pl-<?= (int) $pl['id'] ?>" type="number" min="0" step="1000" name="price_list_id[<?= (int) $pl['id'] ?>]"
                  value="<?= e((string) ($productPrices[$pl['id']]['price'] ?? '')) ?>"
                  placeholder="để trống = dùng giá mặc định" style="max-width:220px;">
         </div>
@@ -355,12 +355,12 @@ require_once __DIR__ . '/inc_header.php';
     <?php if (!$product): ?>
       <div class="grid-2">
         <div class="field">
-          <label>Tồn kho ban đầu</label>
-          <input class="input" type="number" min="0" step="0.001" name="initial_qty" value="0">
+          <label for="f-initial-qty">Tồn kho ban đầu</label>
+          <input id="f-initial-qty" class="input" type="number" min="0" step="0.001" name="initial_qty" value="0">
         </div>
         <div class="field">
-          <label>Định mức tối thiểu</label>
-          <input class="input" type="number" min="0" name="min_stock" value="0">
+          <label for="f-min-stock">Định mức tối thiểu</label>
+          <input id="f-min-stock" class="input" type="number" min="0" name="min_stock" value="0">
         </div>
       </div>
     <?php else: ?>
@@ -477,15 +477,15 @@ require_once __DIR__ . '/inc_header.php';
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
     <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
     <div class="grid-2">
-      <div class="field"><label>Mã SKU biến thể *</label><input class="input" name="sku" required placeholder="vd: <?= e($product['sku']) ?>-DO-L"></div>
-      <div class="field"><label>Tên biến thể *</label><input class="input" name="name" required placeholder="vd: Đỏ - L"></div>
+      <div class="field"><label for="v-sku">Mã SKU biến thể *</label><input id="v-sku" class="input" name="sku" required placeholder="vd: <?= e($product['sku']) ?>-DO-L"></div>
+      <div class="field"><label for="v-name">Tên biến thể *</label><input id="v-name" class="input" name="name" required placeholder="vd: Đỏ - L"></div>
     </div>
-    <div class="field"><label>Mã barcode riêng (nếu khác SKU)</label><input class="input" name="barcode" placeholder="quét/nhập mã vạch in trên sản phẩm"></div>
+    <div class="field"><label for="v-barcode">Mã barcode riêng (nếu khác SKU)</label><input id="v-barcode" class="input" name="barcode" placeholder="quét/nhập mã vạch in trên sản phẩm"></div>
     <div class="grid-2">
-      <div class="field"><label>Giá vốn</label><input class="input" type="number" min="0" name="cost_price" value="0"></div>
-      <div class="field"><label>Giá bán</label><input class="input" type="number" min="0" name="sell_price" value="0"></div>
+      <div class="field"><label for="v-cost-price">Giá vốn</label><input id="v-cost-price" class="input" type="number" min="0" name="cost_price" value="0"></div>
+      <div class="field"><label for="v-sell-price">Giá bán</label><input id="v-sell-price" class="input" type="number" min="0" name="sell_price" value="0"></div>
     </div>
-    <div class="field"><label>Tồn kho ban đầu</label><input class="input" type="number" min="0" step="0.001" name="initial_qty" value="0" style="max-width:200px;"></div>
+    <div class="field"><label for="v-initial-qty">Tồn kho ban đầu</label><input id="v-initial-qty" class="input" type="number" min="0" step="0.001" name="initial_qty" value="0" style="max-width:200px;"></div>
     <button type="submit" class="btn">Thêm biến thể</button>
   </form>
 </div>
@@ -517,16 +517,16 @@ require_once __DIR__ . '/inc_header.php';
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
     <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
     <div class="field" style="flex:1;margin:0;">
-      <label>Sản phẩm</label>
-      <select class="input" name="component_product_id" required>
+      <label for="c-component">Sản phẩm</label>
+      <select class="input" id="c-component" name="component_product_id" required>
         <?php foreach ($allProducts as $ap): ?>
           <option value="<?= (int) $ap['id'] ?>"><?= e($ap['name']) ?> (<?= e($ap['sku']) ?>)</option>
         <?php endforeach; ?>
       </select>
     </div>
     <div class="field" style="margin:0;">
-      <label>Số lượng</label>
-      <input class="input" type="number" min="0.001" step="0.001" name="quantity" value="1" style="width:90px;">
+      <label for="c-quantity">Số lượng</label>
+      <input class="input" id="c-quantity" type="number" min="0.001" step="0.001" name="quantity" value="1" style="width:90px;">
     </div>
     <button type="submit" class="btn">Thêm</button>
   </form>

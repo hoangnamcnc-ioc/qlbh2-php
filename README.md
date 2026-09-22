@@ -2161,5 +2161,29 @@ tiền cập nhật trực tiếp trên thanh; và bán thật một đơn qua n
 - **`products.php`**: danh sách rỗng chỉ nói "Chưa có sản phẩm nào." Nay chỉ thẳng hai lối đi kèm
   liên kết.
 
-Điểm chưa làm (ghi lại để khỏi quên): nhãn `<label>` trong form sản phẩm chưa gắn `for`/`id` với ô
-nhập, nên bấm vào nhãn không đưa con trỏ vào ô tương ứng.
+### Nhãn `<label>` bấm được (đã làm nốt)
+
+Trước đây nhãn trong `product_form.php` không gắn `for`/`id` với ô nhập, nên bấm vào chữ "Giá bán"
+không đưa con trỏ vào ô — người dùng phải bấm trúng đúng ô, vùng bấm nhỏ hơn hẳn, bất tiện nhất
+trên điện thoại và với người lớn tuổi.
+
+Đã gắn `for`/`id` cho **23 cặp** trên cả ba form của trang: form sản phẩm chính, form thêm biến thể
+(tiền tố `v-`) và form thêm sản phẩm vào combo (tiền tố `c-`).
+
+Hai chỗ cần xử lý riêng:
+
+- **Khối "Giá riêng theo bảng giá"** có một nhãn đứng trên *nhiều* ô nhập, mà một `for` chỉ trỏ
+  được tới một ô. Nhãn tổng nay trỏ tới ô đầu tiên, còn **tên từng bảng giá** đổi từ `<span>` thành
+  `<label for="f-pl-<id>">` riêng — bấm vào tên bảng giá nào là vào đúng ô của bảng giá đó. Thêm
+  `margin-bottom: 0` để không lệch 4px so với quy tắc `label` chung trong `inc_header.php`.
+- **Ô Mã SKU** có hai nhánh (bị khóa khi sửa / nhập được khi tạo mới). Chỉ một nhánh được render
+  nên hai nhánh dùng chung `id="f-sku"`, không bao giờ trùng nhau trên cùng trang.
+
+**Không đụng tới** 6 nhãn vốn đã *bọc* luôn ô nhập bên trong (`Đang bán`, `Áp dụng bảo hành`, và
+các ô `SL:` / `Tối thiểu:` / `Tối đa:` / `Vị trí kho:` trong bảng tồn kho theo chi nhánh) — dạng này
+đã bấm được sẵn, và chúng nằm trong vòng lặp nên gắn `id` sẽ sinh ra id trùng.
+
+Đã kiểm chứng bằng cách tải HTML thật của cả 4 trạng thái trang (tạo mới, sửa hàng thường, sửa hàng
+combo, có bảng giá) rồi soi: **không nhãn nào trỏ tới `id` không tồn tại, không `id` nào bị trùng**
+(kể cả `f-pl-29`/`f-pl-30` sinh trong vòng lặp), và lưu lại sản phẩm vẫn đúng toàn bộ giá trị — kể
+cả hai mức giá theo bảng giá.
