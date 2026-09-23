@@ -3,7 +3,13 @@ require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 $currentUser = requireLogin();
 
-$isManagerUp = hasRole('ADMIN', 'MANAGER');
+// $isManagerUp: ADMIN/MANAGER "that", doc lap voi trang dang xem - KHONG dung hasRole() truc
+// tiep o day, vi hasRole() mo rong theo SCRIPT_NAME cua trang HIEN TAI (dung cho tung trang rieng
+// le), trong khi menu can duyet dong thoi qua NHIEU nhom chuc nang khac trang dang mo. $canGroup()
+// la nhung gi thuc su quyet dinh 1 nhom trong menu co hien hay khong: ADMIN/MANAGER that thay het,
+// vai tro tuy chinh chi thay dung nhom quyen da duoc tich (xem custom_roles.php).
+$isManagerUp = isManagerTier();
+$canGroup = static fn(string $group): bool => $isManagerUp || userHasPermissionGroup($group);
 
 $navGroups = [
     'Tổng quan' => ['index.php' => 'Tổng quan', 'huong_dan.php' => 'Hướng dẫn sử dụng'],
@@ -15,14 +21,14 @@ $navGroups = [
             'order_returns.php' => 'Đơn trả hàng',
             'shipments.php' => 'Vận chuyển',
         ],
-        $isManagerUp ? ['channels.php' => 'Kênh bán hàng'] : []
+        $canGroup('pos') ? ['channels.php' => 'Kênh bán hàng'] : []
     ),
     'Sản phẩm' => array_merge(
         [
             'products.php' => 'Danh sách sản phẩm',
             'inventory.php' => 'Quản lý kho',
         ],
-        $isManagerUp ? [
+        $canGroup('products') ? [
             'stock_takes.php' => 'Kiểm hàng',
             'stock_transfers.php' => 'Chuyển hàng',
             'purchase_orders.php' => 'Đặt hàng nhập',
@@ -36,37 +42,51 @@ $navGroups = [
     ),
     'Khách hàng' => array_merge(
         ['customers.php' => 'Danh sách khách hàng'],
-        $isManagerUp ? ['groups.php' => 'Nhóm khách hàng'] : []
+        $canGroup('customers') ? ['groups.php' => 'Nhóm khách hàng'] : []
     ),
 ];
-if ($isManagerUp) {
+if ($canGroup('marketing')) {
     $navGroups['Marketing & Khuyến mại'] = [
         'campaigns.php' => 'Chiến dịch',
         'promotions.php' => 'Quản lý khuyến mại',
         'coupons.php' => 'Mã giảm giá',
     ];
+}
+if ($canGroup('warranty')) {
     $navGroups['Bảo hành'] = [
         'warranty_cards.php' => 'Phiếu bảo hành',
         'warranty_claims.php' => 'Yêu cầu bảo hành',
         'warranty_policies.php' => 'Chính sách bảo hành',
     ];
+}
+if ($canGroup('finance')) {
     $navGroups['Tài chính & Báo cáo'] = [
         'cashbook.php' => 'Sổ quỹ',
         'reports.php' => 'Báo cáo',
         'accounting.php' => 'Kế toán và Thuế',
     ];
-    $navGroups['Nhân sự'] = [
-        'users.php' => 'Nhân viên & phân quyền',
-        'attendance.php' => 'Chấm công',
-        'work_schedules.php' => 'Lịch làm việc',
-        'payroll.php' => 'Bảng lương',
-    ];
+}
+// "Nhan vien & phan quyen" (users.php) tach rieng, luon can hasRole('ADMIN') that (file do tu
+// requireRole('ADMIN'), khong phai ADMIN+MANAGER) - de trong nhom 'hr' se cho ca vai tro tuy
+// chinh chi duoc tich "Cham cong & bang luong" nhin thay muc quan ly tai khoan/phan quyen (roi
+// bam vao thi bi chan 403), va truoc day ca MANAGER that cung bi vay du du hasRole('ADMIN')
+// that su can thiet o file - tien the sua luon cho dung.
+if ($canGroup('hr') || hasRole('ADMIN')) {
+    $navGroups['Nhân sự'] = array_merge(
+        hasRole('ADMIN') ? ['users.php' => 'Nhân viên & phân quyền'] : [],
+        $canGroup('hr') ? [
+            'attendance.php' => 'Chấm công',
+            'work_schedules.php' => 'Lịch làm việc',
+            'payroll.php' => 'Bảng lương',
+        ] : []
+    );
 }
 if (hasRole('ADMIN')) {
     $navGroups['Cấu hình'] = [
         'settings.php' => 'Cấu hình',
         'shipping_settings.php' => 'Cấu hình giao hàng',
         'marketing_settings.php' => 'Cấu hình kênh marketing',
+        'custom_roles.php' => 'Vai trò tùy chỉnh',
         'tenant_export.php' => 'Xuất dữ liệu của tôi',
         'gia_han.php' => 'Yêu cầu gia hạn',
     ];

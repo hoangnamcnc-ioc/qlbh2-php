@@ -38,7 +38,7 @@ function refreshUserSession(): void
     }
     $checked = true;
 
-    $stmt = db()->prepare('SELECT role, branch_id, tenant_id, is_active, name FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT role, branch_id, tenant_id, is_active, name, custom_role_id FROM users WHERE id = ?');
     $stmt->execute([$_SESSION['user']['id']]);
     $fresh = $stmt->fetch();
 
@@ -52,6 +52,10 @@ function refreshUserSession(): void
     $_SESSION['user']['branch_id'] = $fresh['branch_id'];
     $_SESSION['user']['tenant_id'] = $fresh['tenant_id'];
     $_SESSION['user']['name'] = $fresh['name'];
+    // Dong bo lai vai tro tuy chinh moi request, giong het role/branch_id o tren - neu ADMIN vua
+    // thu hoi hoac doi quyen cua vai tro tuy chinh, phien dang mo cua nhan vien phai nhan hieu
+    // luc ngay, khong doi den khi ho tu dang xuat.
+    $_SESSION['user']['custom_role_id'] = $fresh['custom_role_id'];
 }
 
 /**
@@ -194,7 +198,10 @@ function requireLogin(): array
 function requireRole(string ...$roles): array
 {
     $user = requireLogin();
-    if (!in_array($user['role'], $roles, true)) {
+    // Dung CHUNG logic voi hasRole() (bao gom ca phan mo rong cho vai tro tuy chinh) thay vi tu
+    // kiem tra rieng $user['role'] - truoc day 2 ham nay tach doi nhau nen sua hasRole() se
+    // khong co tac dung gi voi requireRole(), la duong gate thuc su duoc dung o dau moi file.
+    if (!hasRole(...$roles)) {
         http_response_code(403);
         require_once __DIR__ . '/inc_header.php';
         echo '<div class="alert alert-error">Bạn không có quyền truy cập trang này.</div>';
@@ -207,7 +214,26 @@ function requireRole(string ...$roles): array
 function hasRole(string ...$roles): bool
 {
     $user = currentUser();
-    return $user && in_array($user['role'], $roles, true);
+    if (!$user) {
+        return false;
+    }
+    if (in_array($user['role'], $roles, true)) {
+        return true;
+    }
+    // Vai tro tuy chinh: CHI mo rong duoc yeu cau kem 'MANAGER' (vd requireRole('ADMIN','MANAGER')
+    // o dau file cashbook.php, hoac hasRole('ADMIN','MANAGER') giua chung 1 file) - khong bao gio
+    // mo rong duoc yeu cau 'ADMIN' dung 1 minh, nen cac trang chi ADMIN (users.php, settings.php,
+    // backup.php...) tuyet doi khong the vao duoc qua vai tro tuy chinh. Va CHI ap dung dung file
+    // dang chay (detectPagePermissionGroup() doc tu SCRIPT_NAME) - vai tro "Thu kho" duoc quyen
+    // 'products' se qua duoc requireRole('ADMIN','MANAGER') o products.php nhung KHONG qua duoc
+    // o cashbook.php, vi cashbook.php khong thuoc nhom 'products'.
+    if (in_array('MANAGER', $roles, true) && !empty($user['custom_role_id'])) {
+        $group = detectPagePermissionGroup();
+        if ($group !== null && userHasPermissionGroup($group)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**

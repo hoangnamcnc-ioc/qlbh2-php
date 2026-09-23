@@ -2330,3 +2330,63 @@ số lại (Cấu hình 13→14, Câu hỏi thường gặp 14→15) cho khỏi 
 Giọng của các ghi chú cố ý **nói cái được trước, cái thiếu sau**, và luôn kèm câu "chưa có thì vẫn
 dùng bình thường theo cách nhập tay" — vì phần lớn các chức năng này thật sự đã dùng được, chỉ là
 chưa tự động.
+
+## Vai trò tùy chỉnh — phân quyền theo từng khu vực chức năng (`custom_roles.php`)
+
+Trước đây chỉ có 3 vai trò cố định: ADMIN (toàn quyền), MANAGER (mọi nghiệp vụ trừ cấu hình hệ
+thống), CASHIER (chỉ bán hàng/đơn hàng/khách hàng + xem sản phẩm-kho). Không có vai trò trung
+gian — muốn giao việc sổ quỹ cho một người mà không cho họ đụng vào kho/nhân sự là không làm được,
+chỉ có "được hết" (MANAGER) hoặc "gần như không được gì" (CASHIER).
+
+**Thiết kế**: 7 "nhóm quyền" cố định (`pos`, `products`, `customers`, `marketing`, `warranty`,
+`finance`, `hr`), khớp đúng các nhóm menu đã có sẵn trong `inc_header.php`. ADMIN tạo vai trò tùy
+chỉnh (vd "Thủ kho", "Thủ quỹ") bằng cách tích chọn những nhóm nào vai trò đó được thao tác, rồi
+gán vai trò đó cho nhân viên ở `users.php` như gán vai trò thường.
+
+**Cách hoạt động phía trong** — cố tình chọn theo hướng **không đổi 102 điểm gọi có sẵn**:
+- 133 lượt gọi `requireRole()`/`hasRole()` rải khắp 91 file hóa ra chỉ có 2 dạng: `('ADMIN')` một
+  mình (dành cho cấu hình/sao lưu/quản trị hệ thống — **tuyệt đối không đụng tới**) và
+  `('ADMIN', 'MANAGER')` (dành cho phần lớn thao tác nghiệp vụ).
+- `PERMISSION_GROUP_FILES` trong `inc_functions.php` ánh xạ tên file → nhóm quyền (vd
+  `cashbook.php` → `finance`). `hasRole()` được mở rộng: khi bị hỏi `'MANAGER'` mà role thật
+  không khớp, kiểm thêm — nếu user có `custom_role_id` và vai trò đó chứa đúng nhóm quyền của
+  **file đang chạy** (`detectPagePermissionGroup()` đọc `SCRIPT_NAME`) thì vẫn cho qua.
+- Nhờ vậy **không phải sửa một dòng nào** trong 91 file gốc — toàn bộ thay đổi nằm ở
+  `inc_functions.php` + `inc_auth.php`. `requireRole()` trước đây tự so sánh `$user['role']`
+  riêng, không hề gọi `hasRole()` — phải sửa lại để gọi chung, nếu không phần mở rộng vô nghĩa.
+- File không được liệt kê trong `PERMISSION_GROUP_FILES` (vd `users.php`) mặc định **vẫn chỉ**
+  ADMIN/MANAGER thật vào được — an toàn theo mặc định, không phải khai trắng danh sách chặn.
+
+**Chặn leo thang quyền**: vai trò tùy chỉnh khi gán cho ai đó luôn ép `role = 'CASHIER'` (không
+bao giờ là ADMIN/MANAGER thật), và phần mở rộng trong `hasRole()` chỉ kích hoạt với yêu cầu kèm
+`'MANAGER'` — không bao giờ với `'ADMIN'` một mình. Vì vậy `users.php`, `settings.php`,
+`backup.php`, `custom_roles.php` chính nó... tuyệt đối không nằm trong `PERMISSION_GROUP_FILES`,
+để một "Thủ kho" không thể tự tạo tài khoản ADMIN mới hay tự nâng quyền. `custom_roles.php` cũng
+chỉ chấp nhận `requireRole('ADMIN')` (không phải `'ADMIN','MANAGER'`) — MANAGER thật cũng không
+sửa được quyền vai trò tùy chỉnh, tránh một MANAGER tự tạo vai trò "được hết" rồi gán cho mình.
+
+**Thu hồi quyền có hiệu lực ngay** request kế tiếp (không cần đăng xuất): `refreshUserSession()`
+vốn đã đồng bộ lại `role`/`branch_id` mỗi request từ DB — nay đồng bộ thêm `custom_role_id`.
+
+**Menu**: `inc_header.php` trước đây dùng 1 biến `$isManagerUp` chung để bật/tắt cả cụm menu —
+không dùng được cho vai trò tùy chỉnh vì mỗi nhóm cần bật/tắt độc lập. Thêm `$canGroup()` xét
+đúng từng nhóm; tách riêng `users.php` ra khỏi mục "Nhân sự" để chỉ hiện với ADMIN thật (trước
+đây MANAGER thật cũng thấy mục này trong menu nhưng bấm vào bị chặn 403 — lỗi có sẵn, tiện sửa
+luôn cho nhất quán khi tách nhóm).
+
+**Kiểm chứng đầy đủ trên production** bằng 1 cửa hàng thử: tạo vai trò "Thủ kho" (chỉ nhóm
+`products`), gán cho 1 nhân viên, đăng nhập thật rồi kiểm — vào được `stock_takes.php`,
+`suppliers.php`, `purchase_orders.php`...; **bị chặn 403** ở `cashbook.php`, `reports.php`,
+`payroll.php`, **và cả `users.php`/`custom_roles.php`** (xác nhận không leo thang được); tạo
+danh mục sản phẩm thật **ghi được vào CSDL** (không chỉ mở trang được); gửi thẳng POST giả mạo
+vào `cashbook.php` để bơm phiếu thu 999.999đ — **bị chặn**, không chỉ ẩn nút trên giao diện. Gỡ
+quyền `products` khỏi vai trò xong thử lại ngay — **bị chặn ở request kế tiếp**, không cần đăng
+xuất. Xóa vai trò — nhân viên tự động **về lại CASHIER thường**, không khóa tài khoản, không lỗi
+ngầm. Tài khoản ADMIN thật vẫn thấy đủ mọi menu như cũ, 0 lỗi PHP.
+
+Bổ sung `custom_roles` vào `test_isolation.php` (45 → **50 phép thử**): sửa/xóa vai trò của cửa
+hàng khác qua POST trực tiếp đều bị chặn, sửa vai trò của chính mình vẫn chạy, và trang danh sách
+không rò rỉ tên vai trò của cửa hàng khác.
+
+Di trú CSDL qua `fix_custom_roles.php` (bảng `custom_roles` + cột `users.custom_role_id`, đúng
+mẫu `fix_*.php` đã dùng suốt dự án) — idempotent, đã chạy và xóa khỏi máy chủ.

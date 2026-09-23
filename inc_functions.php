@@ -163,6 +163,115 @@ function currentTenantId(): int
     return (int) (currentUser()['tenant_id'] ?? 0);
 }
 
+/**
+ * VAI TRO TUY CHINH (thu kho, thu quy, nhan vien ban hang...) - cho phep 1 tai khoan CASHIER
+ * duoc cap them quyen thao tac (khong chi xem) tren MOT SO khu vuc chuc nang cu the, thay vi
+ * phai nang len MANAGER (duoc toan bo moi khu vuc).
+ *
+ * Co che: moi khu vuc chuc nang ("nhom quyen") tuong ung voi 1 tap file PHP cu the - dung file
+ * nao dang bi chan boi requireRole('ADMIN','MANAGER')/hasRole('ADMIN','MANAGER') hien co, dong
+ * bo voi cac nhom da hien thi trong menu ($navGroups o inc_header.php). Khi 1 CASHIER co
+ * custom_role_id tro toi vai tro co nhom do, hasRole() se coi nhu ho du dieu kien 'MANAGER'
+ * NHUNG CHI KHI DANG DUNG DUNG FILE THUOC NHOM DO - xem detectPagePermissionGroup() va phan mo
+ * rong trong hasRole() o inc_auth.php.
+ *
+ * CO Y KHONG dua vao day: users.php (quan ly nhan vien/phan quyen), settings.php, backup.php,
+ * super_admin_tenants.php, tenant_export.php, gia_han.php, custom_roles.php - day la nhung dac
+ * quyen chi ADMIN moi co (requireRole('ADMIN') dung 1 minh, khong co 'MANAGER'), nen khong nam
+ * trong pham vi ma vai tro tuy chinh co the cham toi - tranh 1 "thu kho" tu tao duoc tai khoan
+ * ADMIN moi hoac tu nang quyen cho chinh minh.
+ */
+const PERMISSION_GROUPS = [
+    'pos' => 'Bán hàng & vận chuyển',
+    'products' => 'Sản phẩm, kho, nhập hàng & nhà cung cấp',
+    'customers' => 'Nhóm khách hàng & hạng thành viên',
+    'marketing' => 'Marketing & khuyến mại',
+    'warranty' => 'Bảo hành',
+    'finance' => 'Sổ quỹ, báo cáo & kế toán',
+    'hr' => 'Chấm công & bảng lương',
+];
+
+const PERMISSION_GROUP_FILES = [
+    'pos' => [
+        'pos.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
+        'order_view.php', 'order_edit.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
+        'order_pay.php', 'order_returns.php', 'order_return_form.php', 'shipments.php',
+        'shipment_form.php', 'shipment_reconcile.php', 'shipping_settings.php', 'channels.php',
+    ],
+    'products' => [
+        'inventory.php', 'inventory_save.php', 'inventory_import.php', 'batches.php',
+        'categories.php', 'brands.php', 'product_form.php', 'product_copy.php',
+        'product_image_upload.php', 'product_image_delete.php', 'variant_save.php',
+        'variant_update.php', 'variant_delete.php', 'combo_item_save.php', 'combo_item_delete.php',
+        'products.php', 'products_export.php', 'products_import.php', 'price_lists.php',
+        'price_adjustments.php', 'price_adjustment_search.php', 'purchase_orders.php',
+        'purchase_order_form.php', 'purchase_order_view.php', 'purchase_order_receive.php',
+        'purchase_order_search.php', 'stock_receipts.php', 'stock_receipt_form.php',
+        'stock_receipt_view.php', 'stock_receipt_pay.php', 'stock_receipt_search.php',
+        'stock_takes.php', 'stock_take_form.php', 'stock_take_view.php', 'stock_take_balance.php',
+        'stock_take_search.php', 'stock_transfers.php', 'stock_transfer_form.php',
+        'stock_transfer_view.php', 'stock_transfer_receive.php', 'stock_transfer_search.php',
+        'suppliers.php', 'supplier_view.php', 'supplier_returns.php', 'supplier_return_form.php',
+    ],
+    'customers' => ['customers_export.php', 'customers_import.php', 'groups.php', 'customer_tiers.php'],
+    'marketing' => [
+        'campaigns.php', 'promotions.php', 'promotion_toggle.php', 'coupons.php', 'coupon_toggle.php',
+        'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
+    ],
+    'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
+    'finance' => ['accounting.php', 'cashbook.php', 'cashbook_export.php', 'reports.php'],
+    'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
+];
+
+/** File hien tai (script duoc trinh duyet goi truc tiep) thuoc nhom quyen nao, null neu khong
+ * nam trong nhom nao (nghia la file do van chi ADMIN/MANAGER "that" moi vao duoc, khong the
+ * giao cho vai tro tuy chinh - mac dinh an toan). */
+function detectPagePermissionGroup(): ?string
+{
+    $file = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    foreach (PERMISSION_GROUP_FILES as $group => $files) {
+        if (in_array($file, $files, true)) {
+            return $group;
+        }
+    }
+    return null;
+}
+
+/** Danh sach nhom quyen cua vai tro tuy chinh dang gan cho user hien tai (rong neu khong co
+ * vai tro tuy chinh, hoac user la ADMIN/MANAGER that - nhung nguoi do da co toan quyen roi,
+ * khong can tra qua bang custom_roles). */
+function currentUserPermissionGroups(): array
+{
+    $user = currentUser();
+    if (!$user || empty($user['custom_role_id'])) {
+        return [];
+    }
+    static $cache = [];
+    $roleId = (int) $user['custom_role_id'];
+    if (!array_key_exists($roleId, $cache)) {
+        $stmt = db()->prepare('SELECT permissions FROM custom_roles WHERE id = ? AND tenant_id = ?');
+        $stmt->execute([$roleId, currentTenantId()]);
+        $perms = $stmt->fetchColumn();
+        $cache[$roleId] = $perms ? array_filter(explode(',', $perms)) : [];
+    }
+    return $cache[$roleId];
+}
+
+/** User hien tai co quyen thao tac tren nhom $group hay khong - qua vai tro tuy chinh. */
+function userHasPermissionGroup(string $group): bool
+{
+    return in_array($group, currentUserPermissionGroups(), true);
+}
+
+/** ADMIN/MANAGER "that" (khong qua vai tro tuy chinh) - doc lap voi trang dang chay, khac voi
+ * hasRole('ADMIN','MANAGER') von phu thuoc SCRIPT_NAME hien tai. Dung khi can duyet NHIEU nhom
+ * quyen cung luc (vd dung menu inc_header.php), khong dung duoc cho tung trang rieng le. */
+function isManagerTier(): bool
+{
+    $user = currentUser();
+    return $user !== null && in_array($user['role'], ['ADMIN', 'MANAGER'], true);
+}
+
 /** Làm tối 1 màu hex đi $percent% (dùng cho trạng thái hover của màu chủ đạo tùy chỉnh). */
 function darkenColor(string $hex, int $percent = 15): string
 {

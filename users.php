@@ -11,6 +11,26 @@ $branchesStmt->execute([$tenantId]);
 $branches = $branchesStmt->fetchAll();
 $roleLabels = ['ADMIN' => 'Quản trị viên', 'MANAGER' => 'Quản lý', 'CASHIER' => 'Thu ngân'];
 
+$customRolesStmt = $pdo->prepare('SELECT id, name FROM custom_roles WHERE tenant_id = ? ORDER BY name');
+$customRolesStmt->execute([$tenantId]);
+$customRoles = $customRolesStmt->fetchAll();
+$customRoleNames = array_column($customRoles, 'name', 'id');
+
+/**
+ * Doc gia tri o chon "Vai tro" tu form: 3 vai tro that (ADMIN/MANAGER/CASHIER) gui thang ten,
+ * vai tro tuy chinh gui "custom_<id>". Tra ve [role that de ghi vao cot role, custom_role_id
+ * hoac null]. Vai tro tuy chinh KHONG hop le (da bi xoa, thuoc tenant khac...) roi lai thanh
+ * CASHIER thuong, khong loi ngam.
+ */
+function parseRoleInput(string $raw, array $customRoleNames): array
+{
+    if (str_starts_with($raw, 'custom_')) {
+        $id = (int) substr($raw, 7);
+        return isset($customRoleNames[$id]) ? ['CASHIER', $id] : ['CASHIER', null];
+    }
+    return [in_array($raw, ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $raw : 'CASHIER', null];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $action = $_POST['action'] ?? 'create';
@@ -44,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('users.php?reset=1');
         }
     } elseif ($action === 'update_role') {
-        $role = in_array($_POST['role'] ?? '', ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $_POST['role'] : 'CASHIER';
+        [$role, $customRoleId] = parseRoleInput((string) ($_POST['role'] ?? ''), $customRoleNames);
         $branchId = (int) ($_POST['branch_id'] ?? 0) ?: null;
         if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
             $branchId = null;
@@ -52,8 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id === (int) $currentUser['id'] && $role !== 'ADMIN') {
             $error = 'Không thể tự hạ quyền tài khoản đang đăng nhập';
         } else {
-            $pdo->prepare('UPDATE users SET role = ?, branch_id = ? WHERE id = ?')->execute([$role, $branchId, $id]);
-            logActivity('USER_ROLE_CHANGE', "user_id=$id role=$role");
+            $pdo->prepare('UPDATE users SET role = ?, custom_role_id = ?, branch_id = ? WHERE id = ?')
+                ->execute([$role, $customRoleId, $branchId, $id]);
+            logActivity('USER_ROLE_CHANGE', "user_id=$id role=$role custom_role_id=" . ($customRoleId ?? '-'));
             redirect('users.php');
         }
     } elseif ($action === 'update_pay') {
@@ -67,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = post('name');
         $email = trim(strtolower(post('email')));
         $password = post('password');
-        $role = in_array($_POST['role'] ?? '', ['ADMIN', 'MANAGER', 'CASHIER'], true) ? $_POST['role'] : 'CASHIER';
+        [$role, $customRoleId] = parseRoleInput((string) ($_POST['role'] ?? ''), $customRoleNames);
         $branchId = (int) ($_POST['branch_id'] ?? 0) ?: null;
         if ($branchId && !in_array($branchId, array_map('intval', array_column($branches, 'id')), true)) {
             $branchId = null;
@@ -86,8 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Email này đã được sử dụng';
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                $pdo->prepare('INSERT INTO users (name, email, password_hash, role, branch_id, tenant_id, hourly_wage, commission_percent) VALUES (?,?,?,?,?,?,?,?)')
-                    ->execute([$name, $email, $hash, $role, $branchId, $tenantId, $hourlyWage, $commissionPercent]);
+                $pdo->prepare('INSERT INTO users (name, email, password_hash, role, custom_role_id, branch_id, tenant_id, hourly_wage, commission_percent) VALUES (?,?,?,?,?,?,?,?,?)')
+                    ->execute([$name, $email, $hash, $role, $customRoleId, $branchId, $tenantId, $hourlyWage, $commissionPercent]);
                 logActivity('USER_CREATE', $email);
                 redirect('users.php?created=1');
             }
@@ -104,10 +125,15 @@ $users = $usersStmt->fetchAll();
 require_once __DIR__ . '/inc_header.php';
 ?>
 
-<h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Nhân viên và phân quyền</h1>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+  <h1 style="font-size:24px;font-weight:600;margin:0;">Nhân viên và phân quyền</h1>
+  <a href="custom_roles.php" class="btn btn-secondary">⚙️ Vai trò tùy chỉnh</a>
+</div>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">
   Quản trị viên (ADMIN) có toàn quyền; Quản lý (MANAGER) có quyền vận hành đầy đủ trừ cấu hình hệ
-  thống; Thu ngân (CASHIER) chỉ thấy Bán hàng/Đơn hàng/Khách hàng và xem Sản phẩm-Kho.
+  thống; Thu ngân (CASHIER) chỉ thấy Bán hàng/Đơn hàng/Khách hàng và xem Sản phẩm-Kho. Cần vai trò
+  chỉ được đúng vài khu vực (vd Thủ kho, Thủ quỹ)? Tạo ở <a href="custom_roles.php">Vai trò tùy
+  chỉnh</a> rồi gán cho nhân viên ở ô "Vai trò" bên dưới.
 </p>
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Đã tạo tài khoản thành công</div><?php endif; ?>
@@ -131,6 +157,13 @@ require_once __DIR__ . '/inc_header.php';
           <?php foreach ($roleLabels as $val => $lbl): ?>
             <option value="<?= e($val) ?>"><?= e($lbl) ?></option>
           <?php endforeach; ?>
+          <?php if ($customRoles): ?>
+            <optgroup label="Vai trò tùy chỉnh">
+              <?php foreach ($customRoles as $cr): ?>
+                <option value="custom_<?= (int) $cr['id'] ?>"><?= e($cr['name']) ?></option>
+              <?php endforeach; ?>
+            </optgroup>
+          <?php endif; ?>
         </select>
       </div>
     </div>
@@ -167,10 +200,17 @@ require_once __DIR__ . '/inc_header.php';
               <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
               <input type="hidden" name="action" value="update_role">
               <input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
-              <select name="role" class="input" style="max-width:130px;padding:4px 8px;" onchange="this.form.submit()">
+              <select name="role" class="input" style="max-width:150px;padding:4px 8px;" onchange="this.form.submit()">
                 <?php foreach ($roleLabels as $val => $lbl): ?>
-                  <option value="<?= e($val) ?>" <?= $u['role'] === $val ? 'selected' : '' ?>><?= e($lbl) ?></option>
+                  <option value="<?= e($val) ?>" <?= $u['role'] === $val && !$u['custom_role_id'] ? 'selected' : '' ?>><?= e($lbl) ?></option>
                 <?php endforeach; ?>
+                <?php if ($customRoles): ?>
+                  <optgroup label="Vai trò tùy chỉnh">
+                    <?php foreach ($customRoles as $cr): ?>
+                      <option value="custom_<?= (int) $cr['id'] ?>" <?= (int) ($u['custom_role_id'] ?? 0) === (int) $cr['id'] ? 'selected' : '' ?>><?= e($cr['name']) ?></option>
+                    <?php endforeach; ?>
+                  </optgroup>
+                <?php endif; ?>
               </select>
               <select name="branch_id" class="input" style="max-width:130px;padding:4px 8px;" onchange="this.form.submit()">
                 <option value="">— —</option>

@@ -90,8 +90,10 @@ function taoCuaHangTam(PDO $pdo, string $nhan, string $marker): array
     $pdo->prepare("INSERT INTO promotions (tenant_id, name, min_order_amount, discount_percent, is_active) VALUES (?, ?, 0, 5, 1)")
         ->execute([$t, "Khuyen mai rieng cua $nhan"]);
     $pdo->prepare("INSERT INTO price_lists (tenant_id, name) VALUES (?, ?)")->execute([$t, "Bang gia rieng cua $nhan"]);
+    $pdo->prepare("INSERT INTO custom_roles (tenant_id, name, permissions) VALUES (?, ?, 'products')")->execute([$t, "Vai tro rieng cua $nhan"]);
+    $customRole = (int) $pdo->lastInsertId();
 
-    return compact('t', 'branch', 'user', 'product', 'customer', 'supplier', 'receipt', 'po', 'order', 'orderItem', 'take') + ['email' => $email];
+    return compact('t', 'branch', 'user', 'product', 'customer', 'supplier', 'receipt', 'po', 'order', 'orderItem', 'take', 'customRole') + ['email' => $email];
 }
 
 /** Dang nhap that qua HTTP, tra ve duong dan file cookie de dung cho cac request sau. */
@@ -256,6 +258,27 @@ try {
         $demDong($pdo, 'stock_take_items', 'take_id', $A['product']) > 0,
         'phai tao duoc phieu kiem hang voi san pham cua chinh minh');
 
+    // Sua vai tro tuy chinh cua cua hang khac: gui thang id cua B, doi ten thanh "HACKED" va doi
+    // quyen sang 'finance' - custom_roles.php phai tu chan (WHERE id=? AND tenant_id=?), khong
+    // duoc dua vao viec form khong hien ten cua B de suy ra "khong sua duoc gi".
+    httpPost($baseUrl . '/custom_roles.php', ['csrf' => $csrf, 'action' => 'update', 'id' => $B['customRole'],
+        'name' => 'HACKED', 'permissions' => ['finance']], $jarA);
+    $roleNameSauKhiThu = (string) $pdo->query("SELECT name FROM custom_roles WHERE id = {$B['customRole']}")->fetchColumn();
+    ok('Sua vai tro tuy chinh cua cua hang khac', $roleNameSauKhiThu === "Vai tro rieng cua B",
+        'ten vai tro cua B phai khong doi, hien la: ' . $roleNameSauKhiThu);
+
+    // Xoa vai tro tuy chinh cua cua hang khac
+    httpPost($baseUrl . '/custom_roles.php', ['csrf' => $csrf, 'action' => 'delete', 'id' => $B['customRole']], $jarA);
+    $conVaiTroB = (int) $pdo->query("SELECT COUNT(*) FROM custom_roles WHERE id = {$B['customRole']}")->fetchColumn();
+    ok('Xoa vai tro tuy chinh cua cua hang khac', $conVaiTroB === 1, 'vai tro cua B phai con nguyen, khong bi xoa');
+
+    // Doi chieu: A van sua duoc chinh vai tro cua minh
+    httpPost($baseUrl . '/custom_roles.php', ['csrf' => $csrf, 'action' => 'update', 'id' => $A['customRole'],
+        'name' => 'Vai tro rieng cua A', 'permissions' => ['products', 'finance']], $jarA);
+    $permsA = (string) $pdo->query("SELECT permissions FROM custom_roles WHERE id = {$A['customRole']}")->fetchColumn();
+    ok('[Doi chieu] Sua vai tro tuy chinh CUA CHINH MINH', $permsA === 'products,finance',
+        'phai sua duoc quyen cua chinh minh - neu hong thi 2 phep thu tren khong dang tin, hien la: ' . $permsA);
+
     httpPost($baseUrl . '/stock_take_balance.php', ['csrf' => $csrf, 'take_id' => $B['take']], $jarA);
     $q = $pdo->prepare("SELECT status FROM stock_takes WHERE id = ?");
     $q->execute([$B['take']]);
@@ -295,6 +318,7 @@ try {
         'Danh sach NCC' => ['suppliers.php', 'NCC B', 'NCC A'],
         'Quan ly kho' => ['inventory.php', 'San pham B', 'San pham A'],
         'So quy' => ['cashbook.php', "DH-B-$marker", null],
+        'Danh sach vai tro tuy chinh' => ['custom_roles.php', 'Vai tro rieng cua B', 'Vai tro rieng cua A'],
     ];
     foreach ($lietKe as $ten => [$path, $canhBao, $phaiCo]) {
         $html = httpGet($baseUrl . '/' . $path, $jarA);
@@ -346,6 +370,7 @@ try {
             "DELETE FROM purchase_orders WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",
             "DELETE FROM inventory WHERE branch_id IN (SELECT id FROM branches WHERE tenant_id IN ($ids))",
             "DELETE FROM product_prices WHERE price_list_id IN (SELECT id FROM price_lists WHERE tenant_id IN ($ids))",
+            "DELETE FROM custom_roles WHERE tenant_id IN ($ids)",
             "DELETE FROM price_lists WHERE tenant_id IN ($ids)",
             "DELETE FROM gifts WHERE tenant_id IN ($ids)",
             "DELETE FROM promotions WHERE tenant_id IN ($ids)",
