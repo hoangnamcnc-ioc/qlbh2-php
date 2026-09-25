@@ -92,6 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $barcode = post('barcode') ?: null;
     $name = post('name');
     $unit = post('unit') ?: null;
+    $packUnit = post('pack_unit') ?: null;
+    // pack_size < 1 khong co nghia (1 don vi lon phai >= 1 don vi le) - ep ve 1 (= khong quy doi)
+    // thay vi luu gia tri sai roi lam gay cong thuc chia sau nay.
+    $packSize = max(1.0, postFloat('pack_size') ?: 1.0);
+    if (!$packUnit) {
+        $packSize = 1.0; // khong khai bao ten don vi lon thi he so quy doi vo nghia, ep ve 1
+    }
     $costPrice = postFloat('cost_price');
     $sellPrice = postFloat('sell_price');
     $isActive = isset($_POST['is_active']) ? 1 : 0;
@@ -123,8 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id) {
                 $pdo->prepare(
-                    'UPDATE products SET name=?, barcode=?, unit=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=?, warranty_policy_id=? WHERE id=? AND tenant_id=?'
-                )->execute([$name, $barcode, $unit, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $id, $tenantId]);
+                    'UPDATE products SET name=?, barcode=?, unit=?, pack_unit=?, pack_size=?, cost_price=?, sell_price=?, is_active=?, category_id=?, brand_id=?, tags=?, product_type=?, weight_grams=?, tax_rate_id=?, has_warranty=?, warranty_policy_id=? WHERE id=? AND tenant_id=?'
+                )->execute([$name, $barcode, $unit, $packUnit, $packSize, $costPrice, $sellPrice, $isActive, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $id, $tenantId]);
 
                 foreach ($_POST['price_list_id'] ?? [] as $plId => $price) {
                     $plId = (int) $plId;
@@ -152,8 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
                 $pdo->prepare(
-                    'INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty, warranty_policy_id, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $tenantId]);
+                    'INSERT INTO products (sku, barcode, name, unit, pack_unit, pack_size, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty, warranty_policy_id, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$sku, $barcode, $name, $unit, $packUnit, $packSize, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $tenantId]);
                 $id = (int) $pdo->lastInsertId();
 
                 if ($productType === 'PRODUCT') {
@@ -252,10 +259,25 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="grid-2">
       <div class="field">
-        <label for="f-unit">Đơn vị tính</label>
-        <input id="f-unit" class="input" name="unit" value="<?= e($product['unit'] ?? '') ?>">
+        <label for="f-unit">Đơn vị tính (đơn vị lẻ, dùng khi bán)</label>
+        <input id="f-unit" class="input" name="unit" value="<?= e($product['unit'] ?? '') ?>" placeholder="vd: lon, cái, chai">
       </div>
       <div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="f-pack-unit">Đơn vị lớn (tùy chọn - dùng khi nhập hàng)</label>
+        <input id="f-pack-unit" class="input" name="pack_unit" value="<?= e($product['pack_unit'] ?? '') ?>" placeholder="vd: Thùng, Lốc">
+        <p class="muted" style="font-size:12px;margin:4px 0 0;">
+          Để trống nếu chỉ nhập/bán theo 1 đơn vị. Khai báo để nhập hàng theo Thùng/Lốc mà không
+          phải tự nhân chia ra đơn vị lẻ.
+        </p>
+      </div>
+      <div class="field">
+        <label for="f-pack-size">1 <?= e($product['pack_unit'] ?? 'đơn vị lớn') ?> = ? <?= e($product['unit'] ?? 'đơn vị lẻ') ?></label>
+        <input id="f-pack-size" class="input" type="number" min="1" step="1" name="pack_size" value="<?= e((string) ($product['pack_size'] ?? 1)) ?>">
+      </div>
     </div>
 
     <div class="grid-2">

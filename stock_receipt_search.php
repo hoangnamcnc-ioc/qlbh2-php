@@ -12,7 +12,7 @@ $pdo = db();
 $tenantId = currentTenantId();
 
 $stmt = $pdo->prepare(
-    'SELECT id, NULL AS variant_id, sku, barcode, name, cost_price FROM products
+    'SELECT id, NULL AS variant_id, sku, barcode, name, cost_price, pack_unit, pack_size FROM products
      WHERE tenant_id = ? AND (name LIKE ? OR sku LIKE ? OR barcode LIKE ?)
        AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = products.id AND v.is_active = 1)
      LIMIT 15'

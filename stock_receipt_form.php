@@ -205,7 +205,7 @@ searchInput.addEventListener('input', () => {
         searchResults.querySelectorAll('.s-item').forEach(el => {
           el.addEventListener('click', () => {
             const p = data[parseInt(el.dataset.i, 10)];
-            addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0);
+            addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0, p.pack_unit, parseFloat(p.pack_size) || 1);
             searchInput.value = '';
             searchResults.style.display = 'none';
           });
@@ -227,25 +227,52 @@ searchInput.addEventListener('keydown', (e) => {
     .then(data => {
       if (data.length === 1) {
         const p = data[0];
-        addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0);
+        addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0, p.pack_unit, parseFloat(p.pack_size) || 1);
         searchInput.value = '';
         searchResults.style.display = 'none';
         return;
       }
       const exact = data.find(p => p.sku === q || p.barcode === q);
       if (exact) {
-        addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.cost_price) || 0);
+        addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.cost_price) || 0, exact.pack_unit, parseFloat(exact.pack_size) || 1);
         searchInput.value = '';
         searchResults.style.display = 'none';
       }
     });
 });
 
-function addLine(id, variantId, name, cost) {
+// Quy doi don vi lon (thung/loc) sang don vi le NGAY TAI TRINH DUYET truoc khi gui form - server
+// van chi nhan quantity[]/cost_price[] theo dung don vi le nhu truoc gio, khong doi 1 dong PHP
+// nao o phia xu ly/luu kho. l.qtyInput/costInput la so nguoi dung GO (theo don vi dang chon o
+// l.mode: 'le' hoac 'lon'); l.qty/l.cost la gia tri THAT SU se gui len server (luon quy ve don
+// vi le) - tinh lai moi lan render().
+function addLine(id, variantId, name, cost, packUnit, packSize) {
   const key = id + ':' + (variantId ?? '');
   const existing = lines.find(l => l.key === key);
-  if (existing) { existing.qty += 1; } else { lines.push({ key, id, variantId, name, qty: 1, cost }); }
+  if (existing) {
+    existing.qtyInput += 1;
+  } else {
+    lines.push({
+      key, id, variantId, name,
+      packUnit: packUnit || null, packSize: packSize > 1 ? packSize : 1,
+      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost,
+    });
+  }
+  recalc();
   render();
+}
+
+// Tinh lai qty/cost (don vi le, gui len server) tu qtyInput/costInput/mode cua tung dong.
+function recalc() {
+  lines.forEach(l => {
+    if (l.mode === 'lon' && l.packUnit) {
+      l.qty = l.qtyInput * l.packSize;
+      l.cost = l.packSize > 0 ? l.costInput / l.packSize : l.costInput;
+    } else {
+      l.qty = l.qtyInput;
+      l.cost = l.costInput;
+    }
+  });
 }
 
 function render() {
@@ -255,17 +282,44 @@ function render() {
   } else {
     body.innerHTML = lines.map((l, i) => `
       <tr>
-        <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"><input type="hidden" name="variant_id[]" value="${l.variantId ?? ''}"></td>
-        <td class="text-right"><input type="number" min="0.001" step="0.001" value="${l.qty}" data-i="${i}" data-f="qty" name="quantity[]" style="width:70px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
-        <td class="text-right"><input type="number" min="0" value="${l.cost}" data-i="${i}" data-f="cost" name="cost_price[]" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;"></td>
+        <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"><input type="hidden" name="variant_id[]" value="${l.variantId ?? ''}">
+          <input type="hidden" name="quantity[]" value="${l.qty}"><input type="hidden" name="cost_price[]" value="${l.cost}">
+          ${l.packUnit ? `
+            <div style="margin-top:4px;">
+              <select data-i="${i}" data-f="mode" style="font-size:11px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;">
+                <option value="le" ${l.mode === 'le' ? 'selected' : ''}>Nhập theo lẻ</option>
+                <option value="lon" ${l.mode === 'lon' ? 'selected' : ''}>Nhập theo ${esc(l.packUnit)} (1 ${esc(l.packUnit)} = ${l.packSize} lẻ)</option>
+              </select>
+            </div>` : ''}
+        </td>
+        <td class="text-right">
+          <input type="number" min="0.001" step="0.001" value="${l.qtyInput}" data-i="${i}" data-f="qtyInput" style="width:70px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
+          ${l.mode === 'lon' ? `<div class="muted" style="font-size:11px;">= ${fmtQty(l.qty)} lẻ</div>` : ''}
+        </td>
+        <td class="text-right">
+          <input type="number" min="0" value="${l.costInput}" data-i="${i}" data-f="costInput" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
+          ${l.mode === 'lon' ? `<div class="muted" style="font-size:11px;">= ${fmt(l.cost)}/lẻ</div>` : ''}
+        </td>
         <td class="text-right">${fmt(l.qty * l.cost)}</td>
         <td class="text-right"><a href="#" data-i="${i}" class="remove" style="color:#ef4444;font-size:12px;">Xóa</a></td>
       </tr>`).join('');
+    body.querySelectorAll('select[data-f="mode"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const i = parseInt(sel.dataset.i, 10);
+        lines[i].mode = sel.value;
+        // Doi don vi thi so nhap cu (vd "5" thung) khong con hop ly cho don vi moi - dat lai ve
+        // 1 de tranh vo tinh nhap sai so luong lon gap boi.
+        lines[i].qtyInput = 1;
+        recalc();
+        render();
+      });
+    });
     body.querySelectorAll('input[data-f]').forEach(inp => {
       inp.addEventListener('input', () => {
         const i = parseInt(inp.dataset.i, 10);
         const f = inp.dataset.f;
         lines[i][f] = parseFloat(inp.value) || 0;
+        recalc();
         render();
       });
     });
@@ -275,6 +329,8 @@ function render() {
   }
   updateTotals();
 }
+
+function fmtQty(n) { return (Math.round(n * 1000) / 1000).toLocaleString('vi-VN'); }
 
 function updateTotals() {
   const subTotal = lines.reduce((s, l) => s + l.qty * l.cost, 0);
