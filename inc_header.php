@@ -29,6 +29,7 @@ $navGroups = [
             'inventory.php' => 'Quản lý kho',
         ],
         $canGroup('products') ? [
+            'reorder_suggestions.php' => 'Gợi ý nhập hàng',
             'stock_takes.php' => 'Kiểm hàng',
             'stock_transfers.php' => 'Chuyển hàng',
             'purchase_orders.php' => 'Đặt hàng nhập',
@@ -41,7 +42,7 @@ $navGroups = [
         ] : []
     ),
     'Khách hàng' => array_merge(
-        ['customers.php' => 'Danh sách khách hàng'],
+        ['customers.php' => 'Danh sách khách hàng', 'customer_debt_reminders.php' => 'Nhắc nợ khách hàng'],
         $canGroup('customers') ? ['groups.php' => 'Nhóm khách hàng'] : []
     ),
 ];

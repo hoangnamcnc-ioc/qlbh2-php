@@ -22,6 +22,131 @@ function backupDir(): string
 }
 
 /**
+ * Sinh SQL dump CHỈ chứa dữ liệu của 1 tenant (dùng chung cho tenant_export.php - tải tay - và
+ * daily_cron.php - gửi email định kỳ). Rút ra thành hàm riêng để 2 nơi không có 2 bản sao danh
+ * sách ~52 bảng có thể lệch nhau theo thời gian khi thêm bảng mới vào hệ thống.
+ */
+function generateTenantExportSql(int $tid): string
+{
+    $pdo = db();
+    $branchSub = "SELECT id FROM branches WHERE tenant_id = $tid";
+    $orderSub = "SELECT id FROM orders WHERE branch_id IN ($branchSub)";
+    $customerSub = "SELECT id FROM customers WHERE tenant_id = $tid";
+    $productSub = "SELECT id FROM products WHERE tenant_id = $tid";
+    $orderItemSub = "SELECT id FROM order_items WHERE order_id IN ($orderSub)";
+
+    $tables = [
+        'tenants' => "id = $tid",
+        'branches' => "tenant_id = $tid",
+        'users' => "tenant_id = $tid",
+        'store_settings' => "tenant_id = $tid",
+        'categories' => "tenant_id = $tid",
+        'brands' => "tenant_id = $tid",
+        'products' => "tenant_id = $tid",
+        'product_variants' => "tenant_id = $tid",
+        'product_images' => "product_id IN ($productSub)",
+        'product_prices' => "product_id IN ($productSub)",
+        'product_batches' => "product_id IN ($productSub)",
+        'combo_items' => "combo_product_id IN ($productSub)",
+        'price_adjustments' => "product_id IN ($productSub)",
+        'price_lists' => "tenant_id = $tid",
+        'suppliers' => "tenant_id = $tid",
+        'customer_groups' => "tenant_id = $tid",
+        'customer_tiers' => "tenant_id = $tid",
+        'customers' => "tenant_id = $tid",
+        'customer_addresses' => "customer_id IN ($customerSub)",
+        'customer_notes' => "customer_id IN ($customerSub)",
+        'customer_debt_entries' => "customer_id IN ($customerSub)",
+        'sales_channels' => "tenant_id = $tid",
+        'order_sources' => "tenant_id = $tid",
+        'cancel_reasons' => "tenant_id = $tid",
+        'tax_rates' => "tenant_id = $tid",
+        'coupons' => "tenant_id = $tid",
+        'campaigns' => "tenant_id = $tid",
+        'promotions' => "tenant_id = $tid",
+        'gifts' => "tenant_id = $tid",
+        'gift_redemptions' => "gift_id IN (SELECT id FROM gifts WHERE tenant_id = $tid)",
+        'inventory' => "branch_id IN ($branchSub)",
+        'orders' => "branch_id IN ($branchSub)",
+        'order_items' => "order_id IN ($orderSub)",
+        'payments' => "order_id IN ($orderSub)",
+        'order_status_history' => "order_id IN ($orderSub)",
+        'order_returns' => "order_id IN ($orderSub)",
+        'order_return_items' => "return_id IN (SELECT id FROM order_returns WHERE order_id IN ($orderSub))",
+        'cashbook_entries' => "branch_id IN ($branchSub)",
+        'shipments' => "order_id IN ($orderSub)",
+        'stock_receipts' => "branch_id IN ($branchSub)",
+        'stock_receipt_items' => "receipt_id IN (SELECT id FROM stock_receipts WHERE branch_id IN ($branchSub))",
+        'stock_takes' => "branch_id IN ($branchSub)",
+        'stock_take_items' => "take_id IN (SELECT id FROM stock_takes WHERE branch_id IN ($branchSub))",
+        'stock_transfers' => "from_branch_id IN ($branchSub)",
+        'stock_transfer_items' => "transfer_id IN (SELECT id FROM stock_transfers WHERE from_branch_id IN ($branchSub))",
+        'purchase_orders' => "branch_id IN ($branchSub)",
+        'purchase_order_items' => "po_id IN (SELECT id FROM purchase_orders WHERE branch_id IN ($branchSub))",
+        'supplier_returns' => "branch_id IN ($branchSub)",
+        'supplier_return_items' => "return_id IN (SELECT id FROM supplier_returns WHERE branch_id IN ($branchSub))",
+        'warranty_policies' => "tenant_id = $tid",
+        'warranty_cards' => "order_item_id IN ($orderItemSub)",
+        'warranty_claims' => "warranty_card_id IN (SELECT id FROM warranty_cards WHERE order_item_id IN ($orderItemSub))",
+        'activity_logs' => "tenant_id = $tid",
+    ];
+
+    $sql = "-- QLBH-CLOUD - Xuat du lieu tenant #$tid - " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
+    foreach ($tables as $table => $where) {
+        $count = (int) $pdo->query("SELECT COUNT(*) FROM `$table` WHERE $where")->fetchColumn();
+        if ($count === 0) {
+            continue;
+        }
+        $chunk = 500;
+        for ($offset = 0; $offset < $count; $offset += $chunk) {
+            $rows = $pdo->query("SELECT * FROM `$table` WHERE $where LIMIT $chunk OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
+            if (!$rows) {
+                break;
+            }
+            $colList = '`' . implode('`,`', array_keys($rows[0])) . '`';
+            $valueGroups = [];
+            foreach ($rows as $row) {
+                $vals = array_map(fn ($v) => $v === null ? 'NULL' : $pdo->quote($v), $row);
+                $valueGroups[] = '(' . implode(',', $vals) . ')';
+            }
+            $sql .= "INSERT INTO `$table` ($colList) VALUES " . implode(',', $valueGroups) . ";\n";
+        }
+    }
+    $sql .= "\nSET FOREIGN_KEY_CHECKS=1;\n";
+    return $sql;
+}
+
+/**
+ * Thư mục sao lưu riêng cho 1 tenant (khác hẳn backupDir() - đó là sao lưu TOÀN HỆ THỐNG chỉ
+ * chủ sở hữu KT-SOFT truy cập). Dùng cho sao lưu định kỳ gửi email (daily_cron.php).
+ */
+function tenantBackupDir(): string
+{
+    $dir = __DIR__ . '/tenant_backups';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    if (!file_exists($dir . '/.htaccess')) {
+        file_put_contents($dir . '/.htaccess', "Require all denied\nDeny from all\n");
+    }
+    return $dir;
+}
+
+/**
+ * Tạo file sao lưu .sql.gz riêng cho 1 tenant, trả về tên file (không kèm đường dẫn thư mục).
+ * Không đính kèm file vào email (sendMail() chỉ hỗ trợ text/plain, và file có thể vượt giới hạn
+ * đính kèm nhiều nhà cung cấp email) - thay vào đó tenant_backup_download.php phục vụ file này
+ * qua 1 token ngẫu nhiên có hạn dùng, gửi kèm trong email.
+ */
+function createTenantBackupFile(int $tenantId): string
+{
+    $sql = generateTenantExportSql($tenantId);
+    $filename = 'tenant' . $tenantId . '_' . date('Ymd_His') . '.sql.gz';
+    file_put_contents(tenantBackupDir() . '/' . $filename, gzencode($sql, 9));
+    return $filename;
+}
+
+/**
  * Sao lưu 1-click bằng PHP thuần (dump SQL + nén gzip) vì hosting chia sẻ không có SSH/shell
  * để dùng mysqldump thật. Dump từng bảng theo lô 500 dòng để tránh tràn bộ nhớ với bảng lớn.
  * Giữ lại tối đa 20 bản sao lưu gần nhất, tự xóa bản cũ hơn.
@@ -204,7 +329,7 @@ const PERMISSION_GROUP_FILES = [
         'product_image_upload.php', 'product_image_delete.php', 'variant_save.php',
         'variant_update.php', 'variant_delete.php', 'combo_item_save.php', 'combo_item_delete.php',
         'products.php', 'products_export.php', 'products_import.php', 'price_lists.php',
-        'price_adjustments.php', 'price_adjustment_search.php', 'purchase_orders.php',
+        'price_adjustments.php', 'price_adjustment_search.php', 'reorder_suggestions.php', 'purchase_orders.php',
         'purchase_order_form.php', 'purchase_order_view.php', 'purchase_order_receive.php',
         'purchase_order_search.php', 'stock_receipts.php', 'stock_receipt_form.php',
         'stock_receipt_view.php', 'stock_receipt_pay.php', 'stock_receipt_search.php',

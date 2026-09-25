@@ -177,6 +177,101 @@ function maybeSendWeeklyReport(array $tenant): void
     $pdo->prepare('UPDATE tenants SET last_weekly_report_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
 }
 
+/**
+ * Bao cao CUOI NGAY qua email - khac maybeSendWeeklyReport() o 2 diem quan trong:
+ *   1. Duoc goi tu daily_cron.php (cron THAT, hosting tu dong goi 1 lan/ngay), khong "an theo"
+ *      request cua nguoi dung nhu maybeSendTrialReminder/maybeSendWeeklyReport - neu khong ai mo
+ *      app hom do thi 2 ham kia se khong bao gio chay, con ham nay van chay dung gio.
+ *   2. Tom tat 1 NGAY (hom nay), khong phai 7 ngay - dung y "chu quan dong cua ve nha la co bao
+ *      cao trong hop thu" trong y tuong nang cap goc.
+ * Chi gui neu hom do CO don hang (tranh lam phien nhung ngay nghi/khong mo cua) va CHUA gui trong
+ * ngay (so sanh theo ngay duong lich, khong phai khoang cach gio, de cron chay lai nhieu lan trong
+ * cung 1 ngay - vd hosting retry khi timeout - khong gui trung).
+ */
+function sendDailyReportForTenant(array $tenant): void
+{
+    if (empty($tenant['owner_email'])) {
+        return;
+    }
+    if ($tenant['last_daily_report_at'] !== null && date('Y-m-d', strtotime($tenant['last_daily_report_at'])) === date('Y-m-d')) {
+        return;
+    }
+
+    $pdo = db();
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(o.total_amount),0) AS revenue, COUNT(*) AS order_count,
+                COALESCE(SUM(o.total_amount - o.paid_amount),0) AS chua_thu
+         FROM orders o JOIN branches b ON b.id = o.branch_id
+         WHERE b.tenant_id = ? AND DATE(o.created_at) = CURDATE() AND o.status != 'CANCELLED'"
+    );
+    $stmt->execute([$tenant['id']]);
+    $stats = $stmt->fetch();
+
+    if ((int) $stats['order_count'] > 0) {
+        $topStmt = $pdo->prepare(
+            "SELECT p.name, SUM(oi.quantity) AS sl
+             FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id
+             JOIN products p ON p.id = oi.product_id
+             WHERE b.tenant_id = ? AND DATE(o.created_at) = CURDATE() AND o.status != 'CANCELLED'
+             GROUP BY oi.product_id ORDER BY sl DESC LIMIT 5"
+        );
+        $topStmt->execute([$tenant['id']]);
+        $topLines = '';
+        foreach ($topStmt->fetchAll() as $t) {
+            $topLines .= '- ' . $t['name'] . ': ' . fmtQty($t['sl']) . "\n";
+        }
+
+        $subject = 'QLBH-CLOUD - Báo cáo cuối ngày ' . date('d/m/Y') . ': ' . $tenant['name'];
+        $body = "Tổng kết hôm nay ({$tenant['name']}):\n\n"
+            . 'Doanh thu: ' . money((float) $stats['revenue']) . "đ\n"
+            . "Số đơn hàng: {$stats['order_count']}\n"
+            . 'Chưa thu (bán chịu): ' . money((float) $stats['chua_thu']) . "đ\n\n"
+            . ($topLines !== '' ? "Bán chạy nhất hôm nay:\n$topLines\n" : '')
+            . "Xem chi tiết tại: https://app.kt-soft.vn/reports.php\n";
+        sendMail($tenant['owner_email'], $subject, $body);
+    }
+
+    $pdo->prepare('UPDATE tenants SET last_daily_report_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
+}
+
+/**
+ * Sao luu dinh ky RIENG 1 tenant, gui email kem link tai ve co han dung 7 ngay - thay the y
+ * tuong "sao luu vao Google Drive" trong de xuat goc: QLBH-CLOUD chay tren MAY CHU (hosting dung
+ * chung), khong the ghi truc tiep vao 1 thu muc tren MAY CUA KHACH HANG du co hay khong co API -
+ * khong giong ung dung desktop (QLBH-SOFT) co the ghi thang vao thu muc Drive da dong bo san.
+ * Giai phap tuong duong kha thi phia server: dinh ky tao ban sao rieng cua tung cua hang, GUI
+ * QUA EMAIL cho chu cua hang duoi dang link tai (khong dinh kem - file co the vuot gioi han dinh
+ * kem cua nhieu nha cung cap email) - ho tu luu vao Drive/may tinh theo y ho, giai quyet dung
+ * rui ro goc (sao luu dang nam CHUNG 1 noi voi du lieu goc) ma khong can dang ky OAuth Google
+ * Drive (ngoai pham vi thuc te kha thi trong 1 lan lam).
+ */
+function sendBackupEmailForTenant(array $tenant): void
+{
+    if (empty($tenant['owner_email'])) {
+        return;
+    }
+    $lastSent = $tenant['last_backup_email_at'];
+    if ($lastSent !== null && (time() - strtotime($lastSent)) < 7 * 86400) {
+        return;
+    }
+
+    $pdo = db();
+    $filename = createTenantBackupFile((int) $tenant['id']);
+    $token = bin2hex(random_bytes(32));
+    $pdo->prepare('INSERT INTO tenant_backup_downloads (tenant_id, token, filename, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))')
+        ->execute([$tenant['id'], $token, $filename]);
+
+    $subject = 'QLBH-CLOUD - Sao lưu dữ liệu định kỳ: ' . $tenant['name'];
+    $body = "Bản sao lưu dữ liệu định kỳ cho {$tenant['name']} đã sẵn sàng.\n\n"
+        . "Tải về (liên kết có hạn dùng 7 ngày, chỉ tải được 1 lần):\n"
+        . 'https://' . ($_SERVER['HTTP_HOST'] ?? 'app.kt-soft.vn') . "/tenant_backup_download.php?token=$token\n\n"
+        . "Khuyên bạn lưu file này vào Google Drive, USB hoặc máy tính khác - tách biệt khỏi\n"
+        . "nơi đang chứa dữ liệu chính, để phòng khi ổ cứng/máy chủ gặp sự cố.\n";
+    sendMail($tenant['owner_email'], $subject, $body);
+
+    $pdo->prepare('UPDATE tenants SET last_backup_email_at = NOW() WHERE id = ?')->execute([$tenant['id']]);
+}
+
 function requireLogin(): array
 {
     $user = currentUser();
