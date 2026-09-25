@@ -88,6 +88,7 @@ if (hasRole('ADMIN')) {
         'shipping_settings.php' => 'Cấu hình giao hàng',
         'marketing_settings.php' => 'Cấu hình kênh marketing',
         'custom_roles.php' => 'Vai trò tùy chỉnh',
+        'import_from_soft.php' => 'Nhập từ QLBH-SOFT',
         'tenant_export.php' => 'Xuất dữ liệu của tôi',
         'gia_han.php' => 'Yêu cầu gia hạn',
     ];
