@@ -117,9 +117,25 @@ require_once __DIR__ . '/inc_header.php';
     <div class="field"><label>Ghi chú</label><input class="input" name="note"></div>
   </div>
 
-  <div style="position:relative;margin-bottom:12px;max-width:640px;">
-    <input type="text" id="search-input" class="input" placeholder="Tìm sản phẩm để kiểm...">
-    <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
+  <div style="position:relative;margin-bottom:4px;max-width:640px;display:flex;gap:8px;">
+    <div style="position:relative;flex:1;">
+      <input type="text" id="search-input" class="input" placeholder="Tìm sản phẩm để kiểm...">
+      <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
+    </div>
+    <button type="button" id="scan-btn" class="btn btn-secondary" style="flex-shrink:0;">📷 Quét mã vạch</button>
+  </div>
+  <div id="scan-msg" style="margin-bottom:8px;font-size:13px;min-height:18px;"></div>
+
+  <!-- Modal quet camera: chi tai thu vien khi bam nut, khong lam nang trang cho nguoi khong dung -->
+  <div id="scan-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:16px;max-width:420px;width:92%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <b style="font-size:15px;">Quét mã vạch bằng camera</b>
+        <button type="button" id="scan-close" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#64748b;">&times;</button>
+      </div>
+      <div id="scan-reader" style="width:100%;"></div>
+      <p id="scan-hint" class="muted" style="font-size:12px;margin:10px 0 0;">Đưa mã vạch của sản phẩm vào giữa khung hình. Trình duyệt sẽ hỏi quyền dùng camera.</p>
+    </div>
   </div>
 
   <div class="card" style="padding:0;overflow-x:auto;max-width:800px;margin-bottom:16px;">
@@ -134,6 +150,10 @@ require_once __DIR__ . '/inc_header.php';
   <button type="submit" class="btn">Lưu phiếu kiểm hàng</button>
 </form>
 
+<!-- Thu vien quet ma vach qua camera (dung getUserMedia + ZXing ben trong), chi tai o trang nay
+     (khong nhet vao inc_header.php dung chung) - trang khac khong can nen khong phai tai them
+     ~200KB. Ghim dung 1 phien ban cu the, giong quy uoc dung cho moi thu vien ngoai trong du an. -->
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 let lines = [];
 const searchInput = document.getElementById('search-input');
@@ -172,7 +192,13 @@ searchInput.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   e.preventDefault();
   clearTimeout(timer);
-  const q = searchInput.value.trim();
+  scanCode(searchInput.value.trim());
+});
+
+// Dung CHUNG cho ca may quet vat ly (Enter o tren) LAN quet bang camera dien thoai ben duoi -
+// cung 1 quy tac khop ma (dung 1 ket qua HOAC khop chinh xac sku/barcode), tranh viet trung logic
+// va tranh 2 duong quet cho ra hanh vi khac nhau.
+function scanCode(q) {
   const branchId = branchSelect.value;
   if (!q || !branchId) return;
   fetch('stock_take_search.php?q=' + encodeURIComponent(q) + '&branch_id=' + branchId)
@@ -190,9 +216,19 @@ searchInput.addEventListener('keydown', (e) => {
         addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.qty) || 0);
         searchInput.value = '';
         searchResults.style.display = 'none';
+      } else {
+        scanMessage(`Không tìm thấy sản phẩm khớp mã "${q}".`, true);
       }
     });
-});
+}
+
+function scanMessage(text, isError) {
+  const el = document.getElementById('scan-msg');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isError ? '#dc2626' : '#16a34a';
+  setTimeout(() => { el.textContent = ''; }, 2500);
+}
 
 function addLine(id, variantId, name, systemQty) {
   const key = id + ':' + (variantId ?? '');
@@ -238,6 +274,49 @@ document.addEventListener('click', (e) => {
     searchResults.style.display = 'none';
   }
 });
+
+// Quet ma vach bang camera dien thoai. Moi lan quet duoc 1 ma la goi scanCode() - DUNG CHUNG
+// duong xu ly voi may quet vat ly gan qua bang phim (khong tu them dong hang o day, tranh 2 noi
+// co logic khop-san-pham khac nhau). Tu dong tam dung ~1.5s sau khi quet duoc 1 ma de tranh quet
+// lai lien tuc cung 1 ma khi camera con dang huong vao no.
+let html5QrCode = null;
+let scanCooldown = false;
+
+function openScanner() {
+  document.getElementById('scan-modal').style.display = 'flex';
+  if (typeof Html5Qrcode === 'undefined') {
+    document.getElementById('scan-hint').textContent = 'Không tải được thư viện quét mã. Kiểm tra kết nối mạng rồi thử lại.';
+    document.getElementById('scan-hint').style.color = '#dc2626';
+    return;
+  }
+  html5QrCode = new Html5Qrcode('scan-reader');
+  html5QrCode.start(
+    { facingMode: 'environment' }, // camera sau - dung camera thuong dua vao ma vach
+    { fps: 10, qrbox: { width: 260, height: 160 } },
+    (decodedText) => {
+      if (scanCooldown) return;
+      scanCooldown = true;
+      scanCode(decodedText.trim());
+      setTimeout(() => { scanCooldown = false; }, 1500);
+    },
+    () => {} // loi doc tung khung hinh (binh thuong, xay ra lien tuc khi chua thay ma) - bo qua
+  ).catch((err) => {
+    document.getElementById('scan-hint').textContent = 'Không mở được camera: ' + err
+      + '. Kiểm tra đã cho phép trình duyệt dùng camera chưa.';
+    document.getElementById('scan-hint').style.color = '#dc2626';
+  });
+}
+
+function closeScanner() {
+  document.getElementById('scan-modal').style.display = 'none';
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => html5QrCode.clear()).catch(() => {});
+    html5QrCode = null;
+  }
+}
+
+document.getElementById('scan-btn').addEventListener('click', openScanner);
+document.getElementById('scan-close').addEventListener('click', closeScanner);
 </script>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>
