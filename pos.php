@@ -289,6 +289,7 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       <span>Chiết khấu</span>
       <span id="coupon-discount">0</span>
     </div>
+    <div id="discount-capped-note" class="muted" style="font-size:12px;margin:-4px 0 8px;display:none;">⚠ Đã giới hạn tối đa 50% giá trị đơn hàng</div>
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;" id="shipping-fee-row">
       <span>Phí giao hàng</span>
       <span id="shipping-fee-display">0</span>
@@ -732,11 +733,13 @@ function updateTotals() {
   const manualDiscount = getManualDiscount(subTotal);
   const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
   const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
-  const discount = Math.min(subTotal * 0.5, manualDiscount + couponDiscount + loyaltyDiscount);
+  const discountRequested = manualDiscount + couponDiscount + loyaltyDiscount;
+  const discount = Math.min(subTotal * 0.5, discountRequested);
   const shippingFee = getShippingFee();
   const total = Math.max(0, subTotal - discount) + shippingFee;
   document.getElementById('cart-subtotal').textContent = formatMoney(subTotal);
   document.getElementById('coupon-discount').textContent = formatMoney(discount);
+  document.getElementById('discount-capped-note').style.display = discountRequested > discount + 0.5 ? 'block' : 'none';
   document.getElementById('shipping-fee-display').textContent = formatMoney(shippingFee);
   document.getElementById('cart-total').textContent = formatMoney(total);
   renderCashSuggestions(total);
@@ -850,6 +853,10 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
   if (!cart.length) return;
   if (requireCustomerPhone && !document.getElementById('customer-phone').value.trim()) {
     msgBox.innerHTML = '<div class="alert alert-error">Vui lòng nhập SĐT khách hàng trước khi thanh toán (bắt buộc theo cấu hình bán hàng).</div>';
+    return;
+  }
+  if (document.getElementById('partial-payment-toggle').checked && !document.getElementById('customer-phone').value.trim()) {
+    msgBox.innerHTML = '<div class="alert alert-error">Cho khách nợ một phần cần nhập SĐT khách hàng để ghi công nợ đúng người.</div>';
     return;
   }
 
