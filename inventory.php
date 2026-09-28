@@ -40,10 +40,16 @@ if ($q !== '') {
 if ($lowOnly) {
     $where[] = 'i.min_stock > 0 AND i.quantity <= i.min_stock';
 }
-if ($where) {
-    $sql .= ' WHERE ' . implode(' AND ', $where);
-}
-$sql .= ' ORDER BY i.updated_at DESC LIMIT 200';
+$whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM inventory i JOIN products p ON p.id = i.product_id LEFT JOIN product_variants v ON v.id = i.variant_id JOIN branches b ON b.id = i.branch_id' . $whereSql);
+$countStmt->execute($params);
+$totalInventory = (int) $countStmt->fetchColumn();
+
+$page = trangHienTai();
+$pageSize = 200;
+$offset = ($page - 1) * $pageSize;
+$sql .= $whereSql . ' ORDER BY i.updated_at DESC LIMIT ' . $pageSize . ' OFFSET ' . $offset;
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -100,5 +106,6 @@ $inventories = $stmt->fetchAll();
     </tbody>
   </table>
 </div>
+<?php veKhoiPhanTrang($totalInventory, $page, $pageSize); ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

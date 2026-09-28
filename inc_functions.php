@@ -661,3 +661,47 @@ function laySanPhamCuaToi(int $id): ?array { return layBanGhiCuaToi('products', 
 function layKhachHangCuaToi(int $id): ?array { return layBanGhiCuaToi('customers', $id); }
 function layNhaCungCapCuaToi(int $id): ?array { return layBanGhiCuaToi('suppliers', $id); }
 function layChiNhanhCuaToi(int $id): ?array { return layBanGhiCuaToi('branches', $id); }
+
+const TRANG_MAC_DINH_SO_DONG = 100;
+
+/**
+ * Tinh trang hien tai (>=1) tu $_GET['page']. Dung chung cho cac trang danh sach co phan trang
+ * (orders.php, products.php, customers.php, inventory.php...) de khong lap lai logic parse/
+ * validate o tung file.
+ */
+function trangHienTai(): int
+{
+    $p = (int) ($_GET['page'] ?? 1);
+    return $p > 0 ? $p : 1;
+}
+
+/**
+ * Ve khoi phan trang (Trang truoc/sau + so trang) o cuoi 1 danh sach dai - giu nguyen moi bo
+ * loc dang co qua $_GET (tru 'page') khi chuyen trang. $totalRows la tong so dong THOA DIEU
+ * KIEN LOC (khong phai tong toan bo bang), $pageSize la so dong/trang dang dung.
+ */
+function veKhoiPhanTrang(int $totalRows, int $page, int $pageSize = TRANG_MAC_DINH_SO_DONG): void
+{
+    $totalPages = (int) ceil($totalRows / $pageSize);
+    if ($totalPages <= 1) {
+        if ($totalRows > 0) {
+            echo '<p class="muted" style="font-size:13px;margin:12px 0 0;">' . $totalRows . ' kết quả</p>';
+        }
+        return;
+    }
+    $queryWithoutPage = $_GET;
+    unset($queryWithoutPage['page']);
+    $baseQuery = $queryWithoutPage ? http_build_query($queryWithoutPage) . '&' : '';
+    $file = basename($_SERVER['SCRIPT_NAME']);
+
+    echo '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:13px;">';
+    echo '<span class="muted">Trang ' . $page . '/' . $totalPages . ' — tổng ' . $totalRows . ' kết quả</span>';
+    echo '<div style="display:flex;gap:6px;">';
+    if ($page > 1) {
+        echo '<a class="btn btn-secondary" style="padding:5px 12px;" href="' . e($file) . '?' . e($baseQuery) . 'page=' . ($page - 1) . '">← Trang trước</a>';
+    }
+    if ($page < $totalPages) {
+        echo '<a class="btn btn-secondary" style="padding:5px 12px;" href="' . e($file) . '?' . e($baseQuery) . 'page=' . ($page + 1) . '">Trang sau →</a>';
+    }
+    echo '</div></div>';
+}

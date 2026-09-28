@@ -22,10 +22,15 @@ if ($q !== '') {
 if ($tab === 'active') {
     $where[] = 'EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.status != "CANCELLED")';
 }
-if ($where) {
-    $sql .= ' WHERE ' . implode(' AND ', $where);
-}
-$sql .= ' ORDER BY c.created_at DESC LIMIT 100';
+$whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM customers c' . $whereSql);
+$countStmt->execute($params);
+$totalCustomers = (int) $countStmt->fetchColumn();
+
+$page = trangHienTai();
+$offset = ($page - 1) * TRANG_MAC_DINH_SO_DONG;
+$sql .= $whereSql . ' ORDER BY c.created_at DESC LIMIT ' . TRANG_MAC_DINH_SO_DONG . ' OFFSET ' . $offset;
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -80,5 +85,6 @@ $customers = $stmt->fetchAll();
     </tbody>
   </table>
 </div>
+<?php veKhoiPhanTrang($totalCustomers, $page); ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

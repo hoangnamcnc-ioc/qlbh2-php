@@ -64,10 +64,15 @@ if (!hasRole('ADMIN', 'MANAGER')) {
     $where[] = 'o.branch_id = ?';
     $params[] = effectiveBranchId($currentUser);
 }
-if ($where) {
-    $sql .= ' WHERE ' . implode(' AND ', $where);
-}
-$sql .= ' ORDER BY o.created_at DESC LIMIT 100';
+$whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM orders o JOIN branches b ON b.id = o.branch_id' . $whereSql);
+$countStmt->execute($params);
+$totalOrders = (int) $countStmt->fetchColumn();
+
+$page = trangHienTai();
+$offset = ($page - 1) * TRANG_MAC_DINH_SO_DONG;
+$sql .= $whereSql . ' ORDER BY o.created_at DESC LIMIT ' . TRANG_MAC_DINH_SO_DONG . ' OFFSET ' . $offset;
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -163,6 +168,7 @@ $exportQuery = http_build_query(array_filter([
     </tbody>
   </table>
 </div>
+<?php veKhoiPhanTrang($totalOrders, $page); ?>
 
 <script>
 document.querySelectorAll('.quick-toggle').forEach(a => {

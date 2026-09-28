@@ -22,10 +22,15 @@ if ($categoryId) {
     $where[] = 'p.category_id = ?';
     $params[] = $categoryId;
 }
-if ($where) {
-    $sql .= ' WHERE ' . implode(' AND ', $where);
-}
-$sql .= ' GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100';
+$whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM products p' . $whereSql);
+$countStmt->execute($params);
+$totalProducts = (int) $countStmt->fetchColumn();
+
+$page = trangHienTai();
+$offset = ($page - 1) * TRANG_MAC_DINH_SO_DONG;
+$sql .= $whereSql . ' GROUP BY p.id ORDER BY p.created_at DESC LIMIT ' . TRANG_MAC_DINH_SO_DONG . ' OFFSET ' . $offset;
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -100,5 +105,6 @@ $categories = $categoriesStmt->fetchAll();
     </tbody>
   </table>
 </div>
+<?php veKhoiPhanTrang($totalProducts, $page); ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>
