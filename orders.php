@@ -157,6 +157,8 @@ $exportQuery = http_build_query(array_filter([
           <td class="text-right" style="white-space:nowrap;">
             <?php if ($o['status'] === 'COMPLETED'): ?>
               <a href="order_return_form.php?q=<?= urlencode($o['code']) ?>" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">Đổi trả</a>
+            <?php else: ?>
+              <span class="muted" style="font-size:12px;" title="Chỉ đổi trả được khi đơn đã Hoàn thành (đã giao/nhận đủ hàng)">—</span>
             <?php endif; ?>
           </td>
         </tr>
