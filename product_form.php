@@ -214,7 +214,7 @@ require_once __DIR__ . '/inc_header.php';
     <?php foreach ($images as $img): ?>
       <div style="position:relative;width:90px;">
         <img src="uploads/products/<?= e($img['filename']) ?>" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">
-        <form method="post" action="product_image_delete.php" style="position:absolute;top:2px;right:2px;">
+        <form method="post" action="product_image_delete.php" style="position:absolute;top:2px;right:2px;" onsubmit="return confirm('Xóa ảnh này?')">
           <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
           <input type="hidden" name="image_id" value="<?= (int) $img['id'] ?>">
           <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
@@ -520,7 +520,7 @@ require_once __DIR__ . '/inc_header.php';
     <div class="muted" style="padding:16px;font-size:13px;">Chưa có sản phẩm thành phần nào.</div>
   <?php endif; ?>
   <?php foreach ($comboItems as $ci): ?>
-    <form method="post" action="combo_item_delete.php" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid #f1f5f9;">
+    <form method="post" action="combo_item_delete.php" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid #f1f5f9;" onsubmit="return confirm('Xóa thành phần này khỏi combo?')">
       <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
       <input type="hidden" name="combo_item_id" value="<?= (int) $ci['id'] ?>">
       <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">

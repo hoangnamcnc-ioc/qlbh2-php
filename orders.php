@@ -82,6 +82,9 @@ $exportQuery = http_build_query(array_filter([
     'staff_id' => $staffId ?: '', 'channel_id' => $channelId ?: '', 'source_id' => $sourceId ?: '',
 ], static fn($v) => $v !== '' && $v !== 0));
 ?>
+<?php if (!empty($_GET['err'])): ?>
+  <div class="alert alert-error"><?= e($_GET['err']) ?></div>
+<?php endif; ?>
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
   <h1 style="font-size:24px;font-weight:600;margin:0;">Danh sách đơn hàng</h1>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">

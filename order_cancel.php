@@ -73,7 +73,12 @@ if ($order && $order['status'] !== 'CANCELLED') {
         $pdo->commit();
     } catch (Throwable $ex) {
         $pdo->rollBack();
+        redirect('order_view.php?id=' . $orderId . '&err=' . urlencode('Hủy đơn thất bại, vui lòng thử lại. Nếu vẫn lỗi, liên hệ hỗ trợ.'));
     }
+} elseif (!$order) {
+    redirect('orders.php?err=' . urlencode('Không tìm thấy đơn hàng này.'));
+} elseif ($order['status'] === 'CANCELLED') {
+    redirect('order_view.php?id=' . $orderId . '&err=' . urlencode('Đơn hàng này đã được hủy từ trước.'));
 }
 
 redirect('order_view.php?id=' . $orderId);

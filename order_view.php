@@ -77,6 +77,10 @@ $history = $historyStmt->fetchAll();
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?php if (!empty($_GET['err'])): ?>
+  <div class="alert alert-error"><?= e($_GET['err']) ?></div>
+<?php endif; ?>
+
 <a href="orders.php" class="muted" style="font-size:14px;">← Danh sách đơn hàng</a>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 24px;">
