@@ -91,7 +91,24 @@ $inventories = $stmt->fetchAll();
           <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($inv['sku']) ?></td>
           <td><a href="product_form.php?id=<?= (int) $inv['product_id'] ?>"><?= e($inv['product_name']) ?><?php if ($inv['variant_name']): ?> <span class="muted">(<?= e($inv['variant_name']) ?>)</span><?php endif; ?></a></td>
           <td><?= e($inv['branch_name']) ?></td>
-          <td class="text-right" style="font-weight:600;"><?= fmtQty($inv['quantity']) ?></td>
+          <td class="text-right" style="font-weight:600;">
+            <?php if (hasRole('ADMIN', 'MANAGER')): ?>
+              <form method="post" action="inventory_save.php" style="display:inline-flex;gap:4px;align-items:center;justify-content:flex-end;" onsubmit="return confirm('Sửa trực tiếp tồn kho — chỉ dùng khi chắc chắn, không lưu vết lý do như phiếu kiểm hàng. Tiếp tục?')">
+                <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+                <input type="hidden" name="product_id" value="<?= (int) $inv['product_id'] ?>">
+                <input type="hidden" name="variant_id" value="<?= (int) $inv['variant_id'] ?>">
+                <input type="hidden" name="branch_id" value="<?= (int) $inv['branch_id'] ?>">
+                <input type="hidden" name="min_stock" value="<?= (int) $inv['min_stock'] ?>">
+                <input type="hidden" name="max_stock" value="<?= e((string) $inv['max_stock']) ?>">
+                <input type="hidden" name="storage_location" value="<?= e((string) $inv['storage_location']) ?>">
+                <input type="hidden" name="redirect" value="inventory.php<?= $_SERVER['QUERY_STRING'] ? '?' . e($_SERVER['QUERY_STRING']) : '' ?>">
+                <input type="number" name="quantity" step="0.001" value="<?= e(fmtQty($inv['quantity'])) ?>" style="width:80px;text-align:right;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;">
+                <button type="submit" class="btn btn-secondary" style="padding:3px 8px;font-size:12px;">Lưu</button>
+              </form>
+            <?php else: ?>
+              <?= fmtQty($inv['quantity']) ?>
+            <?php endif; ?>
+          </td>
           <td class="text-right muted"><?= (int) $inv['min_stock'] ?></td>
           <td class="text-right"><?= money($inv['stock_value']) ?></td>
           <td>
