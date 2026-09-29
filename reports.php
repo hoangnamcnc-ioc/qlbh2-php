@@ -11,6 +11,12 @@ $from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
 $to = $_GET['to'] ?? date('Y-m-d');
 $fromDt = $from . ' 00:00:00';
 $toDt = $to . ' 23:59:59';
+// Truoc day co dinh Top 10, khong xem duoc nhieu hon - cho chon 10/20/50/100 qua URL, mac
+// dinh van la 10 de khong doi hanh vi cu.
+$topN = (int) ($_GET['top'] ?? 10);
+if (!in_array($topN, [10, 20, 50, 100], true)) {
+    $topN = 10;
+}
 
 // Toan bo bao cao nay tong hop tren nhieu bang nghiep vu theo chi nhanh (orders,
 // stock_receipts, cashbook_entries...) khong co tenant_id rieng - phai JOIN qua branches va
@@ -52,7 +58,7 @@ $stmt = $pdo->prepare(
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN product_variants v ON v.id = oi.variant_id
      WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
-     GROUP BY oi.product_id, oi.variant_id ORDER BY qty DESC LIMIT 10"
+     GROUP BY oi.product_id, oi.variant_id ORDER BY qty DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $topProducts = $stmt->fetchAll();
@@ -62,7 +68,7 @@ $stmt = $pdo->prepare(
     "SELECT c.name, c.phone, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
      FROM orders o JOIN branches b ON b.id = o.branch_id JOIN customers c ON c.id = o.customer_id
      WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
-     GROUP BY o.customer_id ORDER BY total DESC LIMIT 10"
+     GROUP BY o.customer_id ORDER BY total DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $topCustomers = $stmt->fetchAll();
@@ -140,7 +146,7 @@ $stmt = $pdo->prepare(
      JOIN products p ON p.id = ori.product_id
      LEFT JOIN product_variants v ON v.id = ori.variant_id
      WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?
-     GROUP BY ori.product_id, ori.variant_id ORDER BY qty DESC LIMIT 10"
+     GROUP BY ori.product_id, ori.variant_id ORDER BY qty DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $returnsByProduct = $stmt->fetchAll();
@@ -158,7 +164,7 @@ $stmt = $pdo->prepare(
     "SELECT s.name AS supplier_name, COUNT(r.id) AS receipt_count, COALESCE(SUM(r.total_amount),0) AS total
      FROM stock_receipts r JOIN branches b ON b.id = r.branch_id JOIN suppliers s ON s.id = r.supplier_id
      WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?
-     GROUP BY r.supplier_id ORDER BY total DESC LIMIT 10"
+     GROUP BY r.supplier_id ORDER BY total DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $purchaseBySupplier = $stmt->fetchAll();
@@ -172,7 +178,7 @@ $stmt = $pdo->prepare(
      JOIN products p ON p.id = ri.product_id
      LEFT JOIN product_variants v ON v.id = ri.variant_id
      WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?
-     GROUP BY ri.product_id, ri.variant_id ORDER BY qty DESC LIMIT 10"
+     GROUP BY ri.product_id, ri.variant_id ORDER BY qty DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $purchaseByProduct = $stmt->fetchAll();
@@ -209,6 +215,13 @@ $cashSummary = $stmt->fetch();
     <input type="date" name="from" value="<?= e($from) ?>" class="input" style="width:auto;"></div>
   <div><label style="display:block;font-size:12px;margin-bottom:2px;">Đến ngày</label>
     <input type="date" name="to" value="<?= e($to) ?>" class="input" style="width:auto;"></div>
+  <div><label style="display:block;font-size:12px;margin-bottom:2px;">Top</label>
+    <select name="top" class="input" style="width:auto;">
+      <?php foreach ([10, 20, 50, 100] as $n): ?>
+        <option value="<?= $n ?>" <?= $topN === $n ? 'selected' : '' ?>><?= $n ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
   <button type="submit" class="btn btn-secondary">Lọc</button>
 </form>
 
