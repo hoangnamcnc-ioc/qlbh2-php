@@ -565,6 +565,29 @@ searchInput.addEventListener('input', () => {
   searchTimer = setTimeout(() => doSearch(q), 250);
 });
 
+// Tieng bip phan biet quet thanh cong (1 tieng cao, ngan) voi quet ra nhieu ket qua trung
+// (2 tieng thap, canh bao) - dung Web Audio API, khong can file am thanh rieng. Truoc day ca
+// 2 truong hop deu im lang nhu nhau, nhan vien ban ron de khong nhan ra hang CHUA duoc them
+// vao gio khi ma vach trung nhieu san pham.
+function _playBeep(freq, durationMs) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.value = 0.15;
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close(); }, durationMs);
+  } catch (e) { /* trinh duyet khong ho tro Web Audio - bo qua, khong anh huong luong ban hang */ }
+}
+function beepThanhCong() { _playBeep(1200, 90); }
+function beepCanhBaoTrungMa() {
+  _playBeep(400, 120);
+  setTimeout(() => _playBeep(400, 120), 160);
+}
+
 // Máy quét mã vạch gõ nhanh mã rồi tự bấm Enter — bắt sự kiện này để tự thêm
 // đúng 1 sản phẩm khớp mã vào giỏ hàng ngay, không cần chọn bằng chuột.
 searchInput.addEventListener('keydown', (e) => {
@@ -579,17 +602,25 @@ searchInput.addEventListener('keydown', (e) => {
       if (data.length === 1) {
         const p = data[0];
         addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
+        beepThanhCong();
         searchInput.value = '';
         searchResults.style.display = 'none';
       } else if (data.length > 1) {
         const exact = data.find(p => p.sku === q);
         if (exact) {
           addToCart(exact.id, exact.variant_id, exact.name, parseFloat(exact.sell_price), exact.sku);
+          beepThanhCong();
           searchInput.value = '';
           searchResults.style.display = 'none';
         } else {
+          // Quet/go ra NHIEU ket qua ma KHONG co ma nao trung khop tuyet doi - CHUA co gi
+          // duoc them vao gio hang. Phai canh bao ro (khac han tieng bip thanh cong) de nhan
+          // vien khong tuong nham da quet xong roi quet tiep mon hang ke tiep.
+          beepCanhBaoTrungMa();
           doSearch(q);
         }
+      } else {
+        beepCanhBaoTrungMa();
       }
     });
 });
