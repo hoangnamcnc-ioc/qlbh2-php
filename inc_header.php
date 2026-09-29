@@ -30,6 +30,7 @@ $navGroups = [
         ],
         $canGroup('products') ? [
             'reorder_suggestions.php' => 'Gợi ý nhập hàng',
+            'product_labels.php' => 'In tem giá / mã vạch',
             'stock_takes.php' => 'Kiểm hàng',
             'stock_transfers.php' => 'Chuyển hàng',
             'purchase_orders.php' => 'Đặt hàng nhập',
