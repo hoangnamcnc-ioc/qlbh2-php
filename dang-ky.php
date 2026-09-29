@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $companyName = post('company_name');
     $adminName = post('admin_name');
     $email = trim(strtolower(post('email')));
+    $phone = trim(post('phone'));
     $password = post('password');
 
     if ($error !== null) {
@@ -88,8 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $pdo->prepare(
-                    'INSERT INTO users (name, email, password_hash, role, branch_id, tenant_id, is_active) VALUES (?, ?, ?, \'ADMIN\', ?, ?, 1)'
-                )->execute([$adminName, $email, $hash, $branchId, $tenantId]);
+                    'INSERT INTO users (name, email, phone, password_hash, role, branch_id, tenant_id, is_active) VALUES (?, ?, ?, ?, \'ADMIN\', ?, ?, 1)'
+                )->execute([$adminName, $email, $phone ?: null, $hash, $branchId, $tenantId]);
                 $userId = (int) $pdo->lastInsertId();
 
                 $pdo->prepare(
@@ -168,6 +169,10 @@ $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
       <div class="field">
         <label>Email đăng nhập *</label>
         <input type="email" name="email" required value="<?= e($_POST['email'] ?? '') ?>">
+      </div>
+      <div class="field">
+        <label>Số điện thoại (không bắt buộc)</label>
+        <input type="tel" name="phone" value="<?= e($_POST['phone'] ?? '') ?>" placeholder="Để đội hỗ trợ liên hệ khi cần">
       </div>
       <div class="field">
         <label>Mật khẩu *</label>

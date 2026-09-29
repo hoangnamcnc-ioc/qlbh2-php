@@ -128,7 +128,8 @@ $tenants = $pdo->query(
             (SELECT COUNT(*) FROM users u WHERE u.tenant_id = t.id) AS user_count,
             (SELECT COUNT(*) FROM products p WHERE p.tenant_id = t.id) AS product_count,
             (SELECT COUNT(*) FROM orders o JOIN branches b ON b.id = o.branch_id WHERE b.tenant_id = t.id) AS order_count,
-            (SELECT MAX(al.created_at) FROM activity_logs al WHERE al.tenant_id = t.id) AS last_activity
+            (SELECT MAX(al.created_at) FROM activity_logs al WHERE al.tenant_id = t.id) AS last_activity,
+            (SELECT u.phone FROM users u WHERE u.tenant_id = t.id AND u.role = 'ADMIN' ORDER BY u.id LIMIT 1) AS owner_phone
      FROM tenants t
      ORDER BY t.created_at DESC"
 )->fetchAll();
@@ -239,7 +240,10 @@ require_once __DIR__ . '/inc_header.php';
         ?>
         <tr>
           <td><b><?= e($t['name']) ?></b><?php if ($isOwner): ?> <span class="badge badge-gray">Chủ sở hữu</span><?php endif; ?></td>
-          <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($t['owner_email'] ?: '—') ?></td>
+          <td class="muted" style="font-family:monospace;font-size:12px;">
+            <?= e($t['owner_email'] ?: '—') ?>
+            <?php if ($t['owner_phone']): ?><br><span style="color:#94a3b8;"><?= e($t['owner_phone']) ?></span><?php endif; ?>
+          </td>
           <td class="muted"><?= date('d/m/Y', strtotime($t['created_at'])) ?></td>
           <td>
             <?php if ($t['plan'] === 'PAID'): ?>
