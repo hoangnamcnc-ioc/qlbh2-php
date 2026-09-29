@@ -322,6 +322,28 @@ CREATE TABLE IF NOT EXISTS cashbook_entries (
   FOREIGN KEY (created_by_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS pos_shifts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  branch_id INT NOT NULL,
+  opened_by_id INT NOT NULL,
+  opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  opening_cash DECIMAL(14,2) NOT NULL DEFAULT 0,
+  status ENUM('OPEN','CLOSED') NOT NULL DEFAULT 'OPEN',
+  closed_by_id INT NULL,
+  closed_at DATETIME NULL,
+  cash_receipts DECIMAL(14,2) NULL,
+  cash_payments DECIMAL(14,2) NULL,
+  expected_cash DECIMAL(14,2) NULL,
+  counted_cash DECIMAL(14,2) NULL,
+  difference DECIMAL(14,2) NULL,
+  open_note VARCHAR(255) NULL,
+  close_note VARCHAR(255) NULL,
+  FOREIGN KEY (branch_id) REFERENCES branches(id),
+  FOREIGN KEY (opened_by_id) REFERENCES users(id),
+  FOREIGN KEY (closed_by_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE INDEX idx_pos_shifts_branch_status ON pos_shifts (branch_id, status);
+
 CREATE TABLE IF NOT EXISTS order_returns (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,

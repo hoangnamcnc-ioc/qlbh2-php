@@ -318,7 +318,7 @@ const PERMISSION_GROUPS = [
 
 const PERMISSION_GROUP_FILES = [
     'pos' => [
-        'pos.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
+        'pos.php', 'ca_ban_hang.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
         'order_view.php', 'order_edit.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
         'order_pay.php', 'order_returns.php', 'order_return_form.php', 'shipments.php',
         'shipment_form.php', 'shipment_reconcile.php', 'shipping_settings.php', 'channels.php',

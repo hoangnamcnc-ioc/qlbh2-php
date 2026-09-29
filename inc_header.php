@@ -16,6 +16,7 @@ $navGroups = [
     'Bán hàng' => array_merge(
         [
             'pos.php' => 'Bán hàng (POS)',
+            'ca_ban_hang.php' => 'Mở ca / đóng ca',
             'order_form.php' => 'Tạo đơn giao hàng',
             'orders.php' => 'Danh sách đơn hàng',
             'order_returns.php' => 'Đơn trả hàng',
