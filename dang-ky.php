@@ -151,7 +151,8 @@ $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
 
     <div class="trial-note">
       🎁 Sử dụng miễn phí <b>12 tháng</b> đầy đủ tính năng, dữ liệu của bạn hoàn toàn riêng biệt,
-      không ảnh hưởng đến cửa hàng khác. Hết hạn có thể yêu cầu gia hạn thêm để tiếp tục sử dụng.
+      không ảnh hưởng đến cửa hàng khác. Sắp/hết hạn, vào mục "Yêu cầu gia hạn" trong phần mềm
+      (hoặc gọi 0945289666) để được liên hệ gia hạn tiếp tục sử dụng, hoàn toàn không tự mất dữ liệu.
     </div>
 
     <?php if ($error): ?><div class="alert-error"><?= e($error) ?></div><?php endif; ?>
