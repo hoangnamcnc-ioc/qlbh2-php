@@ -1,6 +1,33 @@
     </div>
   </div>
 </div>
+<div id="qlbhLoadingBar" style="position:fixed;top:0;left:0;height:3px;width:0;background:var(--brand,#2563eb);z-index:9999;transition:width .3s ease;opacity:0;"></div>
+<script>
+// Thanh loading mong o dau trang khi dang tai trang danh sach lon (chuyen trang/loc/phan
+// trang) - truoc day khong co gi bao hieu dang xu ly, trang trang mot luc khien tuong nham
+// bi treo. Chi ap dung cho dieu huong THUONG (submit form, click link cung site, khong phai
+// nut mo tab moi/tai lieu tai ve) - trinh duyet se tu chuyen trang binh thuong, thanh nay chi
+// de bao hieu ngay lap tuc, khong can cho JS xu ly gi them.
+(function () {
+  var bar = document.getElementById('qlbhLoadingBar');
+  function batDauLoad() {
+    bar.style.opacity = '1';
+    bar.style.width = '0%';
+    requestAnimationFrame(function () { bar.style.width = '80%'; });
+  }
+  document.addEventListener('submit', function (e) {
+    if (e.target.tagName === 'FORM' && !e.defaultPrevented) batDauLoad();
+  }, true);
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a[href]');
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    var href = a.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    batDauLoad();
+  }, true);
+})();
+</script>
 <button type="button" id="fbToggleBtn" title="Gửi góp ý / báo lỗi" style="position:fixed;right:20px;bottom:20px;z-index:999;width:52px;height:52px;border-radius:50%;background:var(--brand,#2563eb);color:#fff;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);">💬</button>
 <div id="fbModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:12px;padding:24px;width:420px;max-width:92vw;max-height:90vh;overflow:auto;">
