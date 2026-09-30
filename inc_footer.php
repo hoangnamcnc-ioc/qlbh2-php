@@ -51,6 +51,10 @@
         <label>Số điện thoại/Zalo để liên hệ lại (không bắt buộc)</label>
         <input type="text" name="lien_he" class="input">
       </div>
+      <div class="field">
+        <label>Ảnh chụp màn hình lỗi (không bắt buộc, tối đa 5MB)</label>
+        <input type="file" id="fbAnhInput" class="input" accept="image/png,image/jpeg,image/webp,image/gif">
+      </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button type="button" id="fbCancelBtn" class="btn btn-secondary">Đóng</button>
         <button type="submit" class="btn">Gửi phản hồi</button>
@@ -67,14 +71,40 @@
   toggleBtn.addEventListener('click', function (e) { e.preventDefault(); modal.style.display = 'flex'; alertBox.style.display = 'none'; });
   document.getElementById('fbCancelBtn').addEventListener('click', function () { modal.style.display = 'none'; });
   modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+  // Gui anh dinh kem duoi dang chuoi base64 trong 1 truong text thuong (KHONG dinh kem nhu 1
+  // file nhi phan that trong multipart) - may chu kt-soft.vn co WAF chan mot so request
+  // multipart/form-data co kem file nhi phan toi feedback_api.php (tra ve 403 ngay tu web
+  // server), trong khi POST binh thuong (ke ca chua chuoi base64 rat dai) van di qua binh
+  // thuong. Vi vay input file o tren KHONG co thuoc tinh "name" - de FormData(form) tu dong bo
+  // qua no, tranh vo tinh dinh kem file nhi phan that.
+  function docFileThanhBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var submitBtn = form.querySelector('button[type=submit]');
+    var anhInput = document.getElementById('fbAnhInput');
+    var anhFile = anhInput.files[0];
+    if (anhFile && anhFile.size > 5 * 1024 * 1024) {
+      alertBox.style.display = 'block';
+      alertBox.className = 'alert alert-error';
+      alertBox.textContent = 'Ảnh đính kèm vượt quá 5MB, vui lòng chọn ảnh nhỏ hơn.';
+      return;
+    }
     submitBtn.disabled = true;
-    var data = new FormData(form);
-    data.append('san_pham', 'QLBH-CLOUD');
-    data.append('nguoi_gui', <?= json_encode($currentUser['full_name'] ?? $currentUser['email'] ?? '') ?>);
-    fetch('https://kt-soft.vn/feedback_api.php', { method: 'POST', body: data })
+    var guiDi = anhFile ? docFileThanhBase64(anhFile) : Promise.resolve(null);
+    guiDi.then(function (anhBase64) {
+      var data = new FormData(form);
+      data.append('san_pham', 'QLBH-CLOUD');
+      data.append('nguoi_gui', <?= json_encode($currentUser['full_name'] ?? $currentUser['email'] ?? '') ?>);
+      if (anhBase64) data.append('anh_base64', anhBase64);
+      return fetch('https://kt-soft.vn/feedback_api.php', { method: 'POST', body: data });
+    })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         submitBtn.disabled = false;
