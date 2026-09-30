@@ -28,7 +28,6 @@
   }, true);
 })();
 </script>
-<button type="button" id="fbToggleBtn" title="Gửi góp ý / báo lỗi" style="position:fixed;right:20px;bottom:20px;z-index:999;width:52px;height:52px;border-radius:50%;background:var(--brand,#2563eb);color:#fff;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);">💬</button>
 <div id="fbModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:12px;padding:24px;width:420px;max-width:92vw;max-height:90vh;overflow:auto;">
     <h3 style="margin:0 0 4px;font-size:17px;">Góp ý / Báo lỗi</h3>
@@ -65,7 +64,7 @@
   var modal = document.getElementById('fbModal');
   var form = document.getElementById('fbForm');
   var alertBox = document.getElementById('fbAlert');
-  toggleBtn.addEventListener('click', function () { modal.style.display = 'flex'; alertBox.style.display = 'none'; });
+  toggleBtn.addEventListener('click', function (e) { e.preventDefault(); modal.style.display = 'flex'; alertBox.style.display = 'none'; });
   document.getElementById('fbCancelBtn').addEventListener('click', function () { modal.style.display = 'none'; });
   modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
   form.addEventListener('submit', function (e) {
