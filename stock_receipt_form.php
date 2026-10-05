@@ -161,6 +161,28 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <button type="button" id="scan-btn" class="btn btn-secondary" style="flex-shrink:0;">📷 Quét mã vạch</button>
   </div>
+  <div id="qa-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:20px;max-width:420px;width:92%;max-height:92vh;overflow:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <b style="font-size:16px;">Tạo hàng mới</b>
+        <button type="button" id="qa-close" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#64748b;">&times;</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin:0 0 12px;">Hàng này chưa có trong danh mục. Tạo nhanh rồi thêm luôn vào phiếu nhập; muốn khai báo đầy đủ (danh mục, thương hiệu...) thì vào Sản phẩm sau.</p>
+      <div id="qa-error" class="alert alert-error" style="display:none;margin-bottom:10px;"></div>
+      <div class="field"><label>Tên hàng *</label><input type="text" id="qa-name" class="input"></div>
+      <div class="field"><label>Mã SKU (bỏ trống để tự sinh)</label><input type="text" id="qa-sku" class="input"></div>
+      <div class="field"><label>Mã vạch (nếu có)</label><input type="text" id="qa-barcode" class="input"></div>
+      <div style="display:flex;gap:10px;">
+        <div class="field" style="flex:1"><label>Đơn vị tính</label><input type="text" id="qa-unit" class="input" placeholder="cái, hộp..."></div>
+        <div class="field" style="flex:1"><label>Giá nhập</label><input type="number" id="qa-cost" class="input" min="0" value="0"></div>
+        <div class="field" style="flex:1"><label>Giá bán</label><input type="number" id="qa-sell" class="input" min="0" value="0"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" id="qa-cancel" class="btn btn-secondary">Hủy</button>
+        <button type="button" id="qa-save" class="btn">Tạo và thêm vào phiếu</button>
+      </div>
+    </div>
+  </div>
   <div id="scan-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:1000;align-items:center;justify-content:center;">
     <div style="background:#fff;border-radius:12px;padding:16px;max-width:420px;width:92%;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -210,11 +232,12 @@ searchInput.addEventListener('input', () => {
     fetch('stock_receipt_search.php?q=' + encodeURIComponent(q))
       .then(r => r.json())
       .then(data => {
-        if (!data.length) { searchResults.style.display = 'none'; return; }
         searchResults.innerHTML = data.map((p, i) => `
           <div class="s-item" data-i="${i}"
-               style="padding:8px 12px;font-size:14px;cursor:pointer;">${esc(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${esc(p.sku)})</span></div>`).join('');
+               style="padding:8px 12px;font-size:14px;cursor:pointer;">${esc(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${esc(p.sku)})</span></div>`).join('')
+          + `<div id="s-create-new" style="padding:8px 12px;font-size:14px;cursor:pointer;border-top:1px solid #e2e8f0;color:#2563eb;font-weight:600;">➕ ${data.length ? 'Không có hàng cần tìm? ' : 'Chưa có trong danh mục. '}Tạo hàng mới "${esc(q)}"</div>`;
         searchResults.style.display = 'block';
+        document.getElementById('s-create-new').addEventListener('click', () => openQuickAdd(q));
         searchResults.querySelectorAll('.s-item').forEach(el => {
           el.addEventListener('click', () => {
             const p = data[parseInt(el.dataset.i, 10)];
@@ -367,6 +390,47 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {
     searchResults.style.display = 'none';
   }
+});
+
+// Tao nhanh hang moi ngay trong phieu nhap khi hang chua co trong danh muc.
+function openQuickAdd(q) {
+  searchResults.style.display = 'none';
+  document.getElementById('qa-error').style.display = 'none';
+  const isCode = /^[0-9]{8,14}$/.test(q);
+  document.getElementById('qa-name').value = isCode ? '' : q;
+  document.getElementById('qa-barcode').value = isCode ? q : '';
+  document.getElementById('qa-sku').value = '';
+  document.getElementById('qa-unit').value = '';
+  document.getElementById('qa-cost').value = 0;
+  document.getElementById('qa-sell').value = 0;
+  document.getElementById('qa-modal').style.display = 'flex';
+  document.getElementById('qa-name').focus();
+}
+function closeQuickAdd() { document.getElementById('qa-modal').style.display = 'none'; }
+document.getElementById('qa-close').addEventListener('click', closeQuickAdd);
+document.getElementById('qa-cancel').addEventListener('click', closeQuickAdd);
+document.getElementById('qa-save').addEventListener('click', () => {
+  const btn = document.getElementById('qa-save');
+  const errBox = document.getElementById('qa-error');
+  const fd = new FormData();
+  fd.append('csrf', <?= json_encode(csrfToken()) ?>);
+  fd.append('name', document.getElementById('qa-name').value);
+  fd.append('sku', document.getElementById('qa-sku').value);
+  fd.append('barcode', document.getElementById('qa-barcode').value);
+  fd.append('unit', document.getElementById('qa-unit').value);
+  fd.append('cost_price', document.getElementById('qa-cost').value);
+  fd.append('sell_price', document.getElementById('qa-sell').value);
+  btn.disabled = true;
+  fetch('product_quick_add.php', { method: 'POST', body: fd })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      btn.disabled = false;
+      if (!ok) { errBox.textContent = d.error || 'Không tạo được hàng mới.'; errBox.style.display = 'block'; return; }
+      addLine(d.id, d.variant_id, d.name, parseFloat(d.cost_price) || 0, d.pack_unit, parseFloat(d.pack_size) || 1);
+      searchInput.value = '';
+      closeQuickAdd();
+    })
+    .catch(() => { btn.disabled = false; errBox.textContent = 'Lỗi kết nối, vui lòng thử lại.'; errBox.style.display = 'block'; });
 });
 
 // Quet ma vach bang camera dien thoai/laptop - chi tai thu vien khi bam nut.

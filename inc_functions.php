@@ -332,7 +332,7 @@ const PERMISSION_GROUP_FILES = [
         'price_adjustments.php', 'price_adjustment_search.php', 'reorder_suggestions.php', 'purchase_orders.php',
         'purchase_order_form.php', 'purchase_order_view.php', 'purchase_order_receive.php',
         'purchase_order_search.php', 'stock_receipts.php', 'stock_receipt_form.php',
-        'stock_receipt_view.php', 'stock_receipt_pay.php', 'stock_receipt_search.php',
+        'stock_receipt_view.php', 'stock_receipt_pay.php', 'stock_receipt_search.php', 'product_quick_add.php',
         'stock_takes.php', 'stock_take_form.php', 'stock_take_view.php', 'stock_take_balance.php',
         'stock_take_search.php', 'stock_transfers.php', 'stock_transfer_form.php',
         'stock_transfer_view.php', 'stock_transfer_receive.php', 'stock_transfer_search.php',
