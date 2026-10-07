@@ -32,6 +32,16 @@ $stmt = $pdo->prepare(
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $salesSummary = $stmt->fetch();
 
+// Tra hang trong ky: tru khoi doanh thu (so tien da hoan khach) de bao cao khop voi so quy.
+$stmt = $pdo->prepare(
+    "SELECT COALESCE(SUM(r.refund_amount),0) FROM order_returns r
+     JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?"
+);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
+$returnsTotal = (float) $stmt->fetchColumn();
+$salesSummary['revenue'] = (float) $salesSummary['revenue'] - $returnsTotal;
+
 // Dung gia von da chot san TAI THOI DIEM BAN (oi.cost_price) thay vi gia von hien tai cua san
 // pham - tranh bao cao lai gop cua ky trong qua khu bi tinh lai moi khi gia nhap thay doi sau
 // nay. COALESCE ve gia hien tai chi la fallback cho don hang rat cu truoc khi co cot nay.
@@ -46,6 +56,20 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $totalCost = (float) $stmt->fetch()['total_cost'];
+
+// Gia von cua hang da tra lai kho trong ky cung duoc tru de lai gop khong bi tinh sai.
+$stmt = $pdo->prepare(
+    "SELECT COALESCE(SUM(ri.quantity * COALESCE(oi.cost_price, v.cost_price, p.cost_price)),0)
+     FROM order_return_items ri
+     JOIN order_returns r ON r.id = ri.return_id
+     JOIN order_items oi ON oi.id = ri.order_item_id
+     JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+     JOIN products p ON p.id = oi.product_id
+     LEFT JOIN product_variants v ON v.id = oi.variant_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ?"
+);
+$stmt->execute([$fromDt, $toDt, $tenantId]);
+$totalCost -= (float) $stmt->fetchColumn();
 $grossProfit = (float) $salesSummary['revenue'] - $totalCost;
 
 // --- Top sản phẩm bán chạy ---

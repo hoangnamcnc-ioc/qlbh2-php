@@ -18,6 +18,11 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$id, currentTenantId()]);
 $order = $stmt->fetch();
+$currentUserForPrint = $_SESSION['user'] ?? null;
+// Thu ngan chi in duoc don cua chi nhanh minh (ADMIN/MANAGER xem moi chi nhanh trong cua hang).
+if ($order && !hasRole('ADMIN', 'MANAGER') && (int) $order['branch_id'] !== effectiveBranchId($currentUserForPrint)) {
+    $order = false;
+}
 if (!$order) { http_response_code(404); exit('Không tìm thấy đơn hàng'); }
 
 $items = $pdo->prepare(
