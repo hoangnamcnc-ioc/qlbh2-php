@@ -17,6 +17,12 @@ $reason = $reason ?: null;
 $order = layDonHangCuaToi($orderId);
 
 if ($order && $order['status'] !== 'CANCELLED') {
+    // Đơn đã có phiếu trả hàng: hủy nữa sẽ hoàn kho/tiền lần thứ hai cho cùng số hàng đó.
+    $returnCheck = $pdo->prepare('SELECT COUNT(*) FROM order_returns WHERE order_id = ?');
+    $returnCheck->execute([$orderId]);
+    if ((int) $returnCheck->fetchColumn() > 0) {
+        redirect('order_view.php?id=' . $orderId . '&err=' . urlencode('Đơn này đã có phiếu trả hàng nên không thể hủy nữa (hàng và tiền đã được hoàn theo phiếu trả).'));
+    }
     $pdo->beginTransaction();
     try {
         $items = $pdo->prepare('SELECT * FROM order_items WHERE order_id = ?');
@@ -67,6 +73,7 @@ if ($order && $order['status'] !== 'CANCELLED') {
             }
         }
 
+        hoanTacTaiChinhKhiHuyDon($pdo, $order, (int) $currentUser['id']);
         $pdo->prepare("UPDATE orders SET status = 'CANCELLED' WHERE id = ?")->execute([$orderId]);
         $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?,?,"CANCELLED",?,?)')
             ->execute([$orderId, $order['status'], $reason, $currentUser['id']]);

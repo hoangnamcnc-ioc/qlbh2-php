@@ -337,7 +337,7 @@ const PERMISSION_GROUP_FILES = [
         'stock_take_search.php', 'stock_transfers.php', 'stock_transfer_form.php',
         'stock_transfer_view.php', 'stock_transfer_receive.php', 'stock_transfer_search.php',
         'suppliers.php', 'supplier_view.php', 'supplier_returns.php', 'supplier_return_form.php',
-        'product_labels.php', 'product_labels_search.php',
+        'product_labels.php',
     ],
     'customers' => ['customers_export.php', 'customers_import.php', 'groups.php', 'customer_tiers.php'],
     'marketing' => [
@@ -524,6 +524,78 @@ function recordCashbookEntry(
     db()->prepare(
         'INSERT INTO cashbook_entries (code, branch_id, type, amount, reason, payment_method, created_by_id, order_id, receipt_id, auto_generated) VALUES (?,?,?,?,?,?,?,?,?,1)'
     )->execute([$code, $branchId, $type, $amount, $reason, $paymentMethod, $createdById, $orderId, $receiptId]);
+}
+
+/**
+ * Số tiền ĐÃ THU RÒNG của 1 đơn theo từng phương thức thanh toán (thu - chi/hoàn đã ghi sổ quỹ
+ * gắn với đơn này), chỉ trả về các phương thức còn dương. Dùng để hoàn tiền khi hủy/trả hàng
+ * đúng bằng số tiền thật sự đã nhận, không phải số trên giấy tờ.
+ */
+function soTienDaThuRongTheoPhuongThuc(PDO $pdo, int $orderId): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT payment_method AS m,
+                SUM(CASE WHEN type = 'RECEIPT' THEN amount ELSE -amount END) AS net
+         FROM cashbook_entries WHERE order_id = ? GROUP BY payment_method"
+    );
+    $stmt->execute([$orderId]);
+    $result = [];
+    foreach ($stmt->fetchAll() as $row) {
+        if ((float) $row['net'] > 0) {
+            $result[$row['m'] ?: 'CASH'] = (float) $row['net'];
+        }
+    }
+    arsort($result);
+    return $result;
+}
+
+/** Công nợ còn lại của riêng đơn này (tổng các dòng customer_debt_entries gắn với đơn), >= 0. */
+function congNoConLaiCuaDon(PDO $pdo, int $orderId): float
+{
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount), 0) FROM customer_debt_entries WHERE order_id = ?');
+    $stmt->execute([$orderId]);
+    return max(0.0, (float) $stmt->fetchColumn());
+}
+
+/**
+ * Hoàn tác các ảnh hưởng tài chính của 1 đơn khi HỦY đơn (chạy trong transaction của nơi gọi):
+ * hoàn tiền đã thu (phiếu chi gắn với đơn, đúng phương thức đã thu), xóa phần công nợ còn lại của
+ * đơn, trừ điểm tích lũy đã cộng (chỉ khi đơn đang ở trạng thái Hoàn thành), trả lại 1 lượt dùng
+ * mã giảm giá, xóa phiếu bảo hành đã tự tạo. Tồn kho do nơi gọi tự hoàn.
+ */
+function hoanTacTaiChinhKhiHuyDon(PDO $pdo, array $order, int $userId): void
+{
+    $orderId = (int) $order['id'];
+    $branchId = (int) $order['branch_id'];
+
+    foreach (soTienDaThuRongTheoPhuongThuc($pdo, $orderId) as $method => $net) {
+        recordCashbookEntry($branchId, 'PAYMENT', $net, 'Hoàn tiền hủy đơn ' . $order['code'], $method, $userId, $orderId);
+    }
+
+    if ($order['customer_id']) {
+        $debt = congNoConLaiCuaDon($pdo, $orderId);
+        if ($debt > 0) {
+            $pdo->prepare('UPDATE customers SET debt = GREATEST(0, debt - ?) WHERE id = ?')->execute([$debt, $order['customer_id']]);
+            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                ->execute([$order['customer_id'], $orderId, -$debt, 'Hủy đơn hàng ' . $order['code'], $userId]);
+        }
+        if ($order['status'] === 'COMPLETED') {
+            $points = (int) floor((float) $order['total_amount'] / 10000);
+            if ($points > 0) {
+                $pdo->prepare('UPDATE customers SET loyalty_points = GREATEST(0, loyalty_points - ?) WHERE id = ?')
+                    ->execute([$points, $order['customer_id']]);
+            }
+        }
+    }
+
+    if (!empty($order['coupon_code'])) {
+        $pdo->prepare('UPDATE coupons SET used_count = GREATEST(0, used_count - 1) WHERE code = ? AND tenant_id = ?')
+            ->execute([$order['coupon_code'], currentTenantId()]);
+    }
+
+    $pdo->prepare(
+        'DELETE wc FROM warranty_cards wc JOIN order_items oi ON oi.id = wc.order_item_id WHERE oi.order_id = ?'
+    )->execute([$orderId]);
 }
 
 const RATE_LIMIT_MAX = 5;

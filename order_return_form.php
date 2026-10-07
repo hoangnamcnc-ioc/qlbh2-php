@@ -70,6 +70,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Đơn hàng không hợp lệ';
     } elseif (!hasRole('ADMIN', 'MANAGER') && (int) $orderRow['branch_id'] !== effectiveBranchId($currentUser)) {
         $error = 'Bạn không có quyền tạo trả hàng cho đơn của chi nhánh khác';
+    } elseif ($orderRow['status'] !== 'COMPLETED') {
+        // Đơn đã hủy/nháp/chưa giao xong thì chưa có giao dịch bán thật để trả - trả hàng sẽ cộng
+        // kho và chi tiền cho 1 lần bán không tồn tại (hoặc đã được hoàn khi hủy).
+        $error = 'Chỉ tạo trả hàng cho đơn đã Hoàn thành';
     } else {
         $hasQty = false;
         foreach ($quantities as $qty) {
@@ -150,6 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                // Giá trị hoàn = giá niêm yết các dòng trả x tỷ lệ (tiền hàng sau giảm giá / tiền hàng
+                // trước giảm giá) của đơn - khách đã được giảm giá thì chỉ hoàn đúng số đã trả cho
+                // phần hàng đó, không hoàn theo giá niêm yết.
+                $subTotal = (float) $orderRow['sub_total'];
+                $discountRatio = $subTotal > 0 ? max(0.0, ($subTotal - (float) $orderRow['discount']) / $subTotal) : 1.0;
+                $refundTotal = round($refundTotal * $discountRatio);
+
                 $code = 'SRN' . substr((string) (int) round(microtime(true) * 1000), -8);
 
                 $pdo->prepare(
@@ -166,13 +177,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($refundTotal > 0) {
-                    $cbCode = 'PC' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-                    $pdo->prepare(
-                        'INSERT INTO cashbook_entries (code, branch_id, type, amount, reason, created_by_id) VALUES (?,?,?,?,?,?)'
-                    )->execute([
-                        $cbCode, $orderRow['branch_id'], 'PAYMENT', $refundTotal,
-                        'Hoàn tiền đơn trả hàng ' . $code, $currentUser['id'],
-                    ]);
+                    // Hoàn tiền thật sự = phần khách ĐÃ TRẢ cho phần hàng này. Phần khách còn nợ
+                    // (chưa thanh toán) thì trừ vào công nợ của đơn thay vì chi tiền mặt ra.
+                    $debtReduce = 0.0;
+                    if ($orderRow['customer_id']) {
+                        $debtReduce = min($refundTotal, congNoConLaiCuaDon($pdo, $orderId));
+                        if ($debtReduce > 0) {
+                            $pdo->prepare('UPDATE customers SET debt = GREATEST(0, debt - ?) WHERE id = ?')
+                                ->execute([$debtReduce, $orderRow['customer_id']]);
+                            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                                ->execute([$orderRow['customer_id'], $orderId, -$debtReduce, 'Trả hàng ' . $code . ' - trừ vào công nợ', $currentUser['id']]);
+                        }
+                    }
+                    $cashRefund = $refundTotal - $debtReduce;
+                    foreach (soTienDaThuRongTheoPhuongThuc($pdo, $orderId) as $method => $net) {
+                        if ($cashRefund <= 0) break;
+                        $amountForMethod = min($cashRefund, $net);
+                        recordCashbookEntry(
+                            (int) $orderRow['branch_id'], 'PAYMENT', $amountForMethod,
+                            'Hoàn tiền đơn trả hàng ' . $code, $method, (int) $currentUser['id'], $orderId
+                        );
+                        $cashRefund -= $amountForMethod;
+                    }
+
+                    if ($orderRow['customer_id']) {
+                        $points = (int) floor($refundTotal / 10000);
+                        if ($points > 0) {
+                            $pdo->prepare('UPDATE customers SET loyalty_points = GREATEST(0, loyalty_points - ?) WHERE id = ?')
+                                ->execute([$points, $orderRow['customer_id']]);
+                        }
+                    }
                 }
 
                 $pdo->commit();

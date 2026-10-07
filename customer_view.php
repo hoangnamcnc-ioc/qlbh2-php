@@ -27,17 +27,32 @@ $debtError = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
     checkCsrf();
     $amount = postFloat('amount');
-    if ($amount <= 0 || $amount > (float) $customer['debt']) {
-        $debtError = 'Số tiền không hợp lệ';
-    } else {
-        $pdo->prepare('UPDATE customers SET debt = debt - ? WHERE id = ?')->execute([$amount, $id]);
-        $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, amount, note, created_by_id) VALUES (?,?,?,?)')
-            ->execute([$id, -$amount, 'Thu nợ trực tiếp', $currentUser['id']]);
-        $collectBranchId = effectiveBranchId($currentUser);
-        if ($collectBranchId) {
-            recordCashbookEntry($collectBranchId, 'RECEIPT', $amount, 'Thu nợ trực tiếp KH ' . $customer['name'], 'CASH', $currentUser['id']);
+    $pdo->beginTransaction();
+    try {
+        // Khóa dòng khách và đọc lại công nợ BÊN TRONG transaction - 2 lần bấm gần nhau không còn
+        // cùng vượt qua kiểm tra "số thu <= công nợ" rồi cùng trừ nợ.
+        $lock = $pdo->prepare('SELECT debt FROM customers WHERE id = ? AND tenant_id = ? FOR UPDATE');
+        $lock->execute([$id, currentTenantId()]);
+        $currentDebt = (float) $lock->fetchColumn();
+        if ($amount <= 0 || $amount > $currentDebt) {
+            $pdo->rollBack();
+            $debtError = 'Số tiền không hợp lệ';
+        } else {
+            $pdo->prepare('UPDATE customers SET debt = debt - ? WHERE id = ?')->execute([$amount, $id]);
+            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, amount, note, created_by_id) VALUES (?,?,?,?)')
+                ->execute([$id, -$amount, 'Thu nợ trực tiếp', $currentUser['id']]);
+            $collectBranchId = effectiveBranchId($currentUser);
+            if ($collectBranchId) {
+                recordCashbookEntry($collectBranchId, 'RECEIPT', $amount, 'Thu nợ trực tiếp KH ' . $customer['name'], 'CASH', $currentUser['id']);
+            }
+            $pdo->commit();
+            redirect('customer_view.php?id=' . $id);
         }
-        redirect('customer_view.php?id=' . $id);
+    } catch (Throwable $ex) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $debtError = 'Không ghi nhận được khoản thu, vui lòng thử lại.';
     }
 }
 

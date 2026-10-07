@@ -70,7 +70,7 @@ $categories = $categoriesStmt->fetchAll();
     <thead>
       <tr>
         <th>SKU</th><th>Tên sản phẩm</th><th>Danh mục</th><th>Đơn vị</th>
-        <th class="text-right">Giá vốn</th><th class="text-right">Giá bán</th>
+        <?php if (hasRole('ADMIN', 'MANAGER')): ?><th class="text-right">Giá vốn</th><?php endif; ?><th class="text-right">Giá bán</th>
         <th class="text-right">Tồn kho</th><th>Trạng thái</th>
       </tr>
     </thead>
@@ -90,7 +90,7 @@ $categories = $categoriesStmt->fetchAll();
           <td><?php if (hasRole('ADMIN', 'MANAGER')): ?><a href="product_form.php?id=<?= (int) $p['id'] ?>"><?= e($p['name']) ?></a><?php else: ?><?= e($p['name']) ?><?php endif; ?></td>
           <td class="muted"><?= e($p['category_name'] ?: '—') ?></td>
           <td><?= e($p['unit'] ?: '—') ?></td>
-          <td class="text-right"><?= money($p['cost_price']) ?></td>
+          <?php if (hasRole('ADMIN', 'MANAGER')): ?><td class="text-right"><?= money($p['cost_price']) ?></td><?php endif; ?>
           <td class="text-right"><?= money($p['sell_price']) ?></td>
           <td class="text-right"><?= fmtQty($p['total_qty']) ?></td>
           <td>

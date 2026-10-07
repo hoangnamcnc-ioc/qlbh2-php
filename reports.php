@@ -27,7 +27,7 @@ if (!in_array($topN, [10, 20, 50, 100], true)) {
 $stmt = $pdo->prepare(
     "SELECT COUNT(*) AS order_count, COALESCE(SUM(o.total_amount),0) AS revenue
      FROM orders o JOIN branches b ON b.id = o.branch_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?"
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $salesSummary = $stmt->fetch();
@@ -42,7 +42,7 @@ $stmt = $pdo->prepare(
      JOIN branches b ON b.id = o.branch_id
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN product_variants v ON v.id = oi.variant_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?"
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $totalCost = (float) $stmt->fetch()['total_cost'];
@@ -57,7 +57,7 @@ $stmt = $pdo->prepare(
      JOIN branches b ON b.id = o.branch_id
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN product_variants v ON v.id = oi.variant_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY oi.product_id, oi.variant_id ORDER BY qty DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
@@ -67,7 +67,7 @@ $topProducts = $stmt->fetchAll();
 $stmt = $pdo->prepare(
     "SELECT c.name, c.phone, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
      FROM orders o JOIN branches b ON b.id = o.branch_id JOIN customers c ON c.id = o.customer_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY o.customer_id ORDER BY total DESC LIMIT $topN"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
@@ -77,7 +77,7 @@ $topCustomers = $stmt->fetchAll();
 $stmt = $pdo->prepare(
     "SELECT DATE(o.created_at) AS d, COUNT(*) AS order_count, SUM(o.total_amount) AS total
      FROM orders o JOIN branches b ON b.id = o.branch_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY DATE(o.created_at) ORDER BY d DESC"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
@@ -100,7 +100,7 @@ $stock = $stockStmt->fetch();
 $stmt = $pdo->prepare(
     "SELECT COALESCE(sc.name, 'Trực tiếp') AS channel_name, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
      FROM orders o JOIN branches b ON b.id = o.branch_id LEFT JOIN sales_channels sc ON sc.id = o.channel_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY o.channel_id ORDER BY total DESC"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
@@ -111,7 +111,7 @@ $paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản
 $stmt = $pdo->prepare(
     "SELECT p.method, COUNT(*) AS payment_count, SUM(p.amount) AS total
      FROM payments p JOIN orders o ON o.id = p.order_id JOIN branches b ON b.id = o.branch_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY p.method ORDER BY total DESC"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
@@ -121,7 +121,7 @@ $byPaymentMethod = $stmt->fetchAll();
 $stmt = $pdo->prepare(
     "SELECT u.name AS staff_name, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total
      FROM orders o JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = o.sold_by_id
-     WHERE o.created_at BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE o.created_at BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY o.sold_by_id ORDER BY total DESC"
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);

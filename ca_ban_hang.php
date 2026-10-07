@@ -22,17 +22,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'open') {
         $openingCash = postFloat('opening_cash');
         $openNote = post('open_note');
-        if ($openingCash < 0) {
+        if (!$branchId) {
+            $error = 'Tài khoản chưa được gán chi nhánh, không thể mở ca';
+        } elseif ($openingCash < 0) {
             $error = 'Số tiền mở ca không được âm';
         } else {
+            // Khoa dong chi nhanh trong giao dich de hai nguoi bam "Mo ca" cung luc khong tao 2 ca.
+            $pdo->beginTransaction();
+            $pdo->prepare('SELECT id FROM branches WHERE id = ? AND tenant_id = ? FOR UPDATE')
+                ->execute([$branchId, currentTenantId()]);
             $existing = $pdo->prepare("SELECT id FROM pos_shifts WHERE branch_id = ? AND status = 'OPEN'");
             $existing->execute([$branchId]);
             if ($existing->fetchColumn()) {
+                $pdo->rollBack();
                 $error = 'Chi nhánh này đang có ca chưa đóng, không thể mở ca mới';
             } else {
                 $pdo->prepare(
                     'INSERT INTO pos_shifts (branch_id, opened_by_id, opening_cash, open_note) VALUES (?, ?, ?, ?)'
                 )->execute([$branchId, $currentUser['id'], $openingCash, $openNote]);
+                $pdo->commit();
                 redirect('ca_ban_hang.php');
             }
         }
@@ -65,15 +73,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $expectedCash = (float) $shift['opening_cash'] + $cashReceipts - $cashPayments;
             $difference = $countedCash - $expectedCash;
 
-            $pdo->prepare(
+            $closeStmt = $pdo->prepare(
                 "UPDATE pos_shifts SET status = 'CLOSED', closed_by_id = ?, closed_at = NOW(),
                  cash_receipts = ?, cash_payments = ?, expected_cash = ?,
-                 counted_cash = ?, difference = ?, close_note = ? WHERE id = ?"
-            )->execute([
+                 counted_cash = ?, difference = ?, close_note = ? WHERE id = ? AND status = 'OPEN'"
+            );
+            $closeStmt->execute([
                 $currentUser['id'], $cashReceipts, $cashPayments, $expectedCash,
                 $countedCash, $difference, $closeNote, $shiftId,
             ]);
-            redirect('ca_ban_hang.php?closed=' . $shiftId);
+            if ($closeStmt->rowCount() === 0) {
+                $error = 'Ca này đã được đóng trước đó';
+            } else {
+                redirect('ca_ban_hang.php?closed=' . $shiftId);
+            }
         }
     }
 }

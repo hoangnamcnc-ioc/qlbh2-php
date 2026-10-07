@@ -32,7 +32,7 @@ if ($branchId) {
 }
 
 $revenueToday = $pdo->prepare(
-    "SELECT COALESCE(SUM(total_amount),0) AS total FROM orders o WHERE created_at >= ? AND status != 'CANCELLED'$branchWhere"
+    "SELECT COALESCE(SUM(total_amount),0) AS total FROM orders o WHERE created_at >= ? AND status NOT IN ('CANCELLED','DRAFT')$branchWhere"
 );
 $revenueToday->execute([$today, ...$branchParam]);
 $revenueToday = (float) $revenueToday->fetch()['total'];
@@ -68,7 +68,7 @@ $totalStockValue = (float) $stockRow['val'];
 $from7 = date('Y-m-d 00:00:00', strtotime('-6 days'));
 $stmt = $pdo->prepare(
     "SELECT DATE(created_at) AS d, COALESCE(SUM(total_amount),0) AS total
-     FROM orders o WHERE created_at >= ? AND status != 'CANCELLED'$branchWhere
+     FROM orders o WHERE created_at >= ? AND status NOT IN ('CANCELLED','DRAFT')$branchWhere
      GROUP BY DATE(created_at)"
 );
 $stmt->execute([$from7, ...$branchParam]);
@@ -110,7 +110,7 @@ $topProductsStmt = $pdo->prepare(
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
      JOIN products p ON p.id = oi.product_id
-     WHERE o.created_at >= ? AND o.status != 'CANCELLED'$branchWhere
+     WHERE o.created_at >= ? AND o.status NOT IN ('CANCELLED','DRAFT')$branchWhere
      GROUP BY oi.product_id, p.name
      ORDER BY revenue DESC LIMIT 5"
 );

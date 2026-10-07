@@ -858,9 +858,11 @@ document.getElementById('coupon-apply-btn').addEventListener('click', () => {
     });
 });
 
+let checkoutIdemKey = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
 function buildCheckoutPayload() {
   return {
     csrf: csrfToken,
+    idem_key: checkoutIdemKey,
     items: cart.map(c => ({ product_id: c.id, variant_id: c.variantId, quantity: c.qty, unit_price: c.price })),
     payment_method: document.getElementById('payment-method').value,
     customer_phone: document.getElementById('customer-phone').value,
@@ -887,6 +889,7 @@ document.getElementById('partial-payment-toggle').addEventListener('change', (e)
 });
 
 function resetOrderAfterCheckout() {
+  checkoutIdemKey = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
   if (orders.length > 1) {
     orders.splice(currentOrderIndex, 1);
     currentOrderIndex = Math.min(currentOrderIndex, orders.length - 1);
@@ -1292,6 +1295,7 @@ document.addEventListener('keydown', (e) => {
 // Quet ma vach bang camera dien thoai/laptop - chi tai thu vien khi bam nut, khong lam nang
 // trang cho nguoi khong dung. Ket qua quet duoc dung chung 1 ham scanCode() voi may quet gun.
 let html5QrCode = null;
+let html5QrStart = null;
 let scanCooldown = false;
 
 function openScanner() {
@@ -1301,8 +1305,9 @@ function openScanner() {
     document.getElementById('scan-hint').style.color = '#dc2626';
     return;
   }
+  if (html5QrCode) return; // dang mo / dang chay roi: tranh mo camera hai lan
   html5QrCode = new Html5Qrcode('scan-reader');
-  html5QrCode.start(
+  html5QrStart = html5QrCode.start(
     { facingMode: 'environment' },
     { fps: 10, qrbox: { width: 260, height: 160 } },
     (decodedText) => {
@@ -1312,7 +1317,9 @@ function openScanner() {
       setTimeout(() => { scanCooldown = false; }, 1500);
     },
     () => {}
-  ).catch((err) => {
+  );
+  html5QrStart.catch((err) => {
+    html5QrCode = null;
     document.getElementById('scan-hint').textContent = 'Không mở được camera: ' + err
       + '. Kiểm tra đã cho phép trình duyệt dùng camera chưa.';
     document.getElementById('scan-hint').style.color = '#dc2626';
@@ -1322,10 +1329,14 @@ function openScanner() {
 function closeScanner() {
   document.getElementById('scan-modal').style.display = 'none';
   if (html5QrCode) {
-    html5QrCode.stop().then(() => html5QrCode.clear()).catch(() => {});
+    // Cho start() xong roi moi stop(): dong modal luc camera dang khoi dong thi stop() truoc do
+    // se loi va den camera bi bat mai.
+    const qr = html5QrCode;
     html5QrCode = null;
+    (html5QrStart || Promise.resolve()).then(() => qr.stop()).then(() => qr.clear()).catch(() => {});
   }
 }
+window.addEventListener('pagehide', closeScanner);
 
 document.getElementById('scan-btn').addEventListener('click', openScanner);
 document.getElementById('scan-close').addEventListener('click', closeScanner);

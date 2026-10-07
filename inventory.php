@@ -80,7 +80,7 @@ $inventories = $stmt->fetchAll();
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
-      <tr><th>SKU</th><th>Sản phẩm</th><th>Chi nhánh</th><th class="text-right">Tồn kho</th><th class="text-right">Định mức</th><th class="text-right">Giá trị tồn</th><th>Trạng thái</th></tr>
+      <tr><th>SKU</th><th>Sản phẩm</th><th>Chi nhánh</th><th class="text-right">Tồn kho</th><th class="text-right">Định mức</th><?php if (hasRole('ADMIN', 'MANAGER')): ?><th class="text-right">Giá trị tồn</th><?php endif; ?><th>Trạng thái</th></tr>
     </thead>
     <tbody>
       <?php if (!$inventories): ?>
@@ -110,7 +110,7 @@ $inventories = $stmt->fetchAll();
             <?php endif; ?>
           </td>
           <td class="text-right muted"><?= (int) $inv['min_stock'] ?></td>
-          <td class="text-right"><?= money($inv['stock_value']) ?></td>
+          <?php if (hasRole('ADMIN', 'MANAGER')): ?><td class="text-right"><?= money($inv['stock_value']) ?></td><?php endif; ?>
           <td>
             <?php if ($isLow): ?>
               <span class="badge badge-red">Dưới định mức</span>

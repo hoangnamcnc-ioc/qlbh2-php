@@ -12,6 +12,15 @@ if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $input['csrf'] ?
     exit;
 }
 
+// Chong bam dup / gui lai: phien PHP khoa tuan tu cac request cung phien, nen khoa nay da tao don
+// thanh cong roi thi tra lai dung don cu thay vi tao them don thu hai.
+$idemKey = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($input['idem_key'] ?? ''));
+$idemKey = substr($idemKey, 0, 64);
+if ($idemKey !== '' && isset($_SESSION['idem'][$idemKey])) {
+    echo json_encode($_SESSION['idem'][$idemKey]);
+    exit;
+}
+
 $branchId = effectiveBranchId($user);
 $tenantId = currentTenantId();
 if (!$branchId) {
@@ -134,7 +143,7 @@ try {
         $variantId = (int) ($line['variant_id'] ?? 0) ?: null;
         $quantity = round((float) ($line['quantity'] ?? 0), 3);
         $unitPrice = (float) ($line['unit_price'] ?? 0);
-        if ($productId <= 0 || $quantity <= 0) {
+        if ($productId <= 0 || $quantity <= 0 || !is_finite($unitPrice) || $unitPrice < 0) {
             throw new RuntimeException('Dữ liệu sản phẩm không hợp lệ');
         }
 
@@ -428,7 +437,14 @@ try {
     }
 
     $pdo->commit();
-    echo json_encode(['order_id' => $orderId, 'code' => $code]);
+    $okResponse = ['order_id' => $orderId, 'code' => $code];
+    if ($idemKey !== '') {
+        $_SESSION['idem'][$idemKey] = $okResponse;
+        if (count($_SESSION['idem']) > 50) {
+            $_SESSION['idem'] = array_slice($_SESSION['idem'], -50, null, true);
+        }
+    }
+    echo json_encode($okResponse);
 } catch (RuntimeException $ex) {
     $pdo->rollBack();
     echo json_encode(['error' => $ex->getMessage()]);
