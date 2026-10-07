@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; padding: 10px 14px; border-radius: 6px; font-size: 13.5px; margin-bottom: 16px; line-height: 1.6; }
   .back-link { display: block; text-align: center; margin-top: 14px; font-size: 13px; color: #64748b; }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png">
 </head>
 <body>
   <div class="box">

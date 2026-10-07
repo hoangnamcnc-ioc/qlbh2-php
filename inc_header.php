@@ -138,7 +138,7 @@ if ($isManagerUp) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QLBH-CLOUD - Quản lý bán hàng</title>
-<?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
+<?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php else: ?><link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png"><link rel="apple-touch-icon" href="img/logo.png"><?php endif; ?>
 <style>
   :root { --brand: <?= e($brandColor) ?>; --brand-dark: <?= e($brandColorDark) ?>; }
   * { box-sizing: border-box; }
@@ -223,7 +223,7 @@ if ($isManagerUp) {
 <div class="layout">
   <aside class="sidebar">
     <div class="brand" style="display:flex;align-items:center;gap:8px;">
-      <?php if ($storeLogo): ?><img src="uploads/store/<?= e($storeLogo) ?>" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;background:#fff;"><?php endif; ?>
+      <?php if ($storeLogo): ?><img src="uploads/store/<?= e($storeLogo) ?>" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;background:#fff;"><?php else: ?><img src="img/logo-64.png" alt="KT-SOFT" style="width:28px;height:28px;border-radius:6px;"><?php endif; ?>
       <span>QLBH-CLOUD</span>
     </div>
     <?php foreach ($navGroups as $label => $links): ?>

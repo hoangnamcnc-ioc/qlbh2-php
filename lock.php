@@ -49,6 +49,7 @@ $storeLogo = getSetting('store_logo', '');
   .logout-link { display: block; margin-top: 16px; font-size: 12px; color: #94a3b8; text-decoration: none; }
   .logout-link:hover { text-decoration: underline; }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png">
 </head>
 <body>
   <div class="box">

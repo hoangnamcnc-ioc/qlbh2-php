@@ -28,7 +28,8 @@ if ($loggedInUser && !isset($_GET['new'])) {
       .choice-secondary { background: #fff; color: #2563eb; border: 1.5px solid #2563eb; }
       .choice-secondary:hover { background: #eff6ff; }
     </style>
-    </head>
+    <link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png">
+</head>
     <body>
       <div class="box">
         <h1>Bạn đang đăng nhập</h1>
@@ -143,6 +144,7 @@ $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
   .login-link a { color: #2563eb; text-decoration: none; }
   .login-link a:hover { text-decoration: underline; }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png">
 </head>
 <body>
   <div class="box">
