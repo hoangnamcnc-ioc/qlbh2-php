@@ -151,6 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
                                 ->execute([$orderRow['branch_id'], $item['product_id'], $item['variant_id'], $qty]);
                         }
+                        hoanLoHangTheoDong($pdo, (int) $item['id'], (float) $qty);
                     }
                 }
 

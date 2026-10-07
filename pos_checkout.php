@@ -139,6 +139,7 @@ try {
     $lineData = [];
 
     foreach ($items as $line) {
+        $lineBatches = [];
         $productId = (int) ($line['product_id'] ?? 0);
         $variantId = (int) ($line['variant_id'] ?? 0) ?: null;
         $quantity = round((float) ($line['quantity'] ?? 0), 3);
@@ -284,13 +285,14 @@ try {
                     $take = min($remaining, (float) $batch['quantity']);
                     $pdo->prepare('UPDATE product_batches SET quantity = quantity - ? WHERE id = ?')->execute([$take, $batch['id']]);
                     $remaining -= $take;
+                    $lineBatches[] = [(int) $batch['id'], $take];
                 }
             }
         }
 
         $lineTotal = $unitPrice * $quantity;
         $subTotal += $lineTotal;
-        $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice];
+        $lineData[] = [$productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice, $lineBatches];
     }
 
     // Chiết khấu đơn nhập tay (F6) tính trước, luôn giới hạn không vượt quá tổng tiền hàng
@@ -406,8 +408,15 @@ try {
     $itemStmt = $pdo->prepare(
         'INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, line_total, cost_price) VALUES (?,?,?,?,?,?,?)'
     );
-    foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice]) {
+    foreach ($lineData as [$productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice, $lineBatches]) {
         $itemStmt->execute([$orderId, $productId, $variantId, $quantity, $unitPrice, $lineTotal, $costPrice]);
+        if ($lineBatches) {
+            $orderItemId = (int) $pdo->lastInsertId();
+            foreach ($lineBatches as [$batchId, $takeQty]) {
+                $pdo->prepare('INSERT INTO order_item_batches (order_item_id, batch_id, quantity) VALUES (?,?,?)')
+                    ->execute([$orderItemId, $batchId, $takeQty]);
+            }
+        }
     }
 
     if ($couponId) {

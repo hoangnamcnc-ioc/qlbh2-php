@@ -892,3 +892,13 @@ CREATE TABLE IF NOT EXISTS work_schedules (
   FOREIGN KEY (tenant_id) REFERENCES tenants(id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Ghi lai dong don hang da lay bao nhieu tu lo hang nao (FEFO) de huy don / tra hang hoan dung lo
+CREATE TABLE IF NOT EXISTS order_item_batches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_item_id INT NOT NULL,
+  batch_id INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
+  FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
+  FOREIGN KEY (batch_id) REFERENCES product_batches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

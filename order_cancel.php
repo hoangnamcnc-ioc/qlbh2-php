@@ -56,6 +56,8 @@ if ($order && $order['status'] !== 'CANCELLED') {
                 continue;
             }
 
+            hoanLoHangTheoDong($pdo, (int) $item['id']);
+
             if ($item['variant_id']) {
                 $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
                 $inv->execute([$order['branch_id'], $item['variant_id']]);

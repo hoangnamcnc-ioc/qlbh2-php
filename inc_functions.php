@@ -598,6 +598,29 @@ function hoanTacTaiChinhKhiHuyDon(PDO $pdo, array $order, int $userId): void
     )->execute([$orderId]);
 }
 
+/**
+ * Tra lai hang vao DUNG cac lo (FEFO) da bi tru khi ban don nay. Ban ghi order_item_batches luu
+ * "dong don nay da lay bao nhieu tu lo nao". $quantity = null: hoan toan bo (huy don); co so:
+ * hoan dung so luong do (tra hang) theo thu tu da lay. Giam so da ghi de tra nhieu lan khong vuot.
+ * Don cu truoc khi co bang ghi nay se khong co dong nao -> khong lam gi (nhu hanh vi cu).
+ */
+function hoanLoHangTheoDong(PDO $pdo, int $orderItemId, ?float $quantity = null): void
+{
+    $rows = $pdo->prepare('SELECT id, batch_id, quantity FROM order_item_batches WHERE order_item_id = ? AND quantity > 0 ORDER BY id FOR UPDATE');
+    $rows->execute([$orderItemId]);
+    $remaining = $quantity;
+    foreach ($rows->fetchAll() as $r) {
+        $give = $remaining === null ? (float) $r['quantity'] : min($remaining, (float) $r['quantity']);
+        if ($give <= 0) break;
+        $pdo->prepare('UPDATE product_batches SET quantity = quantity + ? WHERE id = ?')->execute([$give, $r['batch_id']]);
+        $pdo->prepare('UPDATE order_item_batches SET quantity = quantity - ? WHERE id = ?')->execute([$give, $r['id']]);
+        if ($remaining !== null) {
+            $remaining -= $give;
+            if ($remaining <= 0) break;
+        }
+    }
+}
+
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_LOCK_SECONDS = 15 * 60;
 
