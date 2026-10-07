@@ -32,12 +32,19 @@ if (!$validSignature) {
     $success = true;
     $message = 'Đơn thanh toán này đã được xử lý trước đó.';
 } elseif ($responseCode !== '00') {
-    $pdo->prepare("UPDATE subscription_payments SET status = 'FAILED' WHERE id = ?")->execute([$payment['id']]);
+    $pdo->prepare("UPDATE subscription_payments SET status = 'FAILED' WHERE id = ? AND status = 'PENDING'")->execute([$payment['id']]);
     $message = 'Giao dịch không thành công hoặc đã bị hủy (mã lỗi VNPay: ' . e($responseCode) . ').';
 } else {
     $txnNo = $params['vnp_TransactionNo'] ?? null;
-    $pdo->prepare("UPDATE subscription_payments SET status = 'SUCCESS', vnp_transaction_no = ?, paid_at = NOW() WHERE id = ?")
-        ->execute([$txnNo, $payment['id']]);
+    // Chi dong "PENDING" -> "SUCCESS" duoc 1 lan: neu IPN cua VNPay chay dong thoi voi trang return
+    // thi chi 1 ben cong thoi han, ben kia thay rowCount = 0 va bo qua.
+    $mark = $pdo->prepare("UPDATE subscription_payments SET status = 'SUCCESS', vnp_transaction_no = ?, paid_at = NOW() WHERE id = ? AND status = 'PENDING'");
+    $mark->execute([$txnNo, $payment['id']]);
+    if ($mark->rowCount() === 0) {
+        $success = true;
+        $message = 'Đơn thanh toán này đã được xử lý trước đó.';
+        goto ketThuc;
+    }
 
     $pdo->prepare(
         "UPDATE tenants SET plan = 'PAID',
@@ -59,6 +66,7 @@ if (!$validSignature) {
     $success = true;
     $message = 'Thanh toán thành công! Gói dịch vụ của bạn đã được kích hoạt.';
 }
+ketThuc:
 ?>
 <!DOCTYPE html>
 <html lang="vi">

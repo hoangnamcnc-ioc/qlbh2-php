@@ -384,7 +384,7 @@ document.getElementById('discount-input').addEventListener('input', updateTotals
 document.getElementById('extra-cost-input').addEventListener('input', updateTotals);
 
 function fmt(n) { return Math.round(n).toLocaleString('vi-VN'); }
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {

@@ -1232,9 +1232,7 @@ document.getElementById('service-select').addEventListener('change', (e) => {
 function formatMoney(n) { return Math.round(n).toLocaleString('vi-VN'); }
 function fmtQty(n) { n = parseFloat(n) || 0; return n % 1 === 0 ? String(n) : String(Math.round(n * 1000) / 1000); }
 function escapeHtml(s) {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 document.addEventListener('click', (e) => {

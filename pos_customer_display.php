@@ -37,6 +37,7 @@ requireLogin();
     function formatMoney(n) { return Math.round(n).toLocaleString('vi-VN'); }
     const channel = new BroadcastChannel('qlbh2_pos_display');
     channel.onmessage = (e) => {
+      const escHtml = (t) => String(t ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       const data = e.data;
       document.getElementById('status').textContent = 'Đã kết nối · cập nhật ' + new Date().toLocaleTimeString('vi-VN');
       const itemsEl = document.getElementById('items');
@@ -44,7 +45,7 @@ requireLogin();
         itemsEl.innerHTML = '<div class="empty">Đơn hàng chưa có sản phẩm</div>';
       } else {
         itemsEl.innerHTML = data.cart.map(c => `
-          <div class="item"><span class="name">${c.name}</span><span class="qty">x${c.qty}</span><span>${formatMoney(c.price * c.qty)}</span></div>
+          <div class="item"><span class="name">${escHtml(c.name)}</span><span class="qty">x${Number(c.qty) || 0}</span><span>${formatMoney(c.price * c.qty)}</span></div>
         `).join('');
       }
       document.getElementById('subtotal').textContent = formatMoney(data.subTotal || 0);

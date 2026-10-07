@@ -43,6 +43,10 @@ if ($sku === '') {
 
 $check = $pdo->prepare('SELECT id FROM products WHERE sku = ? AND tenant_id = ?');
 $check->execute([$sku, $tenantId]);
+if (!$check->fetch()) {
+    $check = $pdo->prepare('SELECT id FROM product_variants WHERE sku = ? AND tenant_id = ?');
+    $check->execute([$sku, $tenantId]);
+}
 if ($check->fetch()) {
     traLoi(['error' => 'Mã SKU "' . $sku . '" đã có trong danh mục, hãy tìm và chọn hàng đó thay vì tạo mới.'], 409);
 }

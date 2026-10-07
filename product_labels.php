@@ -138,12 +138,12 @@ function renderLabelList() {
       <td>${escapeHtmlLbl(item.name)}</td>
       <td class="muted" style="font-family:monospace;font-size:12px;">${escapeHtmlLbl(item.sku)}</td>
       <td>${formatMoneyLbl(item.sell_price)}</td>
-      <td class="text-right"><input type="number" min="1" value="${item.soTem}" data-idx="${idx}" class="label-qty-input input" style="width:70px;text-align:right;"></td>
+      <td class="text-right"><input type="number" min="1" max="500" value="${item.soTem}" data-idx="${idx}" class="label-qty-input input" style="width:70px;text-align:right;"></td>
       <td class="text-right"><button type="button" class="btn btn-danger" data-remove="${idx}" style="padding:4px 10px;font-size:12px;">Xóa</button></td>
     </tr>`).join('');
   tbody.querySelectorAll('.label-qty-input').forEach(inp => {
     inp.addEventListener('input', () => {
-      labelList[parseInt(inp.dataset.idx, 10)].soTem = Math.max(1, parseInt(inp.value, 10) || 1);
+      labelList[parseInt(inp.dataset.idx, 10)].soTem = Math.min(500, Math.max(1, parseInt(inp.value, 10) || 1));
     });
   });
   tbody.querySelectorAll('[data-remove]').forEach(btn => {

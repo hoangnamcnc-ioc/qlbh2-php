@@ -30,7 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare('INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 1 HOUR))')
                 ->execute([$user['id'], $token]);
 
-            $resetLink = 'https://' . $_SERVER['HTTP_HOST'] . '/reset_password.php?token=' . $token;
+            // Co dinh ten mien that: HTTP_HOST do client gui len, ke tan cong co the gia Host de link
+            // dat lai mat khau trong email tro ve may chu cua ho.
+            $resetLink = 'https://app.kt-soft.vn/reset_password.php?token=' . $token;
             $subject = 'QLBH-CLOUD - Yeu cau dat lai mat khau';
             $body = "Xin chao {$user['name']},\n\n"
                 . "Co yeu cau dat lai mat khau cho tai khoan nay. Bam vao link duoi day de dat mat khau moi\n"

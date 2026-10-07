@@ -50,12 +50,15 @@ if ($payment['status'] !== 'PENDING') {
 }
 
 if ($responseCode !== '00') {
-    $pdo->prepare("UPDATE subscription_payments SET status = 'FAILED' WHERE id = ?")->execute([$payment['id']]);
+    $pdo->prepare("UPDATE subscription_payments SET status = 'FAILED' WHERE id = ? AND status = 'PENDING'")->execute([$payment['id']]);
     ipnRespond('00', 'Confirm Success');
 }
 
-$pdo->prepare("UPDATE subscription_payments SET status = 'SUCCESS', vnp_transaction_no = ?, paid_at = NOW() WHERE id = ?")
-    ->execute([$_GET['vnp_TransactionNo'] ?? null, $payment['id']]);
+$mark = $pdo->prepare("UPDATE subscription_payments SET status = 'SUCCESS', vnp_transaction_no = ?, paid_at = NOW() WHERE id = ? AND status = 'PENDING'");
+$mark->execute([$_GET['vnp_TransactionNo'] ?? null, $payment['id']]);
+if ($mark->rowCount() === 0) {
+    ipnRespond('02', 'Order already confirmed');
+}
 
 $pdo->prepare(
     "UPDATE tenants SET plan = 'PAID',
