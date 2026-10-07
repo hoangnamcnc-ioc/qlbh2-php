@@ -19,6 +19,14 @@ if ($take && !hasRole('ADMIN') && (int) $take['branch_id'] !== effectiveBranchId
 if ($take && $take['status'] === 'DRAFT') {
     $pdo->beginTransaction();
     try {
+        // Khoa phieu + doc lai trang thai trong giao dich de bam "Can bang kho" 2 lan khong ap
+        // dung chenh lech vao ton kho 2 lan.
+        $lock = $pdo->prepare('SELECT status FROM stock_takes WHERE id = ? FOR UPDATE');
+        $lock->execute([$takeId]);
+        if ($lock->fetchColumn() !== 'DRAFT') {
+            $pdo->rollBack();
+            redirect('stock_take_view.php?id=' . $takeId);
+        }
         $items = $pdo->prepare('SELECT * FROM stock_take_items WHERE take_id = ?');
         $items->execute([$takeId]);
 

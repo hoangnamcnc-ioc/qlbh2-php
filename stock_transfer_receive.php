@@ -33,6 +33,14 @@ if ($transfer && !hasRole('ADMIN')) {
 if ($transfer && $transfer['status'] === 'IN_TRANSIT') {
     $pdo->beginTransaction();
     try {
+        // Khoa dong phieu va doc lai trang thai TRONG giao dich: bam 2 lan lien tiep (hoac 2 may
+        // cung xac nhan) khong con cung thay "IN_TRANSIT" roi cung cong hang vao kho 2 lan.
+        $lock = $pdo->prepare('SELECT status FROM stock_transfers WHERE id = ? FOR UPDATE');
+        $lock->execute([$transferId]);
+        if ($lock->fetchColumn() !== 'IN_TRANSIT') {
+            $pdo->rollBack();
+            redirect('stock_transfer_view.php?id=' . $transferId);
+        }
         $items = $pdo->prepare('SELECT * FROM stock_transfer_items WHERE transfer_id = ?');
         $items->execute([$transferId]);
         $items = $items->fetchAll();

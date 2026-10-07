@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reason = post('reason');
     $paymentMethod = in_array($_POST['payment_method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true)
         ? $_POST['payment_method'] : 'CASH';
-    $branchId = (int) ($currentUser['branch_id'] ?? 0);
+    $branchId = effectiveBranchId($currentUser);
 
     if ($amount <= 0) {
         $error = 'Số tiền phải lớn hơn 0';
