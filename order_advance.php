@@ -18,7 +18,14 @@ if ($order) {
         $nextStatus = $pipeline[$idx + 1];
         $pdo->beginTransaction();
         try {
-            $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$nextStatus, $orderId]);
+            // Chi chuyen khi don van o dung trang thai vua doc: bam 2 lan/2 nguoi cung luc khong con
+            // cung "hoan thanh" don 2 lan (cong diem va tao the bao hanh 2 lan).
+            $move = $pdo->prepare('UPDATE orders SET status = ? WHERE id = ? AND status = ?');
+            $move->execute([$nextStatus, $orderId, $order['status']]);
+            if ($move->rowCount() === 0) {
+                $pdo->rollBack();
+                redirect('order_view.php?id=' . $orderId);
+            }
             $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?,?,?,?)')
                 ->execute([$orderId, $order['status'], $nextStatus, $currentUser['id']]);
 
