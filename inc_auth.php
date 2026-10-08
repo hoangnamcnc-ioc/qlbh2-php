@@ -286,6 +286,18 @@ function requireLogin(): array
         redirect('lock.php');
     }
 
+    // Vai tro tuy chinh "chat" (co the 'strict'): khong kem quyen ban hang co ban cua thu ngan - chi
+    // vao duoc khu Ban hang (POS, don hang, van chuyen...) khi duoc tich nhom 'pos'.
+    $u = currentUser();
+    if (!empty($u['custom_role_id']) && detectPagePermissionGroup() === 'pos'
+        && in_array('strict', currentUserPermissionGroups(), true) && !userHasPermissionGroup('pos')) {
+        http_response_code(403);
+        require_once __DIR__ . '/inc_header.php';
+        echo '<div class="alert alert-error">Vai trò của bạn không được dùng khu Bán hàng.</div>';
+        require_once __DIR__ . '/inc_footer.php';
+        exit;
+    }
+
     return currentUser();
 }
 

@@ -3,17 +3,20 @@ require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 
 $pdo = db();
-// shop.php la trang cong khai, khong dang nhap nen khong biet dang xem cua hang cua tenant nao.
-// Tam thoi CHI phuc vu tenant #1 (chu so huu KT-SOFT) cho toi khi xay dung storefront rieng theo
-// subdomain/slug cho tung tenant - khoa cung nhu vay de tranh lo du lieu san pham/gia/ton kho cua
-// cac tenant dang ky dung thu khac.
-$shopTenantId = 1;
+// Trang cong khai khong dang nhap: xac dinh cua hang theo ?s=<shop_slug> (Cau hinh > Dat hang Online).
+// Khong co ?s= thi van la cua hang #1 de cac link cu da gui khach tiep tuc chay.
+$shopSlug = (string) ($_GET['s'] ?? '');
+$shopTenantId = shopTenantFromSlug($shopSlug);
+if ($shopTenantId === 0) {
+    http_response_code(404);
+    exit('Không tìm thấy cửa hàng.');
+}
 $branch = $pdo->prepare("SELECT id, name FROM branches WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 1");
 $branch->execute([$shopTenantId]);
 $branch = $branch->fetch();
-$storeName = getSetting('store_name', 'Cửa hàng');
-$storeLogo = getSetting('store_logo', '');
-$enabled = getSetting('online_shop_enabled', '1') === '1';
+$storeName = getSettingForTenant($shopTenantId, 'store_name', 'Cửa hàng');
+$storeLogo = getSettingForTenant($shopTenantId, 'store_logo', '');
+$enabled = getSettingForTenant($shopTenantId, 'online_shop_enabled', '1') === '1';
 
 $products = [];
 if ($branch && $enabled) {
@@ -77,6 +80,7 @@ if ($branch && $enabled) {
     <div class="card">Hiện chưa có sản phẩm nào để đặt hàng.</div>
   <?php else: ?>
     <form method="post" action="shop_order.php">
+    <input type="hidden" name="s" value="<?= e($shopSlug) ?>">
       <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
       <div class="card">
         <?php foreach ($products as $p): ?>

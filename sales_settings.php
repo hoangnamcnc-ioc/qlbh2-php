@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $discountUnit = ($_POST['default_discount_unit'] ?? '') === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
     setSetting('default_discount_unit', $discountUnit);
+    setSetting('cashier_return_limit', (string) max(0, (int) round((float) ($_POST['cashier_return_limit'] ?? 0))));
     logActivity('SALES_SETTINGS_UPDATE');
     redirect('sales_settings.php?saved=1');
 }
@@ -22,6 +23,7 @@ foreach ($checkboxFields as $key) {
     $values[$key] = getSetting($key, '0');
 }
 $values['default_discount_unit'] = getSetting('default_discount_unit', 'AMOUNT');
+$values['cashier_return_limit'] = getSetting('cashier_return_limit', '500000');
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -52,6 +54,11 @@ require_once __DIR__ . '/inc_header.php';
         <option value="AMOUNT" <?= $values['default_discount_unit'] === 'AMOUNT' ? 'selected' : '' ?>>VNĐ</option>
         <option value="PERCENT" <?= $values['default_discount_unit'] === 'PERCENT' ? 'selected' : '' ?>>%</option>
       </select>
+    </div>
+    <div class="field">
+      <label>Hạn mức trả hàng của thu ngân (VNĐ mỗi phiếu)</label>
+      <input class="input" type="number" min="0" step="1000" name="cashier_return_limit" value="<?= e($values['cashier_return_limit']) ?>" style="max-width:200px;">
+      <div class="muted" style="font-size:12px;margin-top:4px;">Phiếu trả hàng có số tiền hoàn lớn hơn mức này phải do Quản lý/Quản trị tạo. Nhập 0 để không giới hạn.</div>
     </div>
     <button type="submit" class="btn">Lưu cấu hình</button>
   </form>

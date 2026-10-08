@@ -2,16 +2,23 @@
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 
+$shopQ = preg_match('/^[a-zA-Z0-9-]{3,60}$/', (string) ($_POST['s'] ?? '')) ? 's=' . urlencode((string) $_POST['s']) . '&' : '';
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('shop.php');
 
 if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $_POST['csrf'] ?? '')) {
-    redirect('shop.php?err=' . urlencode('Phiên làm việc đã hết hạn, vui lòng tải lại trang và thử lại.'));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Phiên làm việc đã hết hạn, vui lòng tải lại trang và thử lại.'));
 }
 
 $pdo = db();
-// Phai khop voi tenant cong khai duy nhat ma shop.php dang phuc vu - xem ghi chu trong shop.php.
-$shopTenantId = 1;
-$enabled = getSetting('online_shop_enabled', '1') === '1';
+// Cua hang nhan don: theo slug gui kem tu shop.php (rong = cua hang #1).
+$shopSlug = (string) ($_POST['s'] ?? '');
+$shopTenantId = shopTenantFromSlug($shopSlug);
+if ($shopTenantId === 0) {
+    http_response_code(404);
+    exit('Không tìm thấy cửa hàng.');
+}
+
+$enabled = getSettingForTenant($shopTenantId, 'online_shop_enabled', '1') === '1';
 $branch = $pdo->prepare("SELECT id FROM branches WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 1");
 $branch->execute([$shopTenantId]);
 $branch = $branch->fetch();
@@ -23,22 +30,22 @@ $note = post('note') ?: null;
 $qtyInput = $_POST['qty'] ?? [];
 
 if (!$enabled || !$branch) {
-    redirect('shop.php?err=' . urlencode('Cửa hàng hiện chưa mở đặt hàng online.'));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Cửa hàng hiện chưa mở đặt hàng online.'));
 }
 if ($customerName === '' || $customerPhone === '' || $customerAddress === '') {
-    redirect('shop.php?err=' . urlencode('Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.'));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.'));
 }
 if (!is_array($qtyInput)) {
-    redirect('shop.php?err=' . urlencode('Dữ liệu đặt hàng không hợp lệ.'));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Dữ liệu đặt hàng không hợp lệ.'));
 }
 
-$allowNegativeStock = getSetting('allow_negative_stock', '0') === '1';
+$allowNegativeStock = getSettingForTenant($shopTenantId, 'allow_negative_stock', '0') === '1';
 $branchId = (int) $branch['id'];
 $systemUserStmt = $pdo->prepare("SELECT id FROM users WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 1");
 $systemUserStmt->execute([$shopTenantId]);
 $systemUserId = (int) $systemUserStmt->fetchColumn();
 if (!$systemUserId) {
-    redirect('shop.php?err=' . urlencode('Cửa hàng chưa sẵn sàng nhận đơn online.'));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Cửa hàng chưa sẵn sàng nhận đơn online.'));
 }
 
 try {
@@ -114,11 +121,11 @@ try {
 
     $pdo->commit();
     logActivity('SHOP_ORDER_CREATE', "order_id=$orderId code=$code phone=$customerPhone");
-    redirect('shop.php?ok=1&code=' . urlencode($code));
+    redirect('shop.php?' . $shopQ . 'ok=1&code=' . urlencode($code));
 } catch (RuntimeException $ex) {
     $pdo->rollBack();
-    redirect('shop.php?err=' . urlencode($ex->getMessage()));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode($ex->getMessage()));
 } catch (Throwable $ex) {
     $pdo->rollBack();
-    redirect('shop.php?err=' . urlencode('Không thể đặt hàng lúc này, vui lòng thử lại.'));
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Không thể đặt hàng lúc này, vui lòng thử lại.'));
 }

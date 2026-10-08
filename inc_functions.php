@@ -422,11 +422,15 @@ function logActivity(string $action, string $detail = ''): void
 /** Đọc 1 giá trị cấu hình chung của cửa hàng (bảng store_settings, dạng key-value, theo tenant). */
 function getSetting(string $key, string $default = ''): string
 {
+    // Trang cong khai khong co phien dang nhap thi mac dinh ve tenant #1 (chu so huu); cac trang
+    // cong khai da biet tenant (shop.php?s=...) goi thang getSettingForTenant().
+    return getSettingForTenant(currentTenantId() ?: 1, $key, $default);
+}
+
+/** Doc cau hinh cua 1 tenant CU THE (dung cho trang cong khai da xac dinh tenant theo duong dan). */
+function getSettingForTenant(int $tenantId, string $key, string $default = ''): string
+{
     static $cache = [];
-    // Trang đặt hàng online công khai (shop.php) không có phiên đăng nhập nên không biết
-    // tenant nào — tạm mặc định về tenant #1 (chủ sở hữu) cho tới khi trang shop hỗ trợ multi-
-    // tenant thật (vd theo subdomain riêng từng cửa hàng).
-    $tenantId = currentTenantId() ?: 1;
     if (!isset($cache[$tenantId])) {
         $cache[$tenantId] = [];
         $stmt = db()->prepare('SELECT setting_key, setting_value FROM store_settings WHERE tenant_id = ?');
@@ -436,6 +440,25 @@ function getSetting(string $key, string $default = ''): string
         }
     }
     return $cache[$tenantId][$key] ?? $default;
+}
+
+/** Tenant cua cua hang online theo duong dan (shop_slug). Khong co slug -> tenant #1 (link cu van chay);
+ * slug sai / tenant bi khoa -> 0. */
+function shopTenantFromSlug(string $slug): int
+{
+    $slug = strtolower(trim($slug));
+    if ($slug === '') {
+        return 1;
+    }
+    if (!preg_match('/^[a-z0-9-]{3,60}$/', $slug)) {
+        return 0;
+    }
+    $stmt = db()->prepare(
+        "SELECT s.tenant_id FROM store_settings s JOIN tenants t ON t.id = s.tenant_id
+         WHERE s.setting_key = 'shop_slug' AND s.setting_value = ? AND t.is_active = 1 LIMIT 1"
+    );
+    $stmt->execute([$slug]);
+    return (int) $stmt->fetchColumn();
 }
 
 /** Ghi 1 giá trị cấu hình cho tenant hiện tại (bảng store_settings, PRIMARY KEY (tenant_id, setting_key)). */

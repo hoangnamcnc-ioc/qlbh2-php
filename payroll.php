@@ -15,7 +15,8 @@ function tinhGioCong(?string $gioVao, ?string $gioRa): float
     [$hV, $mV] = array_map('intval', explode(':', $gioVao));
     [$hR, $mR] = array_map('intval', explode(':', $gioRa));
     $phut = ($hR * 60 + $mR) - ($hV * 60 + $mV);
-    if ($phut <= 0) $phut += 24 * 60; // ca qua dem
+    if ($phut == 0) return 0; // vao va ra cung phut = chua lam gi (khong tinh thanh 24 gio)
+    if ($phut < 0) $phut += 24 * 60; // ca qua dem
     return $phut / 60;
 }
 

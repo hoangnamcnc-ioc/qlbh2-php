@@ -162,6 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $discountRatio = $subTotal > 0 ? max(0.0, ($subTotal - (float) $orderRow['discount']) / $subTotal) : 1.0;
                 $refundTotal = round($refundTotal * $discountRatio);
 
+                // Thu ngan chi duoc tra hang den han muc cau hinh (Cau hinh > Cau hinh ban hang);
+                // vuot muc phai do Quan ly/Quan tri lap phieu - tranh hoan nhieu tien khong ai duyet.
+                $returnLimit = (float) getSetting('cashier_return_limit', '500000');
+                if (!isManagerTier() && $returnLimit > 0 && $refundTotal > $returnLimit) {
+                    throw new RuntimeException('Số tiền hoàn ' . money($refundTotal) . ' vượt hạn mức trả hàng của thu ngân (' . money($returnLimit) . '). Vui lòng nhờ Quản lý lập phiếu trả hàng này.');
+                }
+
                 $code = 'SRN' . substr((string) (int) round(microtime(true) * 1000), -8);
 
                 $pdo->prepare(

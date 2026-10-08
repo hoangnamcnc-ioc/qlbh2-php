@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $selectedGroups = array_values(array_intersect(
         (array) ($_POST['permissions'] ?? []),
-        array_keys(PERMISSION_GROUPS)
+        array_merge(array_keys(PERMISSION_GROUPS), ['strict'])
     ));
     $permissionsStr = implode(',', $selectedGroups);
     $name = mb_substr(trim(post('name')), 0, 100);
@@ -107,6 +107,9 @@ require_once __DIR__ . '/inc_header.php';
         </label>
       <?php endforeach; ?>
     </div>
+    <label style="font-weight:400;font-size:13px;display:block;margin:8px 0 12px;">
+      <input type="checkbox" name="permissions[]" value="strict"> Chặt: không kèm quyền bán hàng (POS, đơn hàng) nếu không tích nhóm "Bán hàng &amp; vận chuyển"
+    </label>
     <button type="submit" class="btn">Tạo vai trò</button>
   </form>
 </div>
@@ -134,6 +137,10 @@ require_once __DIR__ . '/inc_header.php';
                   <?= e($label) ?>
                 </label>
               <?php endforeach; ?>
+              <label style="font-weight:400;font-size:13px;white-space:nowrap;" title="Không kèm quyền bán hàng cơ bản nếu không tích nhóm Bán hàng &amp; vận chuyển">
+                <input type="checkbox" name="permissions[]" value="strict" <?= in_array('strict', $rolePerms, true) ? 'checked' : '' ?> onchange="this.form.submit()">
+                Chặt (không kèm bán hàng)
+              </label>
             </form>
           </td>
           <td class="text-center" style="vertical-align:top;padding-top:14px;"><?= (int) $r['user_count'] ?></td>

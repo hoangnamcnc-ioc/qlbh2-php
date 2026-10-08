@@ -11,6 +11,7 @@ $currentUser = requireLogin();
 $isManagerUp = isManagerTier();
 $canGroup = static fn(string $group): bool => $isManagerUp || userHasPermissionGroup($group);
 
+$strictNoPos = !$isManagerUp && in_array('strict', currentUserPermissionGroups(), true) && !userHasPermissionGroup('pos');
 $navGroups = [
     'Tổng quan' => ['index.php' => 'Tổng quan', 'huong_dan.php' => 'Hướng dẫn sử dụng'],
     'Bán hàng' => array_merge(
@@ -102,6 +103,10 @@ if (hasRole('ADMIN')) {
     }
 }
 
+$navGroups['Cá nhân'] = ['cham_cong_cua_toi.php' => 'Chấm công & lương của tôi'];
+if ($strictNoPos) {
+    unset($navGroups['Bán hàng']);
+}
 $groupIcons = [
     'Tổng quan' => '📊',
     'Bán hàng' => '🛒',
@@ -111,6 +116,7 @@ $groupIcons = [
     'Bảo hành' => '🛡️',
     'Tài chính & Báo cáo' => '💰',
     'Nhân sự' => '🧑‍💼',
+    'Cá nhân' => '🙋',
     'Cấu hình' => '⚙️',
 ];
 
