@@ -121,6 +121,38 @@ try {
 
     $pdo->commit();
     logActivity('SHOP_ORDER_CREATE', "order_id=$orderId code=$code phone=$customerPhone");
+
+    // Bao ngay cho chu cua hang qua email de don online khong bi bo quen (truoc day phai tu vao
+    // xem danh sach don). Loi gui mail khong duoc lam hong don da dat thanh cong.
+    try {
+        $own = $pdo->prepare('SELECT name, owner_email FROM tenants WHERE id = ?');
+        $own->execute([$shopTenantId]);
+        $ownRow = $own->fetch();
+        if ($ownRow && !empty($ownRow['owner_email'])) {
+            $oneLine = static fn(string $t): string => mb_substr(trim(preg_replace('/\s+/', ' ', $t)), 0, 200);
+            $body = "Có đơn đặt hàng online mới cho cửa hàng {$ownRow['name']}:
+
+"
+                . 'Mã đơn: ' . $code . "
+"
+                . 'Khách: ' . $oneLine($customerName) . ' - ' . $customerPhone . "
+"
+                . 'Địa chỉ: ' . $oneLine($customerAddress) . "
+"
+                . 'Tổng tiền: ' . number_format($subTotal, 0, ',', '.') . "đ
+"
+                . ($note ? 'Ghi chú: ' . $oneLine((string) $note) . "
+" : '')
+                . "
+Đăng nhập QLBH-CLOUD, vào Đơn hàng → Đặt hàng (chờ xử lý) để xác nhận với khách:
+"
+                . 'https://app.kt-soft.vn/orders.php?status=DRAFT' . "
+";
+            sendMail($ownRow['owner_email'], '[QLBH-CLOUD] Đơn online mới ' . $code, $body);
+        }
+    } catch (Throwable $mailEx) {
+        error_log('shop_order: khong gui duoc email bao don moi: ' . $mailEx->getMessage());
+    }
     redirect('shop.php?' . $shopQ . 'ok=1&code=' . urlencode($code));
 } catch (RuntimeException $ex) {
     $pdo->rollBack();

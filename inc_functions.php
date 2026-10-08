@@ -345,7 +345,7 @@ const PERMISSION_GROUP_FILES = [
         'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
-    'finance' => ['accounting.php', 'cashbook.php', 'cashbook_export.php', 'reports.php'],
+    'finance' => ['accounting.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php'],
     'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
 ];
 

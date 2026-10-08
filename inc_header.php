@@ -68,6 +68,7 @@ if ($canGroup('finance')) {
         'cashbook.php' => 'Sổ quỹ',
         'reports.php' => 'Báo cáo',
         'accounting.php' => 'Kế toán và Thuế',
+        'doi_chieu.php' => 'Đối chiếu số liệu',
     ];
 }
 // "Nhan vien & phan quyen" (users.php) tach rieng, luon can hasRole('ADMIN') that (file do tu
