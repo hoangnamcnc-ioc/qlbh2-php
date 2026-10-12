@@ -187,6 +187,28 @@ curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TE" -d "discount=7000
 S=$(probe "a=state&c=$CIDC&o=$OE")
 eq "chiet khau lam tong < da thu (40000) bi tu choi, tong van 90000" "90000" "$(python -c "print(int(float($(echo "$S" | jv "['order']['total_amount']"))))")"
 
+echo "== 6h. Nha cung cap: nhap hang, tra tien, tra hang NCC, kiem kho"
+T=$(tk $A/suppliers.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "name=NCC+Reg&phone=0911000222&address=HN" $A/suppliers.php
+SIDR=$(curl -s -b $CJ $A/suppliers.php | grep -o 'supplier_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+ST0=$(stock)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "supplier_id=$SIDR&product_id[]=$PID&variant_id[]=&quantity[]=10&cost_price[]=60000&paid_amount=200000&reference_no=REGHD" $A/stock_receipt_form.php
+eq "nhap hang 10 cai: ton kho tang 10" "$((ST0+10))" "$(stock)"
+RIDR=$(curl -s -b $CJ $A/stock_receipts.php | grep -o 'stock_receipt_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+CODER=$(curl -s -b $CJ "$A/stock_receipt_view.php?id=$RIDR" | grep -o 'PN[A-Z0-9]*' | head -1)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "receipt_id=$RIDR&amount=100000" $A/stock_receipt_pay.php
+eq "tra tien NCC them 100000: phieu hien 300.000 (da tra/con no)" "1" "$([ "$(curl -s -b $CJ "$A/stock_receipt_view.php?id=$RIDR" | grep -c '300.000')" -ge 1 ] && echo 1 || echo 0)"
+IRI=$(curl -s -b $CJ "$A/supplier_return_form.php?q=$CODER" | grep -o 'qty\[[0-9]*\]' | head -1 | grep -o '[0-9]*')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "receipt_id=$RIDR&qty%5B$IRI%5D=3&reason=reg" $A/supplier_return_form.php
+eq "tra NCC 3 cai: ton kho giam 3" "$((ST0+7))" "$(stock)"
+ST1=$(stock)
+BRR=$(curl -s -b $CJ $A/stock_take_form.php | grep -o 'option value="[0-9]*" selected' | grep -o '[0-9]*' | head -1)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "branch_id=$BRR&note=reg&product_id[]=$PID&variant_id[]=&system_qty[]=$ST1&counted_qty[]=$((ST1-2))" $A/stock_take_form.php
+TKR=$(curl -s -b $CJ $A/stock_takes.php | grep -o 'stock_take_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "take_id=$TKR" $A/stock_take_balance.php
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "take_id=$TKR" $A/stock_take_balance.php
+eq "kiem kho lech -2, can bang 2 lan chi tru 1 lan" "$((ST1-2))" "$(stock)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"
