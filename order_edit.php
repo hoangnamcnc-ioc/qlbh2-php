@@ -93,6 +93,7 @@ require_once __DIR__ . '/inc_header.php';
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Sửa đơn hàng</h1>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+<p style="margin:0 0 12px;"><a class="btn btn-secondary" href="order_edit_items.php?id=<?= (int) $id ?>">✏️ Sửa sản phẩm / số lượng trong đơn</a></p>
 <div class="alert alert-warning" style="max-width:480px;">
   Chỉ sửa được ghi chú và chiết khấu. Số tiền đã thanh toán ghi nhận lúc bán <b>không tự động đối
   soát lại</b> — nếu tăng chiết khấu sau khi khách đã thanh toán, bạn cần tự hoàn tiền chênh lệch

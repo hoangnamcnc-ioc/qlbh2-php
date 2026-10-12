@@ -319,7 +319,7 @@ const PERMISSION_GROUPS = [
 const PERMISSION_GROUP_FILES = [
     'pos' => [
         'pos.php', 'ca_ban_hang.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
-        'order_view.php', 'order_edit.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
+        'order_view.php', 'order_edit.php', 'order_edit_items.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
         'order_pay.php', 'order_returns.php', 'order_return_form.php', 'shipments.php',
         'shipment_form.php', 'shipment_reconcile.php', 'shipping_settings.php', 'channels.php',
     ],
@@ -642,6 +642,82 @@ function hoanLoHangTheoDong(PDO $pdo, int $orderItemId, ?float $quantity = null)
             if ($remaining <= 0) break;
         }
     }
+}
+
+/** Cong/tru ton kho 1 mat hang (san pham hoac bien the) tai 1 chi nhanh; chua co dong ton thi tao moi. */
+function capNhatTonKho(PDO $pdo, int $branchId, int $productId, ?int $variantId, float $delta): void
+{
+    if ($variantId) {
+        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ? FOR UPDATE');
+        $inv->execute([$branchId, $variantId]);
+    } else {
+        $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL FOR UPDATE');
+        $inv->execute([$branchId, $productId]);
+    }
+    $invId = $inv->fetchColumn();
+    if ($invId) {
+        $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?')->execute([$delta, $invId]);
+    } else {
+        $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
+            ->execute([$branchId, $productId, $variantId, $delta]);
+    }
+}
+
+/** Tru lo hang theo FEFO (het han som nhat truoc) cho san pham khong bien the; tra ve [[batch_id, so_luong_lay], ...]. */
+function truLoHangFEFO(PDO $pdo, int $productId, int $branchId, float $qty): array
+{
+    $taken = [];
+    $remaining = $qty;
+    $stmt = $pdo->prepare(
+        'SELECT id, quantity FROM product_batches WHERE product_id = ? AND branch_id = ? AND quantity > 0
+         ORDER BY (expiry_date IS NULL), expiry_date FOR UPDATE'
+    );
+    $stmt->execute([$productId, $branchId]);
+    foreach ($stmt->fetchAll() as $b) {
+        if ($remaining <= 0) break;
+        $take = min($remaining, (float) $b['quantity']);
+        $pdo->prepare('UPDATE product_batches SET quantity = quantity - ? WHERE id = ?')->execute([$take, $b['id']]);
+        $taken[] = [(int) $b['id'], $take];
+        $remaining -= $take;
+    }
+    return $taken;
+}
+
+/**
+ * Huy don hang TRONG 1 giao dich do nguoi goi quan ly (beginTransaction/commit): hoan kho + lo hang, hoan tai chinh
+ * (so quy/cong no/diem/coupon/bao hanh), doi trang thai CANCELLED va ghi lich su. Dung chung cho order_cancel.php va
+ * khi van don chuyen sang "Da hoan" (hang quay ve shop).
+ */
+function huyDonHangTrongGiaoDich(PDO $pdo, array $order, int $userId, ?string $reason): void
+{
+    $orderId = (int) $order['id'];
+    $items = $pdo->prepare('SELECT * FROM order_items WHERE order_id = ?');
+    $items->execute([$orderId]);
+
+    foreach ($items->fetchAll() as $item) {
+        $typeStmt = $pdo->prepare('SELECT product_type FROM products WHERE id = ?');
+        $typeStmt->execute([$item['product_id']]);
+        $productType = $typeStmt->fetchColumn() ?: 'PRODUCT';
+
+        if ($productType === 'SERVICE') {
+            continue; // dich vu khong quan ly ton kho
+        }
+        if ($productType === 'COMBO') {
+            $comboStmt = $pdo->prepare('SELECT component_product_id, quantity AS comp_qty FROM combo_items WHERE combo_product_id = ?');
+            $comboStmt->execute([$item['product_id']]);
+            foreach ($comboStmt->fetchAll() as $comp) {
+                capNhatTonKho($pdo, (int) $order['branch_id'], (int) $comp['component_product_id'], null, (float) $comp['comp_qty'] * (float) $item['quantity']);
+            }
+            continue;
+        }
+        hoanLoHangTheoDong($pdo, (int) $item['id']);
+        capNhatTonKho($pdo, (int) $order['branch_id'], (int) $item['product_id'], $item['variant_id'] ? (int) $item['variant_id'] : null, (float) $item['quantity']);
+    }
+
+    hoanTacTaiChinhKhiHuyDon($pdo, $order, $userId);
+    $pdo->prepare("UPDATE orders SET status = 'CANCELLED' WHERE id = ?")->execute([$orderId]);
+    $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?,?,"CANCELLED",?,?)')
+        ->execute([$orderId, $order['status'], $reason, $userId]);
 }
 
 const RATE_LIMIT_MAX = 5;

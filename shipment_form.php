@@ -46,15 +46,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!array_key_exists($status, $statusLabels)) $status = 'PENDING';
 
-    if ($shipment) {
-        $pdo->prepare('UPDATE shipments SET tracking_code=?, carrier_name=?, status=?, shipping_fee=?, cod_amount=?, note=?, recipient_name=?, recipient_phone=?, fee_payer=? WHERE id=?')
-            ->execute([$trackingCode, $carrierName, $status, $shippingFee, $codAmount, $note, $recipientName, $recipientPhone, $feePayer, $shipment['id']]);
-    } else {
-        $pdo->prepare('INSERT INTO shipments (order_id, tracking_code, carrier_name, status, shipping_fee, cod_amount, note, recipient_name, recipient_phone, fee_payer, created_by_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-            ->execute([$orderId, $trackingCode, $carrierName, $status, $shippingFee, $codAmount, $note, $recipientName, $recipientPhone, $feePayer, $currentUser['id']]);
+    $pdo->beginTransaction();
+    $cancelMsg = '';
+    try {
+        if ($shipment) {
+            $pdo->prepare('UPDATE shipments SET tracking_code=?, carrier_name=?, status=?, shipping_fee=?, cod_amount=?, note=?, recipient_name=?, recipient_phone=?, fee_payer=? WHERE id=?')
+                ->execute([$trackingCode, $carrierName, $status, $shippingFee, $codAmount, $note, $recipientName, $recipientPhone, $feePayer, $shipment['id']]);
+        } else {
+            $pdo->prepare('INSERT INTO shipments (order_id, tracking_code, carrier_name, status, shipping_fee, cod_amount, note, recipient_name, recipient_phone, fee_payer, created_by_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$orderId, $trackingCode, $carrierName, $status, $shippingFee, $codAmount, $note, $recipientName, $recipientPhone, $feePayer, $currentUser['id']]);
+        }
+
+        // Hang hoan ve shop: huy don (hoan kho/lo hang, hoan tien/cong no/diem) de so sach khop voi thuc te.
+        // Chi Quan ly/Quan tri duoc tu dong huy; thu ngan chi doi trang thai van don.
+        $wasReturned = $shipment && $shipment['status'] === 'RETURNED';
+        if ($status === 'RETURNED' && !$wasReturned && $order['status'] !== 'CANCELLED') {
+            $hasReturn = $pdo->prepare('SELECT COUNT(*) FROM order_returns WHERE order_id = ?');
+            $hasReturn->execute([$orderId]);
+            if (!isManagerTier()) {
+                $cancelMsg = 'Đã cập nhật vận đơn. Hàng hoàn về nên cần Quản lý hủy đơn để hoàn kho và tiền.';
+            } elseif ((int) $hasReturn->fetchColumn() > 0) {
+                $cancelMsg = 'Đã cập nhật vận đơn. Đơn này đã có phiếu trả hàng nên không tự hủy được.';
+            } else {
+                $fresh = $pdo->prepare('SELECT * FROM orders WHERE id = ? FOR UPDATE');
+                $fresh->execute([$orderId]);
+                huyDonHangTrongGiaoDich($pdo, $fresh->fetch(), (int) $currentUser['id'], 'Hàng hoàn về từ vận chuyển');
+                $cancelMsg = 'Hàng đã hoàn về: hệ thống đã hủy đơn, hoàn kho và hoàn tiền/công nợ.';
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $ex) {
+        $pdo->rollBack();
+        $error = 'Không lưu được vận đơn, vui lòng thử lại.';
     }
-    redirect('order_view.php?id=' . $orderId);
+    if ($error === null) {
+        redirect('order_view.php?id=' . $orderId . ($cancelMsg !== '' ? '&err=' . urlencode($cancelMsg) : ''));
+    }
 }
+
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -74,7 +103,7 @@ require_once __DIR__ . '/inc_header.php';
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
 
 <div class="card" style="max-width:480px;">
-  <form method="post">
+  <form method="post" onsubmit="var st=this.status.value; if (st==='RETURNED' && '<?= e($shipment['status'] ?? '') ?>'!=='RETURNED') { return confirm('Chuyển sang Đã hoàn sẽ HỦY ĐƠN, hoàn kho và hoàn tiền/công nợ (nếu bạn là Quản lý). Tiếp tục?'); } return true;">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
     <div class="grid-2">
       <div class="field"><label>Người nhận</label><input class="input" name="recipient_name" value="<?= e($shipment['recipient_name'] ?? $order['customer_name'] ?? '') ?>"></div>

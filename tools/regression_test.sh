@@ -209,6 +209,34 @@ curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "take_id=$TKR" 
 curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "take_id=$TKR" $A/stock_take_balance.php
 eq "kiem kho lech -2, can bang 2 lan chi tru 1 lan" "$((ST1-2))" "$(stock)"
 
+echo "== 6i. Sua san pham trong don + hang hoan ve"
+ST0=$(stock)
+RI=$(checkout "{$BASEB,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":2,\"unit_price\":100000}],\"draft\":true}")
+OI=$(echo "$RI" | jv "['order_id']")
+eq "don dat truoc 2 cai: kho giam 2" "$((ST0-2))" "$(stock)"
+II=$(curl -s -b $CJ "$A/order_edit_items.php?id=$OI" | grep -o 'name="qty\[[0-9]*\]"' | head -1 | grep -o '[0-9]*')
+TI=$(tk "$A/order_edit_items.php?id=$OI" $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TI" -d "id=$OI&qty%5B$II%5D=5&price%5B$II%5D=100000" $A/order_edit_items.php
+eq "sua len 5 cai: kho giam them 3" "$((ST0-5))" "$(stock)"
+eq "sua len 5 cai: tong don 494000 (500000 - chiet khau hang thanh vien 6000 giu nguyen)" "494000" "$(python -c "print(int(float($(probe "a=state&c=0&o=$OI" | jv "['order']['total_amount']"))))")"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TI" -d "id=$OI&qty%5B$II%5D=1&price%5B$II%5D=90000" $A/order_edit_items.php
+eq "sua xuong 1 cai gia 90000: kho hoan lai 4" "$((ST0-1))" "$(stock)"
+eq "sua xuong 1 cai gia 90000: tong don 84000 (90000 - chiet khau 6000)" "84000" "$(python -c "print(int(float($(probe "a=state&c=0&o=$OI" | jv "['order']['total_amount']"))))")"
+BIG=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$TI" -d "id=$OI&qty%5B$II%5D=999999&price%5B$II%5D=1" $A/order_edit_items.php | grep -c "Không đủ tồn kho")
+eq "tang vuot ton kho bi tu choi" "1" "$BIG"
+# Hang hoan ve: van don chuyen sang Da hoan -> tu huy don, hoan kho
+for i in 1 2; do curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OI" $A/order_advance.php; done
+TSR=$(tk "$A/shipment_form.php?order_id=$OI" $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TSR" -d "recipient_name=K&carrier_name=GHN&status=RETURNED&shipping_fee=0&cod_amount=0&fee_payer=SHOP" "$A/shipment_form.php?order_id=$OI"
+eq "van don 'Da hoan': don tu huy" "CANCELLED" "$(probe "a=state&c=0&o=$OI" | jv "['order']['status']")"
+eq "van don 'Da hoan': kho tra lai du" "$ST0" "$(stock)"
+
+echo "== 6j. Het han van xuat duoc du lieu"
+probe "a=expire" >/dev/null
+EXP=$(curl -s -b $CJ -o /dev/null -w "%{http_code}" -X POST -d "csrf=$(tk $A/tenant_export.php $CJ)&download=1" $A/tenant_export.php)
+eq "het han: admin van tai duoc du lieu cua minh (tenant_export 200)" "200" "$EXP"
+probe "a=unexpire" >/dev/null
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

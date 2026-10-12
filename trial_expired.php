@@ -48,6 +48,9 @@ $isPaidExpired = $stmt->fetchColumn() === 'PAID';
       </p>
     <?php endif; ?>
     <a class="btn" href="gia_han.php">Yêu cầu gia hạn</a>
+    <?php if (($user['role'] ?? '') === 'ADMIN'): ?>
+      <p style="margin:14px 0 0;"><a href="tenant_export.php" style="font-size:13.5px;">⬇ Tải toàn bộ dữ liệu của tôi (file sao lưu)</a></p>
+    <?php endif; ?>
     <p style="font-size:12px;color:#94a3b8;margin-top:14px;">
       Hoặc liên hệ trực tiếp: ĐT/Zalo <b>0945289666</b> — Email <b>hoangnamcnc@gmail.com</b>
     </p>

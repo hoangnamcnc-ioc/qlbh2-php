@@ -89,7 +89,8 @@ function checkTrialExpiry(): void
     $checked = true;
 
     $currentFile = basename($_SERVER['SCRIPT_NAME']);
-    if (in_array($currentFile, ['trial_expired.php', 'logout.php', 'gia_han.php'], true)) {
+    // tenant_export.php: cua hang het han van PHAI lay duoc du lieu cua minh (quyen so huu du lieu).
+    if (in_array($currentFile, ['trial_expired.php', 'logout.php', 'gia_han.php', 'tenant_export.php'], true)) {
         return;
     }
 
