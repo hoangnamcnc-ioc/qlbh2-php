@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_demo.php';
 $currentUser = requireLogin();
 
 // $isManagerUp: ADMIN/MANAGER "that", doc lap voi trang dang xem - KHONG dung hasRole() truc
@@ -98,6 +99,7 @@ if (hasRole('ADMIN')) {
         'marketing_settings.php' => 'Cấu hình kênh marketing',
         'custom_roles.php' => 'Vai trò tùy chỉnh',
         'import_from_soft.php' => 'Nhập từ QLBH-SOFT',
+        'du_lieu_mau.php' => 'Dữ liệu mẫu',
         'tenant_export.php' => 'Xuất dữ liệu của tôi',
         'gia_han.php' => 'Yêu cầu gia hạn',
     ];
@@ -293,6 +295,12 @@ if ($isManagerUp) {
           ⏳ Bản dùng thử QLBH-CLOUD còn <b><?= $trialDaysLeft ?> ngày</b>.
         <?php endif; ?>
         <a href="gia_han.php">Yêu cầu gia hạn →</a>
+      </div>
+    <?php endif; ?>
+    <?php if (($currentUser['role'] ?? '') === 'ADMIN' && $currentFile !== 'du_lieu_mau.php' && cuaHangDangDungDuLieuMau((int) $currentUser['tenant_id'])): ?>
+      <div class="trial-banner" style="background:#fffbeb;border-bottom-color:#fde68a;color:#92400e;">
+        🧪 Cửa hàng đang dùng <b>dữ liệu mẫu</b> để tham khảo — đơn, khách, kho bạn thấy là dữ liệu giả.
+        <a href="du_lieu_mau.php" style="color:#92400e;">Xóa dữ liệu mẫu, bắt đầu chính thức →</a>
       </div>
     <?php endif; ?>
     <div class="content">

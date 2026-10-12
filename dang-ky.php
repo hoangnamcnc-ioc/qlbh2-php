@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_demo.php';
 
 // Neu da dang nhap roi thi hoi ro: vao he thong tiep hay dang ky tai khoan (cua hang) moi -
 // tranh nguoi dung bam "Dung thu" tren kt-soft.vn nhung trinh duyet dang co san phien dang nhap
@@ -100,6 +101,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
 
+                // Tuy chon: tao san 1 tuan ban hang mau de nguoi dung tham khao (xoa sach duoc o Cau hinh > Du lieu mau).
+                // Loi o buoc nay KHONG duoc chan dang ky - cua hang van tao xong, chi la trong.
+                if (!empty($_POST['demo_data'])) {
+                    try {
+                        taoDuLieuMau($pdo, $tenantId, $branchId, $userId);
+                    } catch (Throwable $demoEx) {
+                        error_log('dang-ky: khong tao duoc du lieu mau: ' . $demoEx->getMessage());
+                    }
+                }
+
                 // Tu dong dang nhap vao tai khoan vua tao - doi session ID moi giong het
                 // attemptLogin() that su, tranh session fixation.
                 session_regenerate_id(true);
@@ -181,6 +192,10 @@ $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
         <label>Mật khẩu *</label>
         <input type="password" name="password" required minlength="6" placeholder="Tối thiểu 6 ký tự">
       </div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;font-size:13.5px;margin:4px 0 14px;line-height:1.45;cursor:pointer;">
+        <input type="checkbox" name="demo_data" value="1" style="width:auto;margin-top:3px;" <?= (!isset($_POST['company_name']) || !empty($_POST['demo_data'])) ? 'checked' : '' ?>>
+        <span><b>Tạo sẵn dữ liệu mẫu 1 tuần bán hàng</b> để tham khảo (hàng hóa, đơn bán, kho, sổ quỹ…). Có thể xóa sạch bất cứ lúc nào để bắt đầu dùng chính thức.</span>
+      </label>
       <button type="submit">Bắt đầu dùng thử miễn phí</button>
     </form>
 

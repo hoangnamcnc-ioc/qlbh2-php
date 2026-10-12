@@ -43,6 +43,7 @@ $stages = [
         ['🙋', 'Khách hàng', 'Hồ sơ, công nợ, điểm', 'customers.php'],
         ['🏅', 'Nhóm & hạng khách', 'Nhóm, hạng thành viên, ưu đãi', 'groups.php'],
         ['⚙️', 'Cấu hình', 'Cửa hàng, thanh toán, thuế, in', 'settings.php'],
+        ['🧪', 'Dữ liệu mẫu', 'Xem thử 1 tuần bán hàng, xóa để bắt đầu', 'du_lieu_mau.php'],
     ]],
     ['2. Cung ứng & kho', 'Nhập hàng, kiểm kê, luân chuyển', [
         ['🚚', 'Nhà cung cấp', 'Danh sách và công nợ NCC', 'suppliers.php'],

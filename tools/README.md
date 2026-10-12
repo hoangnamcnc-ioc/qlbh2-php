@@ -11,3 +11,5 @@ Cần đặt biến môi trường `FTP_USERPASS='tên_đăng_nhập:mật_khẩ
 - `tools/test_probe.php` — file phụ trợ của bộ kiểm thử, chỉ được tải lên tạm thời và tự xóa.
 - `tools/isolation_test.sh` — kiểm thử cách ly giữa các cửa hàng: tạo 2 cửa hàng thử, đặt dữ liệu đánh dấu ở cửa hàng A
   rồi từ cửa hàng B mở mọi trang, quét id, gọi API tìm kiếm/xuất file, thử ghi chéo; báo "rò rỉ" nếu thấy dữ liệu của A.
+- `tools/demo_test.sh` — kiểm thử dữ liệu mẫu: đăng ký có/không tạo mẫu, sổ sách nhất quán (đối chiếu chỉ còn 1 ca lệch cố ý),
+  xóa sạch để bắt đầu chính thức, và xóa không ảnh hưởng cửa hàng khác.
