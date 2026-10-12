@@ -38,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $oldCost = (float) ($row->fetchColumn() ?: 0);
 
+        $pdo->beginTransaction();
+        try {
         $pdo->prepare('INSERT INTO price_adjustments (product_id, variant_id, old_cost_price, new_cost_price, reason, created_by_id) VALUES (?,?,?,?,?,?)')
             ->execute([$productId, $variantId, $oldCost, $newCost, $reason, $currentUser['id']]);
 
@@ -46,7 +48,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $pdo->prepare('UPDATE products SET cost_price = ? WHERE id = ?')->execute([$newCost, $productId]);
         }
-        redirect('price_adjustments.php');
+        $pdo->commit();
+        } catch (Throwable $ex) {
+            $pdo->rollBack();
+            $error = 'Không lưu được điều chỉnh giá vốn, vui lòng thử lại.';
+        }
+        if ($error === null) {
+            redirect('price_adjustments.php');
+        }
     }
 }
 

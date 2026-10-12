@@ -27,6 +27,7 @@ $debtError = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
     checkCsrf();
     $amount = postFloat('amount');
+    $collectMethod = in_array($_POST['method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true) ? $_POST['method'] : 'CASH';
     $pdo->beginTransaction();
     try {
         // Khóa dòng khách và đọc lại công nợ BÊN TRONG transaction - 2 lần bấm gần nhau không còn
@@ -43,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
                 ->execute([$id, -$amount, 'Thu nợ trực tiếp', $currentUser['id']]);
             $collectBranchId = effectiveBranchId($currentUser);
             if ($collectBranchId) {
-                recordCashbookEntry($collectBranchId, 'RECEIPT', $amount, 'Thu nợ trực tiếp KH ' . $customer['name'], 'CASH', $currentUser['id']);
+                recordCashbookEntry($collectBranchId, 'RECEIPT', $amount, 'Thu nợ trực tiếp KH ' . $customer['name'], $collectMethod, $currentUser['id']);
             }
             $pdo->commit();
             redirect('customer_view.php?id=' . $id);
@@ -171,6 +172,7 @@ require_once __DIR__ . '/inc_header.php';
       <label style="font-size:12px;">Số tiền thu (nợ hiện tại: <?= money($customer['debt']) ?>)</label>
       <input type="number" name="amount" min="1" max="<?= (float) $customer['debt'] ?>" required style="width:200px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;">
     </div>
+    <div><label style="font-size:12px;">Hình thức</label><br><select name="method" style="padding:8px;border:1px solid #cbd5e1;border-radius:6px;"><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option><option value="CARD">Quẹt thẻ</option><option value="QR_CODE">Quét mã QR</option></select></div>
     <button type="submit" class="btn" style="background:#059669;">Ghi nhận thu</button>
   </form>
 </div>

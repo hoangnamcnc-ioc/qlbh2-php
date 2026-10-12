@@ -64,6 +64,22 @@ function refreshUserSession(): void
  * refreshUserSession(), và luôn cho qua trang trial_expired.php/logout.php để tránh vòng lặp
  * chuyển hướng.
  */
+/** Het han: trang thuong thi chuyen sang trial_expired.php; API JSON (POS...) tra loi JSON 402 de man hinh bao
+ * dung ly do thay vi nhan 1 trang HTML roi am tham chuyen sang "luu don offline". */
+function chuyenSangTrangHetHan(): void
+{
+    $file = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $isJson = str_starts_with($file, 'pos_') || $file === 'redeem_gift.php' || $file === 'coupon_check.php'
+        || stripos((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'application/json') !== false;
+    if ($isJson) {
+        http_response_code(402);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Gói dùng thử/dịch vụ đã hết hạn. Vui lòng gia hạn để tiếp tục bán hàng.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    redirect('trial_expired.php');
+}
+
 function checkTrialExpiry(): void
 {
     static $checked = false;
@@ -88,14 +104,14 @@ function checkTrialExpiry(): void
     }
 
     if ($tenant['plan'] === 'TRIAL' && $tenant['trial_ends_at'] !== null && strtotime($tenant['trial_ends_at']) < time()) {
-        redirect('trial_expired.php');
+        chuyenSangTrangHetHan();
     }
 
     // paid_until = NULL nghia la khong gioi han (nang cap thu cong truoc khi co tinh nang thanh
     // toan online, hoac tenant #1 - chu so huu) - chi ap dung het han cho tenant da tung thanh
     // toan qua VNPay (co gia tri paid_until that).
     if ($tenant['plan'] === 'PAID' && $tenant['paid_until'] !== null && strtotime($tenant['paid_until']) < time()) {
-        redirect('trial_expired.php');
+        chuyenSangTrangHetHan();
     }
 
     maybeSendTrialReminder($tenant);

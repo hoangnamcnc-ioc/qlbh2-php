@@ -260,6 +260,7 @@ require_once __DIR__ . '/inc_header.php';
         <label>Số tiền thu thêm</label>
         <input class="input" type="number" min="1" max="<?= (float) $orderRemaining ?>" name="amount" required>
       </div>
+      <div class="field" style="margin:0;"><label>Hình thức</label><select name="method" class="input" style="max-width:150px;"><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option><option value="CARD">Quẹt thẻ</option><option value="QR_CODE">Quét mã QR</option></select></div>
       <button type="submit" class="btn">Ghi nhận thu</button>
     </form>
   <?php endif; ?>

@@ -54,9 +54,11 @@ if ($responseCode !== '00') {
     ipnRespond('00', 'Confirm Success');
 }
 
+$pdo->beginTransaction();
 $mark = $pdo->prepare("UPDATE subscription_payments SET status = 'SUCCESS', vnp_transaction_no = ?, paid_at = NOW() WHERE id = ? AND status = 'PENDING'");
 $mark->execute([$_GET['vnp_TransactionNo'] ?? null, $payment['id']]);
 if ($mark->rowCount() === 0) {
+    $pdo->rollBack();
     ipnRespond('02', 'Order already confirmed');
 }
 
@@ -66,6 +68,7 @@ $pdo->prepare(
         trial_ends_at = NULL
      WHERE id = ?"
 )->execute([(int) $payment['months'], (int) $payment['tenant_id']]);
+$pdo->commit();
 
 logActivity('PAYMENT_SUCCESS_IPN', 'order=' . $orderCode . ' amount=' . $payment['amount']);
 

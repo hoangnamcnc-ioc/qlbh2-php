@@ -158,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($check->fetch()) {
                     throw new RuntimeException('Mã SKU đã tồn tại, vui lòng chọn mã khác');
                 }
+                $pdo->beginTransaction();
                 $pdo->prepare(
                     'INSERT INTO products (sku, barcode, name, unit, pack_unit, pack_size, cost_price, sell_price, category_id, brand_id, tags, product_type, weight_grams, tax_rate_id, has_warranty, warranty_policy_id, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
                 )->execute([$sku, $barcode, $name, $unit, $packUnit, $packSize, $costPrice, $sellPrice, $categoryId, $brandId, $tags, $productType, $weightGrams, $taxRateId, $hasWarranty, $warrantyPolicyId, $tenantId]);
@@ -174,10 +175,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ->execute([$targetBranchId, $id, $initialQty, $minStock]);
                     }
                 }
+                $pdo->commit();
             }
             redirect('product_form.php?id=' . $id . '&saved=1');
         } catch (RuntimeException $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             $error = $ex->getMessage();
+        } catch (PDOException $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $error = 'Không lưu được sản phẩm (có thể mã SKU/mã vạch bị trùng), vui lòng kiểm tra lại.';
         }
     }
 }

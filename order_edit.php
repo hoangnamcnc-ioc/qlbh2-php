@@ -30,18 +30,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sourceId = (int) ($_POST['source_id'] ?? 0) ?: null;
     $externalCode = post('external_order_code') ?: null;
 
-    if ($discount > (float) $order['sub_total']) {
-        $error = 'Chiết khấu không được lớn hơn tổng tiền hàng';
+    if ($order['status'] === 'CANCELLED') {
+        $error = 'Đơn đã hủy không thể sửa.';
+    } elseif ($discount < 0 || $discount > (float) $order['sub_total']) {
+        $error = 'Chiết khấu không được âm hoặc lớn hơn tổng tiền hàng';
     } else {
-        $newTotal = (float) $order['sub_total'] - $discount + (float) $order['shipping_fee'];
-        $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, tags = ?, channel_id = ?, source_id = ?, external_order_code = ? WHERE id = ?')
-            ->execute([$note, $discount, $newTotal, $tags, $channelId, $sourceId, $externalCode, $id]);
+        $pdo->beginTransaction();
+        try {
+            // Khoa dong don va doc lai trong giao dich: sua chiet khau thay doi tong tien nen phai dong bo
+            // lai trang thai thanh toan + cong no khach, neu khong so sach lech nhau.
+            $lock = $pdo->prepare('SELECT * FROM orders WHERE id = ? FOR UPDATE');
+            $lock->execute([$id]);
+            $order = $lock->fetch();
+            $oldTotal = (float) $order['total_amount'];
+            $newTotal = (float) $order['sub_total'] - $discount + (float) $order['shipping_fee'];
+            $paid = (float) $order['paid_amount'];
+            if ($newTotal < $paid) {
+                throw new RuntimeException('Chiết khấu mới làm tổng đơn (' . money($newTotal) . ') thấp hơn số tiền đã thu (' . money($paid) . '). Hãy tạo phiếu trả hàng/hoàn tiền thay vì tăng chiết khấu.');
+            }
+            $payStatus = $paid >= $newTotal && $newTotal > 0 ? 'PAID' : ($paid > 0 ? 'PARTIAL' : 'UNPAID');
+            if ($order['status'] === 'DRAFT') {
+                $payStatus = 'UNPAID';
+            }
+            $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, payment_status = ?, tags = ?, channel_id = ?, source_id = ?, external_order_code = ? WHERE id = ?')
+                ->execute([$note, $discount, $newTotal, $payStatus, $tags, $channelId, $sourceId, $externalCode, $id]);
 
-        $currentUser = currentUser();
-        $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?, ?, ?, ?, ?)')
-            ->execute([$id, $order['status'], $order['status'], 'Sửa đơn hàng (ghi chú/chiết khấu)', $currentUser['id']]);
+            // Don da ghi no vao cong no khach: no cua don tang/giam dung bang phan tong tien thay doi
+            // (khong giam qua so no con lai cua don).
+            if ($order['customer_id'] && $order['status'] !== 'DRAFT') {
+                $orderDebt = congNoConLaiCuaDon($pdo, $id);
+                $hasDebtTracking = (int) $pdo->query('SELECT COUNT(*) FROM customer_debt_entries WHERE order_id = ' . (int) $id)->fetchColumn() > 0;
+                $delta = $newTotal - $oldTotal;
+                if ($hasDebtTracking && $delta != 0) {
+                    $delta = $delta < 0 ? -min($orderDebt, -$delta) : $delta;
+                    if ($delta != 0) {
+                        $pdo->prepare('UPDATE customers SET debt = GREATEST(0, debt + ?) WHERE id = ?')->execute([$delta, $order['customer_id']]);
+                        $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                            ->execute([$order['customer_id'], $id, $delta, 'Điều chỉnh chiết khấu đơn ' . $order['code'], currentUser()['id']]);
+                    }
+                }
+            }
 
-        redirect('order_view.php?id=' . $id);
+            $currentUser = currentUser();
+            $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?, ?, ?, ?, ?)')
+                ->execute([$id, $order['status'], $order['status'], 'Sửa đơn hàng (ghi chú/chiết khấu)', $currentUser['id']]);
+            $pdo->commit();
+            redirect('order_view.php?id=' . $id);
+        } catch (RuntimeException $ex) {
+            $pdo->rollBack();
+            $error = $ex->getMessage();
+        } catch (Throwable $ex) {
+            $pdo->rollBack();
+            $error = 'Không lưu được thay đổi, vui lòng thử lại.';
+        }
     }
 }
 

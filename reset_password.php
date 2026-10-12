@@ -27,13 +27,27 @@ if (!$reset) {
         $error = 'Xác nhận mật khẩu không khớp';
     } else {
         $hash = password_hash($password, PASSWORD_DEFAULT);
-        $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $reset['user_id']]);
-        $pdo->prepare('UPDATE password_resets SET used = 1 WHERE id = ?')->execute([$reset['id']]);
-        // Vo hieu hoa moi token dat lai mat khau khac dang cho cua chinh user nay, tranh 1 link
-        // cu con hieu luc bi loi dung lai sau khi mat khau da doi.
-        $pdo->prepare('UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0')->execute([$reset['user_id']]);
-        logActivity('PASSWORD_RESET_DONE', $reset['email']);
-        $success = true;
+        $pdo->beginTransaction();
+        try {
+            // Danh dau token da dung TRUOC (co dieu kien used = 0): 2 request dong thoi cung 1 link chi 1 cai
+            // doi duoc mat khau; va doi mat khau + vo hieu hoa token khac xay ra cung nhau hoac khong gi ca.
+            $use = $pdo->prepare('UPDATE password_resets SET used = 1 WHERE id = ? AND used = 0');
+            $use->execute([$reset['id']]);
+            if ($use->rowCount() === 0) {
+                throw new RuntimeException('Liên kết đặt lại mật khẩu đã được sử dụng.');
+            }
+            $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $reset['user_id']]);
+            // Vo hieu hoa moi token dat lai mat khau khac dang cho cua chinh user nay.
+            $pdo->prepare('UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0')->execute([$reset['user_id']]);
+            $pdo->commit();
+        } catch (Throwable $ex) {
+            $pdo->rollBack();
+            $error = $ex instanceof RuntimeException ? $ex->getMessage() : 'Không đổi được mật khẩu, vui lòng thử lại.';
+        }
+        if ($error === null) {
+            logActivity('PASSWORD_RESET_DONE', $reset['email']);
+            $success = true;
+        }
     }
 }
 ?>

@@ -38,9 +38,11 @@ if (!$validSignature) {
     $txnNo = $params['vnp_TransactionNo'] ?? null;
     // Chi dong "PENDING" -> "SUCCESS" duoc 1 lan: neu IPN cua VNPay chay dong thoi voi trang return
     // thi chi 1 ben cong thoi han, ben kia thay rowCount = 0 va bo qua.
+    $pdo->beginTransaction();
     $mark = $pdo->prepare("UPDATE subscription_payments SET status = 'SUCCESS', vnp_transaction_no = ?, paid_at = NOW() WHERE id = ? AND status = 'PENDING'");
     $mark->execute([$txnNo, $payment['id']]);
     if ($mark->rowCount() === 0) {
+        $pdo->rollBack();
         $success = true;
         $message = 'Đơn thanh toán này đã được xử lý trước đó.';
         goto ketThuc;
@@ -52,6 +54,7 @@ if (!$validSignature) {
             trial_ends_at = NULL
          WHERE id = ?"
     )->execute([(int) $payment['months'], (int) $payment['tenant_id']]);
+    $pdo->commit();
 
     logActivity('PAYMENT_SUCCESS', 'order=' . $orderCode . ' amount=' . $payment['amount']);
 

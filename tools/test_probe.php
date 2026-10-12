@@ -30,7 +30,19 @@ if (($_GET['a'] ?? '') === 'state') {
     exit;
 }
 
+if (in_array($_GET['a'] ?? '', ['expire', 'unexpire'], true)) {
+    // Gia lap het han dung thu / gia han cho cac cua hang thu 'ZZTEST Reg'.
+    $sql = $_GET['a'] === 'expire'
+        ? "UPDATE tenants SET trial_ends_at = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE name = 'ZZTEST Reg' AND plan = 'TRIAL'"
+        : "UPDATE tenants SET trial_ends_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE name = 'ZZTEST Reg' AND plan = 'TRIAL'";
+    echo json_encode(['updated' => $pdo->exec($sql)]);
+    exit;
+}
+
 if (($_GET['a'] ?? '') === 'cleanup') {
+    // Xoa bo dem gioi han dang ky cua CHINH IP dang chay test (moi IP chi duoc tao 5 cua hang/15 phut,
+    // bo test tao nhieu cua hang thu nen se tu khoa minh).
+    $pdo->prepare("DELETE FROM login_attempts WHERE action = 'signup' AND ip_addr = ?")->execute([clientIp()]);
     $ids = array_map('intval', $pdo->query("SELECT id FROM tenants WHERE name = 'ZZTEST Reg'")->fetchAll(PDO::FETCH_COLUMN));
     $tables = $pdo->prepare("SELECT TABLE_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'tenant_id' AND TABLE_NAME <> 'tenants'");
     $tables->execute();

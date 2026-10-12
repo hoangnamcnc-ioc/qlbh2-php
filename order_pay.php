@@ -9,6 +9,7 @@ checkCsrf();
 $pdo = db();
 $orderId = (int) ($_POST['order_id'] ?? 0);
 $amount = postFloat('amount');
+$payMethod = in_array($_POST['method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true) ? $_POST['method'] : 'CASH';
 
 $order = layDonHangCuaToi($orderId);
 
@@ -25,21 +26,26 @@ if ($order && $order['customer_id'] && $amount > 0 && in_array($order['status'],
         $lock = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND status IN (?,?,?,?) FOR UPDATE');
         $lock->execute([$orderId, 'APPROVED', 'PACKED', 'SHIPPED', 'COMPLETED']);
         $order = $lock->fetch();
-        // Số còn thu được giới hạn bởi công nợ thực tế của đơn (trả hàng đã trừ nợ thì không thu lại).
-        $remaining = $order ? min((float) $order['total_amount'] - (float) $order['paid_amount'], congNoConLaiCuaDon($pdo, $orderId)) : 0.0;
+        // So con thu duoc = phan don chua tra. Rieng CONG NO KHACH chi giam theo so no thuc te cua don
+        // (customer_debt_entries): don dat truoc (nhap -> duyet) chua tung ghi no thi thu tien van ghi nhan
+        // duoc vao don + so quy nhung khong lam am cong no khach.
+        $remaining = $order ? max(0.0, (float) $order['total_amount'] - (float) $order['paid_amount']) : 0.0;
         $amount = min($amount, $remaining);
+        $debtReduce = $order ? min($amount, congNoConLaiCuaDon($pdo, $orderId)) : 0.0;
 
         if ($order && $amount > 0) {
             $newPaid = (float) $order['paid_amount'] + $amount;
             $newStatus = $newPaid >= (float) $order['total_amount'] ? 'PAID' : 'PARTIAL';
             $pdo->prepare('UPDATE orders SET paid_amount = ?, payment_status = ? WHERE id = ?')
                 ->execute([$newPaid, $newStatus, $orderId]);
-            $pdo->prepare('UPDATE customers SET debt = GREATEST(0, debt - ?) WHERE id = ?')->execute([$amount, $order['customer_id']]);
             $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
-                ->execute([$orderId, 'CASH', $amount]);
-            $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
-                ->execute([$order['customer_id'], $orderId, -$amount, 'Thu nợ đơn hàng', $currentUser['id']]);
-            recordCashbookEntry((int) $order['branch_id'], 'RECEIPT', $amount, 'Thu nợ đơn hàng ' . $order['code'], 'CASH', $currentUser['id'], $orderId);
+                ->execute([$orderId, $payMethod, $amount]);
+            if ($debtReduce > 0) {
+                $pdo->prepare('UPDATE customers SET debt = GREATEST(0, debt - ?) WHERE id = ?')->execute([$debtReduce, $order['customer_id']]);
+                $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, order_id, amount, note, created_by_id) VALUES (?,?,?,?,?)')
+                    ->execute([$order['customer_id'], $orderId, -$debtReduce, 'Thu nợ đơn hàng', $currentUser['id']]);
+            }
+            recordCashbookEntry((int) $order['branch_id'], 'RECEIPT', $amount, 'Thu nợ đơn hàng ' . $order['code'], $payMethod, $currentUser['id'], $orderId);
             logActivity('ORDER_PAY', "order_id=$orderId amount=$amount");
         }
         $pdo->commit();

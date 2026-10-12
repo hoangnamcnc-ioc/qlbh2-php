@@ -117,6 +117,76 @@ curl -s -c $W/cj_pub -o /dev/null "$A/shop.php?s=$SLUG"; TT=$(tk "$A/shop.php?s=
 curl -s -b $W/cj_pub -c $W/cj_pub -o /dev/null --data-urlencode csrf="$TT" --data-urlencode s="$SLUG" -d "customer_name=Khach+Web&customer_phone=0955000111&customer_address=HN&qty[$PID]=1" $A/shop_order.php
 eq "don online vao dung cua hang (danh sach don nhap)" "1" "$(curl -s -b $CJ "$A/orders.php?status=DRAFT" | grep -c 'Khach Web')"
 
+echo "== 6b. COD: doi soat ghi so quy, don, cong no"
+BASEB="\"csrf\":\"$PT\",\"payment_method\":\"CASH\",\"customer_phone\":\"0922000111\",\"customer_name\":\"Khach COD\""
+RC=$(checkout "{$BASEB,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}],\"paid_amount\":0}")
+OC=$(echo "$RC" | jv "['order_id']")
+CIDC=$(curl -s -b $CJ "$A/customers.php?q=0922000111" | grep -o 'customer_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+TSH=$(tk "$A/shipment_form.php?order_id=$OC" $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TSH" -d "recipient_name=Khach+COD&carrier_name=GHN&tracking_code=REG123&status=DELIVERED&shipping_fee=20000&cod_amount=100000&fee_payer=CUSTOMER" "$A/shipment_form.php?order_id=$OC"
+SHID=$(curl -s -b $CJ "$A/shipments.php?filter=unreconciled" | grep -o 'name="shipment_id" value="[0-9]*"' | head -1 | grep -o '[0-9]*')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/shipments.php $CJ)" -d "shipment_id=$SHID&method=BANK_TRANSFER" $A/shipment_reconcile.php
+S=$(probe "a=state&c=$CIDC&o=$OC")
+eq "COD: so quy rong = 80000 (thu 100000 - hang khau tru phi 20000)" "80000" "$(python -c "print(int(float($(echo "$S" | jv "['cash_net']"))))")"
+eq "COD: don chuyen sang da thanh toan" "PAID" "$(echo "$S" | jv "['order']['payment_status']")"
+eq "COD: cong no khach ve 0" "0" "$(python -c "print(int(float($(echo "$S" | jv "['customer']['debt']"))))")"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/shipments.php $CJ)" -d "shipment_id=$SHID&method=BANK_TRANSFER" $A/shipment_reconcile.php
+S=$(probe "a=state&c=$CIDC&o=$OC")
+eq "COD: doi soat 2 lan khong ghi so lan 2" "80000" "$(python -c "print(int(float($(echo "$S" | jv "['cash_net']"))))")"
+
+echo "== 6c. Ma giam gia + hang thanh vien"
+T=$(tk $A/coupons.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "code=REGC10&discount_type=PERCENT&discount_value=10&min_order_amount=0&max_uses=5&start_date=2026-01-01&end_date=2027-12-31" $A/coupons.php
+RCP=$(checkout "{\"csrf\":\"$PT\",\"payment_method\":\"CASH\",\"coupon_code\":\"REGC10\",\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}]}")
+OCP=$(echo "$RCP" | jv "['order_id']")
+eq "coupon 10% giam don 100000 con 90000" "90000" "$(python -c "print(int(float($(probe "a=state&c=0&o=$OCP" | jv "['order']['total_amount']"))))")"
+T=$(tk $A/customer_tiers.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "action=create&name=Reg+Tier&discount_percent=3&min_spend=0" $A/customer_tiers.php
+RT=$(checkout "{$BASEB,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}]}")
+OT=$(echo "$RT" | jv "['order_id']")
+eq "hang thanh vien 3% giam don 100000 con 97000" "97000" "$(python -c "print(int(float($(probe "a=state&c=$CIDC&o=$OT" | jv "['order']['total_amount']"))))")"
+
+echo "== 6d. Het han dung thu"
+probe "a=expire" >/dev/null
+EX=$(curl -s -b $CJ -o /dev/null -w "%{http_code} %{redirect_url}" $A/index.php)
+eq "het han dung thu: vao app bi chuyen sang trial_expired" "302 $A/trial_expired.php" "$EX"
+eq "het han dung thu: trang thong bao het han mo duoc" "200" "$(curl -s -b $CJ -o /dev/null -w '%{http_code}' $A/trial_expired.php)"
+POSX=$(curl -s -b $CJ -o /dev/null -w "%{http_code}" -H 'Content-Type: application/json' -d "{\"csrf\":\"$PT\",\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}],\"payment_method\":\"CASH\"}" $A/pos_checkout.php)
+eq "het han dung thu: khong ban duoc hang (pos_checkout tra 402 kem thong bao)" "402" "$POSX"
+probe "a=unexpire" >/dev/null
+eq "gia han xong: vao app lai binh thuong" "200" "$(curl -s -b $CJ -o /dev/null -w '%{http_code}' $A/index.php)"
+
+echo "== 6e. Dieu chinh gia von"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/price_adjustments.php $CJ)" -d "product_id=$PID&new_cost_price=71000&reason=reg" $A/price_adjustments.php
+eq "dieu chinh gia von 60000 -> 71000 duoc ghi lich su" "1" "$(curl -s -b $CJ $A/price_adjustments.php | grep -c '71.000')"
+
+echo "== 6f. Don dat truoc (nhap) -> duyet het chuoi -> thu tien sau"
+RD=$(checkout "{$BASEB,\"draft\":true,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}]}")
+OD=$(echo "$RD" | jv "['order_id']")
+for i in 1 2 3 4; do curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OD" $A/order_advance.php; done
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OD&amount=60000&method=BANK_TRANSFER" $A/order_pay.php
+S=$(probe "a=state&c=$CIDC&o=$OD")
+eq "don dat truoc: thu 60000 ghi nhan duoc vao don" "60000" "$(python -c "print(int(float($(echo "$S" | jv "['order']['paid_amount']"))))")"
+eq "don dat truoc: so quy co 60000" "60000" "$(python -c "print(int(float($(echo "$S" | jv "['cash_net']"))))")"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OD&amount=40000" $A/order_pay.php
+S=$(probe "a=state&c=$CIDC&o=$OD")
+eq "don dat truoc: thu not 40000 -> da thanh toan du" "PAID" "$(echo "$S" | jv "['order']['payment_status']")"
+
+echo "== 6g. Sua chiet khau don da co cong no / da thu tien"
+RE=$(checkout "{$BASEB,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}],\"paid_amount\":40000}")
+OE=$(echo "$RE" | jv "['order_id']")
+S0=$(probe "a=state&c=$CIDC&o=$OE")
+D0=$(python -c "print(int(float($(echo "$S0" | jv "['customer']['debt']"))))")
+T0=$(python -c "print(int(float($(echo "$S0" | jv "['order']['total_amount']"))))")
+TE=$(tk "$A/order_edit.php?id=$OE" $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TE" -d "discount=10000&note=reg" "$A/order_edit.php?id=$OE"
+S=$(probe "a=state&c=$CIDC&o=$OE")
+eq "sua chiet khau ve 10000: tong don con 90000" "90000" "$(python -c "print(int(float($(echo "$S" | jv "['order']['total_amount']"))))")"
+eq "doi chiet khau: cong no khach giam dung bang phan tong don giam ($T0 -> 90000)" "$((D0-(T0-90000)))" "$(python -c "print(int(float($(echo "$S" | jv "['customer']['debt']"))))")"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TE" -d "discount=70000&note=reg" "$A/order_edit.php?id=$OE"
+S=$(probe "a=state&c=$CIDC&o=$OE")
+eq "chiet khau lam tong < da thu (40000) bi tu choi, tong van 90000" "90000" "$(python -c "print(int(float($(echo "$S" | jv "['order']['total_amount']"))))")"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

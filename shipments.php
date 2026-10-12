@@ -136,7 +136,11 @@ $byStatus = array_column($byStatusStmt->fetchAll(), 'n', 'status');
               <form method="post" action="shipment_reconcile.php" style="display:inline;">
                 <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
                 <input type="hidden" name="shipment_id" value="<?= (int) $s['id'] ?>">
-                <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">Đối soát</button>
+                <select name="method" style="font-size:12px;padding:3px;" title="Hãng trả tiền COD cho bạn bằng cách nào">
+                  <option value="BANK_TRANSFER">Chuyển khoản</option>
+                  <option value="CASH">Tiền mặt</option>
+                </select>
+                <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="return confirm('Xác nhận đã nhận tiền COD từ hãng vận chuyển? Hệ thống sẽ ghi sổ quỹ và trừ công nợ của đơn.')">Đối soát</button>
               </form>
             <?php endif; ?>
           </td>
