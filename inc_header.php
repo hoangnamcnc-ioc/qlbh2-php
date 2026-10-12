@@ -13,7 +13,12 @@ $canGroup = static fn(string $group): bool => $isManagerUp || userHasPermissionG
 
 $strictNoPos = !$isManagerUp && in_array('strict', currentUserPermissionGroups(), true) && !userHasPermissionGroup('pos');
 $navGroups = [
-    'Tổng quan' => ['index.php' => 'Tổng quan', 'huong_dan.php' => 'Hướng dẫn sử dụng'],
+    'Chức năng' => [
+        'so_do_chuc_nang.php' => 'Sơ đồ chức năng',
+        'huong_dan.php' => 'Hướng dẫn sử dụng',
+        '#goi-y' => 'Góp ý / Báo lỗi',
+    ],
+    'Tổng quan' => ['index.php' => 'Tổng quan'],
     'Bán hàng' => array_merge(
         [
             'pos.php' => 'Bán hàng (POS)',
@@ -109,6 +114,7 @@ if ($strictNoPos) {
     unset($navGroups['Bán hàng']);
 }
 $groupIcons = [
+    'Chức năng' => '🧭',
     'Tổng quan' => '📊',
     'Bán hàng' => '🛒',
     'Sản phẩm' => '📦',
@@ -234,7 +240,7 @@ if ($isManagerUp) {
       <span>QLBH-CLOUD</span>
     </div>
     <?php foreach ($navGroups as $label => $links): ?>
-      <?php $hasActive = array_key_exists($currentFile, $links); ?>
+      <?php $hasActive = array_key_exists($currentFile, $links) || $label === 'Chức năng'; ?>
       <?php $groupIcon = $groupIcons[$label] ?? '•'; ?>
       <?php if (count($links) > 1): ?>
         <div class="group-toggle<?= $hasActive ? ' open has-active' : '' ?>" onclick="toggleGroup(this)">
@@ -243,7 +249,11 @@ if ($isManagerUp) {
         </div>
         <div class="submenu<?= $hasActive ? ' open' : '' ?>">
           <?php foreach ($links as $file => $text): ?>
-            <a href="<?= e($file) ?>" class="<?= $currentFile === $file ? 'active' : '' ?>"><?= e($text) ?></a>
+            <?php if ($file === '#goi-y'): ?>
+              <a href="#" onclick="var b=document.getElementById('fbToggleBtn'); if (b) b.click(); return false;"><?= e($text) ?></a>
+            <?php else: ?>
+              <a href="<?= e($file) ?>" class="<?= $currentFile === $file ? 'active' : '' ?>"><?= e($text) ?></a>
+            <?php endif; ?>
           <?php endforeach; ?>
         </div>
       <?php else: ?>

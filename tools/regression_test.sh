@@ -237,6 +237,14 @@ EXP=$(curl -s -b $CJ -o /dev/null -w "%{http_code}" -X POST -d "csrf=$(tk $A/ten
 eq "het han: admin van tai duoc du lieu cua minh (tenant_export 200)" "200" "$EXP"
 probe "a=unexpire" >/dev/null
 
+echo "== 6k. So do chuc nang"
+TA=$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
+TC=$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
+[ "$TA" -ge 25 ] && ok "quan tri thay day du so do ($TA o)" || fail "quan tri thay day du so do" ">=25 o" "$TA"
+[ "$TC" -ge 5 ] && [ "$TC" -lt "$TA" ] && ok "thu ngan chi thay chuc nang duoc phep ($TC o < $TA)" || fail "thu ngan thay it o hon quan tri" "5..$((TA-1))" "$TC"
+eq "thu ngan khong thay o Cau hinh/Bao cao trong so do" "0" "$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'href="settings.php"\|href="reports.php"')"
+eq "menu co muc Goc y / Bao loi" "1" "$([ "$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'Góp ý / Báo lỗi')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"
