@@ -37,10 +37,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = '';
     }
 
+    // Xac minh vi tri GPS: dien thoai gui toa do + do chinh xac; phai nam trong ban kinh quanh cua hang.
+    $gpsNote = '';
+    $gpsOn = getSetting('attendance_gps_lock', '0') === '1' && getSetting('store_lat', '') !== '' && getSetting('store_lng', '') !== '';
+    if ($gpsOn && in_array($action, ['in', 'out'], true)) {
+        $lat = $_POST['lat'] ?? ''; $lng = $_POST['lng'] ?? ''; $acc = (float) ($_POST['acc'] ?? 0);
+        $radius = max(30, (int) getSetting('attendance_gps_radius', '150'));
+        if ($lat === '' || $lng === '' || !is_numeric($lat) || !is_numeric($lng)) {
+            $message = 'Cần cho phép truy cập vị trí để chấm công. Hãy bật GPS, bấm "Cho phép" khi trình duyệt hỏi rồi thử lại.';
+            $action = '';
+        } elseif ($acc > 300) {
+            $message = 'Tín hiệu GPS chưa đủ chính xác (sai số ' . round($acc) . ' m). Hãy ra chỗ thoáng/bật định vị chính xác rồi thử lại.';
+            $action = '';
+        } else {
+            $dist = khoangCachMet((float) $lat, (float) $lng, (float) getSetting('store_lat'), (float) getSetting('store_lng'));
+            if ($dist > $radius) {
+                $message = 'Bạn đang cách cửa hàng khoảng ' . round($dist) . ' m (cho phép trong ' . $radius . ' m) nên chưa chấm công được.';
+                $action = '';
+            } else {
+                $gpsNote = 'GPS ' . ($action === 'in' ? 'vào' : 'ra') . ' cách cửa hàng ' . round($dist) . 'm';
+            }
+        }
+    }
+
     if ($action === 'in') {
         // UNIQUE (user_id, work_date): bam 2 lan khong tao 2 dong, va khong ghi de gio vao da co.
-        $ins = $pdo->prepare('INSERT IGNORE INTO attendance (tenant_id, user_id, work_date, time_in) VALUES (?,?,?,?)');
-        $ins->execute([$tenantId, $userId, $today, $now]);
+        $ins = $pdo->prepare('INSERT IGNORE INTO attendance (tenant_id, user_id, work_date, time_in, note) VALUES (?,?,?,?,?)');
+        $ins->execute([$tenantId, $userId, $today, $now, $gpsNote !== '' ? $gpsNote : null]);
         $message = $ins->rowCount() ? 'Đã chấm công vào ca lúc ' . substr($now, 0, 5) : 'Hôm nay bạn đã chấm công vào ca rồi.';
         if ($ins->rowCount()) logActivity('ATTENDANCE_SELF_IN', "date=$today");
     } elseif ($action === 'out') {
@@ -52,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $open->execute([$tenantId, $userId, $today]);
         $id = $open->fetchColumn();
         if ($id) {
-            $pdo->prepare('UPDATE attendance SET time_out = ? WHERE id = ? AND user_id = ? AND time_out IS NULL')
-                ->execute([$now, $id, $userId]);
+            $pdo->prepare("UPDATE attendance SET time_out = ?, note = CASE WHEN ? = '' THEN note ELSE CONCAT_WS(' | ', note, ?) END WHERE id = ? AND user_id = ? AND time_out IS NULL")
+                ->execute([$now, $gpsNote, $gpsNote, $id, $userId]);
             $message = 'Đã chấm công ra ca lúc ' . substr($now, 0, 5);
             logActivity('ATTENDANCE_SELF_OUT', "id=$id");
         } else {
@@ -109,7 +132,7 @@ require_once __DIR__ . '/inc_header.php';
 <h1 style="font-size:24px;font-weight:600;margin-bottom:4px;">Chấm công và lương của tôi</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">Bấm vào ca khi bắt đầu làm và ra ca khi kết thúc. Lương tạm tính = giờ công × lương/giờ + hoa hồng; số chính thức do Quản lý chốt ở Bảng lương.</p>
 
-<?php if ($message): ?><div class="alert <?= str_contains($message, 'ngoài mạng') ? 'alert-error' : 'alert-success' ?>"><?= e($message) ?></div><?php endif; ?>
+<?php if ($message): ?><div class="alert <?= preg_match('/ngoài mạng|cách cửa hàng|Cần cho phép|GPS chưa/u', $message) ? 'alert-error' : 'alert-success' ?>"><?= e($message) ?></div><?php endif; ?>
 
 <div class="card" style="max-width:560px;margin-bottom:16px;">
   <div style="font-size:14px;margin-bottom:12px;">
@@ -121,8 +144,9 @@ require_once __DIR__ . '/inc_header.php';
       Bạn chưa chấm công hôm nay.
     <?php endif; ?>
   </div>
-  <form method="post" style="display:flex;gap:10px;">
+  <form method="post" id="ccForm" style="display:flex;gap:10px;">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="lat" id="ccLat"><input type="hidden" name="lng" id="ccLng"><input type="hidden" name="acc" id="ccAcc"><input type="hidden" name="action" id="ccAction" disabled>
     <button type="submit" name="action" value="in" class="btn" <?= ($openRow || $hasToday) ? 'disabled style="opacity:.5;"' : '' ?>>Vào ca</button>
     <button type="submit" name="action" value="out" class="btn" <?= $openRow ? '' : 'disabled style="opacity:.5;"' ?>>Ra ca</button>
   </form>
@@ -158,5 +182,32 @@ require_once __DIR__ . '/inc_header.php';
     </tbody>
   </table>
 </div>
+
+<?php if (getSetting('attendance_gps_lock', '0') === '1' && getSetting('store_lat', '') !== ''): ?>
+<script>
+// Cua hang bat xac minh GPS: lay vi tri truoc khi gui Vao ca / Ra ca.
+document.getElementById('ccForm').addEventListener('submit', function (e) {
+  const form = e.target;
+  if (form.dataset.ready === '1') return;
+  e.preventDefault();
+  const act = e.submitter ? e.submitter.value : '';
+  const status = document.getElementById('ccStatus');
+  if (!navigator.geolocation) { alert('Thiết bị này không hỗ trợ định vị nên không chấm công được.'); return; }
+  if (status) status.textContent = 'Đang lấy vị trí GPS...';
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    document.getElementById('ccLat').value = pos.coords.latitude;
+    document.getElementById('ccLng').value = pos.coords.longitude;
+    document.getElementById('ccAcc').value = pos.coords.accuracy;
+    const a = document.getElementById('ccAction'); a.disabled = false; a.value = act;
+    form.dataset.ready = '1';
+    form.submit();
+  }, function (err) {
+    if (status) status.textContent = '';
+    alert(err.code === 1 ? 'Bạn đã từ chối quyền vị trí. Hãy cho phép vị trí cho trang này trong cài đặt trình duyệt để chấm công.' : 'Không lấy được vị trí, hãy bật GPS và thử lại.');
+  }, { enableHighAccuracy: true, timeout: 15000 });
+});
+</script>
+<div id="ccStatus" class="muted" style="font-size:12.5px;margin-top:6px;"></div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

@@ -60,7 +60,7 @@ if (in_array($_GET['a'] ?? '', ['expire', 'unexpire'], true)) {
 if (($_GET['a'] ?? '') === 'cleanup') {
     // Xoa bo dem gioi han dang ky cua CHINH IP dang chay test (moi IP chi duoc tao 5 cua hang/15 phut,
     // bo test tao nhieu cua hang thu nen se tu khoa minh).
-    $pdo->prepare("DELETE FROM login_attempts WHERE action = 'signup' AND ip_addr = ?")->execute([clientIp()]);
+    $pdo->prepare("DELETE FROM login_attempts WHERE action IN ('signup','track','login','forgot_password') AND ip_addr = ?")->execute([clientIp()]);
     $ids = array_map('intval', $pdo->query("SELECT id FROM tenants WHERE name = 'ZZTEST Reg'")->fetchAll(PDO::FETCH_COLUMN));
     $tables = $pdo->prepare("SELECT TABLE_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'tenant_id' AND TABLE_NAME <> 'tenants'");
     $tables->execute();

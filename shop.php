@@ -36,6 +36,23 @@ if ($branch && $enabled) {
 }
 
 $tableLabel = mb_substr(trim(preg_replace('/[^\p{L}\p{N} .\-]/u', '', (string) ($_GET['t'] ?? ''))), 0, 40);
+// Sau khi dat hang: neu cua hang da khai bao tai khoan ngan hang thi hien ma QR chuyen khoan dung so tien + noi dung = ma don.
+$payQr = null;
+if (isset($_GET['ok']) && !empty($_GET['code'])) {
+    $bank = getSettingForTenant($shopTenantId, 'bank_code', '');
+    $acc = getSettingForTenant($shopTenantId, 'bank_account', '');
+    if ($bank !== '' && $acc !== '') {
+        $st = $pdo->prepare('SELECT o.code, o.total_amount, o.paid_amount, o.status FROM orders o JOIN branches b ON b.id = o.branch_id WHERE o.code = ? AND b.tenant_id = ?');
+        $st->execute([strtoupper(trim((string) $_GET['code'])), $shopTenantId]);
+        $ord = $st->fetch();
+        $owe = $ord ? (float) $ord['total_amount'] - (float) $ord['paid_amount'] : 0;
+        if ($ord && $ord['status'] !== 'CANCELLED' && $owe > 0) {
+            $accName = getSettingForTenant($shopTenantId, 'bank_account_name', '');
+            $payQr = ['url' => vietQrUrl($bank, $acc, $accName, $owe, $ord['code']), 'amount' => $owe, 'code' => $ord['code'],
+                      'bank' => $bank, 'account' => $acc, 'name' => $accName];
+        }
+    }
+}
 $categories = [];
 foreach ($products as $p) {
     $categories[$p['category_name'] ?: 'Khác'] = true;
@@ -130,6 +147,15 @@ $categories = array_keys($categories);
       Cửa hàng sẽ xác nhận với bạn sớm nhất<?= $tableLabel !== '' ? ' và phục vụ tại ' . e($tableLabel) : '' ?>. Cảm ơn bạn!<br>
       <a href="shop_track.php?s=<?= e(urlencode($shopSlug)) ?>&code=<?= e(urlencode((string) ($_GET['code'] ?? ''))) ?>" style="color:#15803d;font-weight:700;">📦 Theo dõi đơn hàng này →</a>
     </div>
+    <?php if ($payQr): ?>
+      <div class="card" style="background:#fff;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:12px;text-align:center;">
+        <div style="font-weight:700;margin-bottom:6px;">💳 Thanh toán ngay bằng chuyển khoản (không bắt buộc)</div>
+        <img src="<?= e($payQr['url']) ?>" alt="Mã QR chuyển khoản" style="max-width:260px;width:100%;border-radius:8px;" loading="lazy">
+        <div style="font-size:14px;margin-top:6px;">Số tiền: <b><?= number_format($payQr['amount'], 0, ',', '.') ?>đ</b> · Nội dung: <b><?= e($payQr['code']) ?></b></div>
+        <div class="muted" style="font-size:12.5px;">Ngân hàng <?= e($payQr['bank']) ?> · STK <?= e($payQr['account']) ?><?= $payQr['name'] !== '' ? ' · ' . e($payQr['name']) : '' ?></div>
+        <div class="muted" style="font-size:12.5px;margin-top:4px;">Mở app ngân hàng → quét mã QR. Sau khi chuyển, cửa hàng sẽ đối chiếu và xác nhận. Bạn cũng có thể trả tiền mặt khi nhận hàng.</div>
+      </div>
+    <?php endif; ?>
   <?php elseif (isset($_GET['err'])): ?>
     <div class="alert alert-error"><?= e($_GET['err']) ?></div>
   <?php endif; ?>

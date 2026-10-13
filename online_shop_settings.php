@@ -103,6 +103,16 @@ require_once __DIR__ . '/inc_header.php';
   </form>
 </div>
 
+<?php $bankReady = getSetting('bank_code', '') !== '' && getSetting('bank_account', '') !== ''; ?>
+<div class="alert <?= $bankReady ? 'alert-success' : 'alert-warning' ?>" style="max-width:760px;margin-top:24px;font-size:13.5px;">
+  <?php if ($bankReady): ?>
+    💳 <b>Thanh toán QR ngân hàng đang bật:</b> sau khi đặt hàng khách thấy mã QR chuyển khoản đúng số tiền, nội dung là mã đơn
+    (<?= e(getSetting('bank_code')) ?> · <?= e(getSetting('bank_account')) ?>). Hệ thống không tự biết khách đã chuyển — nhân viên đối chiếu
+    sao kê rồi bấm "Ghi nhận thu" ở đơn hàng.
+  <?php else: ?>
+    💳 Muốn khách thanh toán bằng QR ngân hàng ngay sau khi đặt: khai báo tài khoản ở <a href="payment_settings.php">Cấu hình → Thanh toán</a>.
+  <?php endif; ?>
+</div>
 <div class="card qr-card" style="max-width:760px;margin-top:24px;">
   <h2 style="font-size:17px;margin:0 0 6px;">📱 Mã QR cho khách quét chọn hàng</h2>
   <p class="muted" style="font-size:13px;margin:0 0 14px;">

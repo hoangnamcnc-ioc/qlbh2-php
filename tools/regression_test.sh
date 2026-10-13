@@ -276,8 +276,8 @@ eq "theo doi don: dung ma + so dien thoai thi thay trang thai" "1" "$([ $((OK1+O
 eq "theo doi don: ma don cua cua hang khac/khong ton tai khong xem duoc" "1" "$(curl -s -b $W/cj_trk -c $W/cj_trk --data-urlencode csrf="$TTK" --data-urlencode s="$SLUG" -d "code=DHKHONGCO&phone=0955000111" $A/shop_track.php | grep -c 'Không tìm thấy đơn hàng khớp')"
 
 echo "== 6o. Xuat Excel ke toan, cong no, tong quan chu quan"
-HDR=$(curl -s -b $CJ -D - -o $W/acc.xlsx "$A/accounting.php?export=1&nam=$(date +%Y)" | tr -d '' | grep -i '^content-type' | head -1)
-eq "ke toan: xuat Excel tra ve file .xlsx" "1" "$(echo "$HDR" | grep -ci 'spreadsheetml')"
+curl -s -b $CJ -o $W/acc.xlsx "$A/accounting.php?export=1&nam=$(date +%Y)"
+eq "ke toan: xuat Excel tra ve file .xlsx hop le (ZIP/PK)" "PK" "$(head -c 2 $W/acc.xlsx)"
 ge "ke toan: file Excel co noi dung" 2000 "$(stat -c %s $W/acc.xlsx 2>/dev/null || wc -c < $W/acc.xlsx)"
 eq "cong no phai thu/phai tra mo duoc" "1" "$([ "$(curl -s -b $CJ $A/cong_no.php | grep -c 'Phải thu từ khách')" -ge 1 ] && echo 1 || echo 0)"
 eq "cong no: xuat Excel" "1" "$(curl -s -b $CJ -D - -o /dev/null "$A/cong_no.php?export=1" | grep -ci 'spreadsheetml')"
@@ -296,6 +296,44 @@ TIP=$(tk $A/attendance.php $CJ)
 curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TIP" -d "action=ip_add" $A/attendance.php
 eq "khoa mang: Quan tri them mang hien tai -> nhan vien trong mang van cham cong duoc" "0" "$(curl -s -b $W/cj_cash -c $W/cj_cash --data-urlencode csrf="$TCC" -d "action=out" $A/cham_cong_cua_toi.php | grep -c 'ngoài mạng Wi-Fi')"
 probe "a=setting&k=attendance_ip_lock&v=0" >/dev/null
+
+echo "== 6q. Xuat Excel bao cao ban hang"
+RH=$(curl -s -b $CJ -D - -o $W/rep.xlsx "$A/reports.php?export=1&from=$(date -d '-30 days' +%Y-%m-%d)&to=$(date +%Y-%m-%d)" | tr -d '\r' | grep -i '^content-type' | head -1)
+eq "bao cao ban hang: xuat Excel tra ve file .xlsx" "1" "$(echo "$RH" | grep -ci 'spreadsheetml')"
+ge "bao cao ban hang: file Excel co noi dung" 2000 "$(wc -c < $W/rep.xlsx)"
+eq "bao cao ban hang: trang thu ngan khong xuat duoc (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' "$A/reports.php?export=1")"
+
+echo "== 6r. Xac minh vi tri GPS khi cham cong"
+T=$(tk $A/users.php $CJ)
+BRG=$(curl -s -b $CJ $A/stock_take_form.php | grep -o 'option value="[0-9]*" selected' | grep -o '[0-9]*' | head -1)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "action=create&name=GPS+User&email=zzreg_gps@example.com&password=Test1234&role=CASHIER&branch_id=$BRG" $A/users.php
+LTG=$(tk $A/login.php $W/cj_gps); curl -s -b $W/cj_gps -c $W/cj_gps -o /dev/null --form-string csrf="$LTG" --form-string email=zzreg_gps@example.com --form-string password=Test1234 $A/login.php
+TAD=$(tk $A/attendance.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TAD" -d "action=gps_save&enabled=1&radius=100&lat=10.7769&lng=106.7009" $A/attendance.php
+TGP=$(tk $A/cham_cong_cua_toi.php $W/cj_gps)
+gps_post() { curl -s -b $W/cj_gps -c $W/cj_gps --data-urlencode csrf="$TGP" -d "action=$1&lat=$2&lng=$3&acc=$4" $A/cham_cong_cua_toi.php; }
+eq "GPS: khong gui vi tri thi bi chan" "1" "$(gps_post in '' '' 0 | grep -c 'Cần cho phép truy cập vị trí')"
+eq "GPS: cach cua hang ~3km bi chan" "1" "$([ "$(gps_post in 10.8040 106.7009 20 | grep -c 'cách cửa hàng')" -ge 1 ] && echo 1 || echo 0)"
+eq "GPS: tin hieu kem (sai so 500m) bi chan" "1" "$(gps_post in 10.7769 106.7009 500 | grep -c 'chưa đủ chính xác')"
+eq "GPS: trong ban kinh (cach ~15m) cham cong thanh cong" "1" "$(gps_post in 10.77700 106.70100 15 | grep -c 'Đã chấm công vào ca')"
+eq "GPS: khoang cach duoc ghi vao ghi chu cham cong" "1" "$([ "$(curl -s -b $W/cj_gps $A/cham_cong_cua_toi.php | grep -c 'GPS vào cách cửa hàng')" -ge 1 ] && echo 1 || echo 0)"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/attendance.php $CJ)" -d "action=gps_save&radius=100" $A/attendance.php
+
+echo "== 6s. Thanh toan QR ngan hang cho khach dat qua QR"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/payment_settings.php $CJ)" -d "bank_code=VCB&bank_account=0123456789&bank_account_name=CUA+HANG+TEST" $A/payment_settings.php
+curl -s -c $W/cj_pub2 -o /dev/null "$A/shop.php?s=$SLUG"; TQ=$(tk "$A/shop.php?s=$SLUG" $W/cj_pub2)
+RQ=$(curl -s -b $W/cj_pub2 -c $W/cj_pub2 -o /dev/null -w "%{redirect_url}" --data-urlencode csrf="$TQ" --data-urlencode s="$SLUG" -d "receive=pickup&customer_phone=0977000444&qty[$PID]=2" $A/shop_order.php)
+QCODE=$(echo "$RQ" | grep -o 'code=[A-Z0-9]*' | cut -d= -f2)
+OKPAGE=$(curl -s "$A/shop.php?s=$SLUG&ok=1&code=$QCODE")
+eq "QR NH: trang dat hang thanh cong hien ma QR VietQR" "1" "$([ "$(echo "$OKPAGE" | grep -c 'img.vietqr.io/image/VCB-0123456789')" -ge 1 ] && echo 1 || echo 0)"
+eq "QR NH: ma QR mang dung noi dung = ma don" "1" "$([ "$(echo "$OKPAGE" | grep -c "addInfo=$QCODE")" -ge 1 ] && echo 1 || echo 0)"
+eq "QR NH: ma don khong thuoc cua hang thi khong hien QR" "0" "$(curl -s "$A/shop.php?s=$SLUG&ok=1&code=DHKHONGCO" | grep -c 'img.vietqr.io')"
+TTR=$(tk "$A/shop_track.php?s=$SLUG&code=$QCODE" $W/cj_pub2)
+eq "QR NH: trang theo doi don con no cung hien QR" "1" "$([ "$(curl -s -b $W/cj_pub2 -c $W/cj_pub2 --data-urlencode csrf="$TTR" --data-urlencode s="$SLUG" -d "code=$QCODE&phone=0977000444" $A/shop_track.php | grep -c 'img.vietqr.io')" -ge 1 ] && echo 1 || echo 0)"
+OQ=$(curl -s -b $CJ "$A/orders.php?q=$QCODE" | grep -o 'order_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+for i in 1 2 3 4; do curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OQ" $A/order_advance.php; done
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OQ&amount=999999999&method=BANK_TRANSFER" $A/order_pay.php
+eq "QR NH: da thanh toan du thi trang khong con hien QR" "0" "$(curl -s "$A/shop.php?s=$SLUG&ok=1&code=$QCODE" | grep -c 'img.vietqr.io')"
 
 echo "== 6l. Tim don hang"
 eq "tim don theo ten khach 'Khach COD'" "1" "$([ "$(curl -s -b $CJ --get --data-urlencode 'q=Khach COD' $A/orders.php | grep -c 'Khach COD')" -ge 1 ] && echo 1 || echo 0)"

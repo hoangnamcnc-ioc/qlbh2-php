@@ -2,6 +2,9 @@
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
+require_once __DIR__ . '/inc_xlsx.php';
+// Che do xuat Excel: gom moi dau ra cua menu/khung trang vao bo dem roi bo di truoc khi gui file.
+if (isset($_GET['export'])) { ob_start(); }
 require_once __DIR__ . '/inc_header.php';
 
 $pdo = db();
@@ -263,6 +266,48 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $cashSummary = $stmt->fetch();
+
+// Xuat Excel bao cao ban hang cua ky dang chon (cung so lieu da tru hang tra lai nhu tren man hinh).
+if (isset($_GET['export'])) {
+    $n = static fn($v): string => (string) round((float) $v);
+    $r = [
+        ['BÁO CÁO BÁN HÀNG', '', '', '', ''],
+        ['Cửa hàng', getSetting('store_name', 'Cửa hàng'), '', '', ''],
+        ['Kỳ báo cáo', date('d/m/Y', strtotime($from)) . ' - ' . date('d/m/Y', strtotime($to)), '', '', ''],
+        ['', '', '', '', ''],
+        ['TỔNG QUAN', 'Giá trị', '', '', ''],
+        ['Doanh thu thuần (đã trừ hàng trả lại)', $n($salesSummary['revenue']), '', '', ''],
+        ['Số đơn hàng', (string) (int) $salesSummary['order_count'], '', '', ''],
+        ['Giá vốn hàng bán', $n($totalCost), '', '', ''],
+        ['Lãi gộp ước tính', $n($grossProfit), '', '', ''],
+        ['Hàng khách trả lại', $n($returnsTotal), '', '', ''],
+        ['Tổng thu (sổ quỹ)', $n($cashSummary['total_receipt']), '', '', ''],
+        ['Tổng chi (sổ quỹ)', $n($cashSummary['total_payment']), '', '', ''],
+        ['Giá trị tồn kho hiện tại', $n($stock['total_value']), '', '', ''],
+        ['', '', '', '', ''],
+        ['DOANH THU THEO NGÀY', 'Số đơn', 'Doanh thu', '', ''],
+    ];
+    foreach ($byDay as $d) { $r[] = [date('d/m/Y', strtotime($d['d'])), (string) (int) $d['order_count'], $n($d['total']), '', '']; }
+    $r[] = ['', '', '', '', ''];
+    $r[] = ['DOANH THU THEO KÊNH BÁN', 'Số đơn', 'Doanh thu', '', ''];
+    foreach ($byChannel as $d) { $r[] = [$d['channel_name'], (string) (int) $d['order_count'], $n($d['total']), '', '']; }
+    $r[] = ['', '', '', '', ''];
+    $r[] = ['DOANH THU THEO HÌNH THỨC THANH TOÁN', 'Số lần', 'Số tiền', '', ''];
+    foreach ($byPaymentMethod as $d) { $r[] = [$paymentLabels[$d['method']] ?? $d['method'], (string) (int) $d['payment_count'], $n($d['total']), '', '']; }
+    $r[] = ['', '', '', '', ''];
+    $r[] = ['DOANH THU THEO NHÂN VIÊN', 'Số đơn', 'Doanh thu', '', ''];
+    foreach ($byStaff as $d) { $r[] = [$d['staff_name'], (string) (int) $d['order_count'], $n($d['total']), '', '']; }
+    $r[] = ['', '', '', '', ''];
+    $r[] = ['TOP SẢN PHẨM BÁN CHẠY', 'Mã', 'Số lượng', 'Doanh thu', ''];
+    foreach ($topProducts as $d) { $r[] = [$d['name'], (string) $d['sku'], (string) round((float) $d['qty'], 3), $n($d['total']), '']; }
+    $r[] = ['', '', '', '', ''];
+    $r[] = ['TOP KHÁCH HÀNG', 'SĐT', 'Số đơn', 'Chi tiêu', ''];
+    foreach ($topCustomers as $d) { $r[] = [$d['name'], (string) $d['phone'], (string) (int) $d['order_count'], $n($d['total']), '']; }
+    logActivity('EXPORT_SALES_REPORT', "tu=$from den=$to");
+    ob_end_clean();
+    downloadXlsx($r, 'bao_cao_ban_hang_' . $from . '_' . $to . '.xlsx');
+    exit;
+}
 ?>
 
 <h1 style="font-size:24px;font-weight:600;margin-bottom:16px;">Báo cáo</h1>
@@ -280,6 +325,7 @@ $cashSummary = $stmt->fetch();
     </select>
   </div>
   <button type="submit" class="btn btn-secondary">Lọc</button>
+  <a class="btn btn-secondary" href="?export=1&from=<?= e($from) ?>&to=<?= e($to) ?>&top=<?= (int) $topN ?>">⬇ Xuất Excel</a>
 </form>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">

@@ -64,6 +64,15 @@ $steps = [
     'COMPLETED' => ['Hoàn thành', 'Đơn hàng đã hoàn thành. Cảm ơn bạn!'],
 ];
 $stepKeys = array_keys($steps);
+$payQr = null;
+if ($order && $order['status'] !== 'CANCELLED') {
+    $bank = getSettingForTenant($shopTenantId, 'bank_code', '');
+    $acc = getSettingForTenant($shopTenantId, 'bank_account', '');
+    $owe = (float) $order['total_amount'] - (float) $order['paid_amount'];
+    if ($bank !== '' && $acc !== '' && $owe > 0) {
+        $payQr = ['url' => vietQrUrl($bank, $acc, getSettingForTenant($shopTenantId, 'bank_account_name', ''), $owe, $order['code']), 'amount' => $owe];
+    }
+}
 $currentIdx = $order ? array_search($order['status'], $stepKeys, true) : false;
 ?>
 <!DOCTYPE html>
@@ -148,6 +157,13 @@ $currentIdx = $order ? array_search($order['status'], $stepKeys, true) : false;
       <?php if ((float) $order['paid_amount'] > 0): ?><div class="muted">Đã thanh toán: <?= money($order['paid_amount']) ?></div><?php endif; ?>
       <?php if ($points !== null): ?><div class="muted" style="margin-top:6px;">⭐ Điểm tích lũy của bạn: <b><?= (int) $points ?></b> điểm (điểm được cộng khi đơn hoàn thành)</div><?php endif; ?>
     </div>
+    <?php if ($payQr): ?>
+      <div class="card" style="text-align:center;">
+        <div style="font-weight:700;margin-bottom:6px;">💳 Còn <?= money($payQr['amount']) ?> chưa thanh toán</div>
+        <img src="<?= e($payQr['url']) ?>" alt="Mã QR chuyển khoản" style="max-width:260px;width:100%;border-radius:8px;" loading="lazy">
+        <div class="muted" style="margin-top:4px;">Nội dung chuyển khoản: <b><?= e($order['code']) ?></b>. Hoặc trả tiền mặt khi nhận hàng.</div>
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
 
   <p style="text-align:center;"><a href="<?= e($shopLink) ?>">← Quay lại chọn hàng</a></p>

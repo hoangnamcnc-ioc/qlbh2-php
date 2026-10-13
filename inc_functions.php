@@ -720,6 +720,23 @@ function huyDonHangTrongGiaoDich(PDO $pdo, array $order, int $userId, ?string $r
         ->execute([$orderId, $order['status'], $reason, $userId]);
 }
 
+/** Khoang cach (met) giua 2 toa do GPS theo cong thuc Haversine. */
+function khoangCachMet(float $lat1, float $lng1, float $lat2, float $lng2): float
+{
+    $r = 6371000.0;
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLng = deg2rad($lng2 - $lng1);
+    $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+    return 2 * $r * asin(min(1.0, sqrt($a)));
+}
+
+/** Link anh QR chuyen khoan chuan VietQR (cung dich vu anh voi man hinh POS) cho dung so tien + noi dung. */
+function vietQrUrl(string $bankCode, string $account, string $accountName, float $amount, string $info): string
+{
+    return 'https://img.vietqr.io/image/' . rawurlencode($bankCode) . '-' . rawurlencode($account) . '-compact2.png'
+        . '?amount=' . (int) round($amount) . '&addInfo=' . rawurlencode($info) . '&accountName=' . rawurlencode($accountName);
+}
+
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_LOCK_SECONDS = 15 * 60;
 
