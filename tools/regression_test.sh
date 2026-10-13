@@ -392,6 +392,27 @@ eq "nhac TT: bam 'Da nhac' ghi nhan thoi gian nhac" "1" "$([ "$(curl -s -b $CJ "
 eq "nhac TT: cron sai khoa bi tu choi (403)" "403" "$(curl -s -o /dev/null -w '%{http_code}' "$A/payment_reminder_cron.php?key=sai")"
 eq "doi soat chuyen khoan: thu ngan khong vao duoc (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/bank_reconcile.php)"
 
+echo "== 6w. Hang doi email + gia von binh quan + vai tro chat mo rong"
+MQ=$(probe "a=mailq")
+eq "hang doi email: don online moi da duoc nhan vao hang doi (khong chan trang)" "1" "$([ "$(echo "$MQ" | python -c "import sys,json;d=json.load(sys.stdin)['by_status'];print(sum(int(v) for v in d.values()))")" -ge 1 ] && echo 1 || echo 0)"
+# Gia von binh quan gia quyen
+probe "a=setting&k=costing_method&v=AVG" >/dev/null
+S0=$(stock)
+C0=$(curl -s -b $CJ "$A/stock_receipt_search.php?q=REG1" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['cost_price'])))")
+SIDX=$(curl -s -b $CJ $A/suppliers.php | grep -o 'supplier_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/stock_receipt_form.php $CJ)" -d "supplier_id=$SIDX&product_id[]=$PID&variant_id[]=&quantity[]=10&cost_price[]=100000&paid_amount=0" $A/stock_receipt_form.php
+C1=$(curl -s -b $CJ "$A/stock_receipt_search.php?q=REG1" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['cost_price'])))")
+EXP=$(python -c "print(int(round(($S0*$C0+10*100000)/($S0+10))))")
+eq "gia von binh quan gia quyen: ($S0 x $C0 + 10 x 100000) / ($S0 + 10) = $EXP" "$EXP" "$C1"
+probe "a=setting&k=costing_method&v=LAST" >/dev/null
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/stock_receipt_form.php $CJ)" -d "supplier_id=$SIDX&product_id[]=$PID&variant_id[]=&quantity[]=1&cost_price[]=65000&paid_amount=0" $A/stock_receipt_form.php
+eq "mac dinh (gia nhap gan nhat): gia von = gia nhap moi 65000" "65000" "$(curl -s -b $CJ "$A/stock_receipt_search.php?q=REG1" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['cost_price'])))")"
+# Vai tro chat: khong kem khach hang/bao hanh neu khong duoc tich
+eq "vai tro chat (chi kho): khong vao duoc Khach hang (403)" "403" "$(curl -s -b $W/cj_chat -o /dev/null -w '%{http_code}' $A/customers.php)"
+eq "vai tro chat (chi kho): khong vao duoc Bao hanh (403)" "403" "$(curl -s -b $W/cj_chat -o /dev/null -w '%{http_code}' $A/warranty_cards.php)"
+eq "vai tro chat: menu khong con muc Khach hang" "0" "$(curl -s -b $W/cj_chat $A/products.php | grep -c 'customers.php')"
+eq "thu ngan thuong van vao duoc Khach hang (200)" "200" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/customers.php)"
+
 echo "== 6l. Tim don hang"
 eq "tim don theo ten khach 'Khach COD'" "1" "$([ "$(curl -s -b $CJ --get --data-urlencode 'q=Khach COD' $A/orders.php | grep -c 'Khach COD')" -ge 1 ] && echo 1 || echo 0)"
 eq "tim don theo SDT khach 0922000111" "1" "$([ "$(curl -s -b $CJ "$A/orders.php?q=0922000111" | grep -c 'order_view.php?id=')" -ge 1 ] && echo 1 || echo 0)"

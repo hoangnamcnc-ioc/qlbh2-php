@@ -78,3 +78,7 @@ echo "Xong. Cua hang kiem tra: " . count($tenants) . " | da co bao cao hom nay: 
 if ($loi) {
     echo "Loi (" . count($loi) . "):\n" . implode("\n", $loi) . "\n";
 }
+
+// Gui lai cac email dang cho trong hang doi (SMTP chap chon truoc do).
+$flushed = mailQueueFlush(20);
+echo "Hang doi email: da xu ly $flushed thu.\n";

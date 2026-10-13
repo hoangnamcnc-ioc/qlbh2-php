@@ -46,11 +46,7 @@ if ($items) {
                     ->execute([$po['branch_id'], $it['product_id'], $it['variant_id'], $it['quantity']]);
             }
 
-            if ($it['variant_id']) {
-                $pdo->prepare('UPDATE product_variants SET cost_price = ? WHERE id = ?')->execute([$it['cost_price'], $it['variant_id']]);
-            } else {
-                $pdo->prepare('UPDATE products SET cost_price = ? WHERE id = ?')->execute([$it['cost_price'], $it['product_id']]);
-            }
+            capNhatGiaVonKhiNhap($pdo, (int) $it['product_id'], $it['variant_id'] ? (int) $it['variant_id'] : null, (float) $it['quantity'], (float) $it['cost_price']);
         }
 
         if ($po['supplier_id']) {

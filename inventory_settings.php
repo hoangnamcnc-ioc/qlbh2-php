@@ -9,11 +9,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $value = isset($_POST['allow_negative_stock']) ? '1' : '0';
     setSetting('allow_negative_stock', $value);
+    setSetting('costing_method', ($_POST['costing_method'] ?? '') === 'AVG' ? 'AVG' : 'LAST');
     logActivity('INVENTORY_SETTINGS_UPDATE', 'allow_negative_stock=' . $value);
     redirect('inventory_settings.php?saved=1');
 }
 
 $allowNegativeStock = getSetting('allow_negative_stock', '0');
+$costingMethod = getSetting('costing_method', 'LAST');
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -29,6 +31,14 @@ require_once __DIR__ . '/inc_header.php';
     <div class="field">
       <label><input type="checkbox" name="allow_negative_stock" <?= $allowNegativeStock === '1' ? 'checked' : '' ?>> Cho phép bán khi tồn kho không đủ (bán âm kho)</label>
       <p class="muted" style="font-size:12px;margin:4px 0 0;">Khi bật, POS vẫn cho thanh toán dù sản phẩm/thành phần combo không đủ tồn kho — tồn kho có thể xuống âm. Dùng cho cửa hàng chưa cập nhật tồn kho kịp thời.</p>
+    </div>
+    <div class="field">
+      <label>Cách tính giá vốn khi nhập hàng</label>
+      <select class="input" name="costing_method" style="max-width:340px;">
+        <option value="LAST" <?= $costingMethod === 'LAST' ? 'selected' : '' ?>>Giá nhập gần nhất (mặc định)</option>
+        <option value="AVG" <?= $costingMethod === 'AVG' ? 'selected' : '' ?>>Bình quân gia quyền</option>
+      </select>
+      <p class="muted" style="font-size:12px;margin:4px 0 0;">Bình quân gia quyền = (tồn cũ × giá vốn cũ + số lượng nhập × giá nhập) ÷ (tồn cũ + số lượng nhập), áp dụng từ lần nhập hàng tiếp theo; đơn đã bán giữ nguyên giá vốn lúc bán.</p>
     </div>
     <button type="submit" class="btn">Lưu cấu hình</button>
   </form>

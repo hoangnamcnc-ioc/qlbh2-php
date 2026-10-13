@@ -97,12 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ->execute([$branchId, $pid, $vid, $qty]);
                     }
 
-                    // Cập nhật giá vốn mới nhất
-                    if ($vid) {
-                        $pdo->prepare('UPDATE product_variants SET cost_price = ? WHERE id = ?')->execute([$cost, $vid]);
-                    } else {
-                        $pdo->prepare('UPDATE products SET cost_price = ? WHERE id = ?')->execute([$cost, $pid]);
-                    }
+                    // Cập nhật giá vốn (gần nhất hoặc bình quân gia quyền theo cấu hình kho)
+                    capNhatGiaVonKhiNhap($pdo, (int) $pid, $vid ? (int) $vid : null, (float) $qty, (float) $cost);
                 }
 
                 if ($supplierId) {

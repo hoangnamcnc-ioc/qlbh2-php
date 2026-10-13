@@ -929,3 +929,18 @@ CREATE TABLE IF NOT EXISTS payment_reminders (
   channel VARCHAR(20) NOT NULL DEFAULT 'EMAIL',
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Hang doi email: gui sau khi tra trang, tu thu lai khi SMTP loi
+CREATE TABLE IF NOT EXISTS mail_queue (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  to_email VARCHAR(190) NOT NULL,
+  subject VARCHAR(300) NOT NULL,
+  body MEDIUMTEXT NOT NULL,
+  reply_to VARCHAR(190) NULL,
+  status ENUM('PENDING','SENT','FAILED') NOT NULL DEFAULT 'PENDING',
+  attempts INT NOT NULL DEFAULT 0,
+  next_try DATETIME NOT NULL,
+  sent_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_mail_pending (status, next_try)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

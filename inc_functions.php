@@ -737,6 +737,39 @@ function vietQrUrl(string $bankCode, string $account, string $accountName, float
         . '?amount=' . (int) round($amount) . '&addInfo=' . rawurlencode($info) . '&accountName=' . rawurlencode($accountName);
 }
 
+/**
+ * Cap nhat gia von khi NHAP HANG. Cach tinh theo Cau hinh > Quan ly kho (costing_method): 'LAST' = gia nhap gan nhat (mac dinh),
+ * 'AVG' = BINH QUAN GIA QUYEN = (ton cu x gia von cu + so luong nhap x gia nhap) / (ton cu + so luong nhap). Goi SAU khi da cong ton kho.
+ */
+function capNhatGiaVonKhiNhap(PDO $pdo, int $productId, ?int $variantId, float $qtyIn, float $costIn): void
+{
+    $newCost = $costIn;
+    if (getSetting('costing_method', 'LAST') === 'AVG' && $qtyIn > 0) {
+        $tenantId = currentTenantId();
+        if ($variantId) {
+            $cur = $pdo->prepare('SELECT cost_price FROM product_variants WHERE id = ?');
+            $cur->execute([$variantId]);
+            $qs = $pdo->prepare('SELECT COALESCE(SUM(i.quantity),0) FROM inventory i JOIN branches b ON b.id = i.branch_id WHERE i.variant_id = ? AND b.tenant_id = ?');
+            $qs->execute([$variantId, $tenantId]);
+        } else {
+            $cur = $pdo->prepare('SELECT cost_price FROM products WHERE id = ?');
+            $cur->execute([$productId]);
+            $qs = $pdo->prepare('SELECT COALESCE(SUM(i.quantity),0) FROM inventory i JOIN branches b ON b.id = i.branch_id WHERE i.product_id = ? AND i.variant_id IS NULL AND b.tenant_id = ?');
+            $qs->execute([$productId, $tenantId]);
+        }
+        $oldCost = (float) $cur->fetchColumn();
+        $before = max(0.0, (float) $qs->fetchColumn() - $qtyIn);
+        if ($before > 0 && $oldCost > 0) {
+            $newCost = round(($before * $oldCost + $qtyIn * $costIn) / ($before + $qtyIn), 2);
+        }
+    }
+    if ($variantId) {
+        $pdo->prepare('UPDATE product_variants SET cost_price = ? WHERE id = ?')->execute([$newCost, $variantId]);
+    } else {
+        $pdo->prepare('UPDATE products SET cost_price = ? WHERE id = ?')->execute([$newCost, $productId]);
+    }
+}
+
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_LOCK_SECONDS = 15 * 60;
 

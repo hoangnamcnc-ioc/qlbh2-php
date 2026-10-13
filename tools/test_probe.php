@@ -46,6 +46,13 @@ if (($_GET['a'] ?? '') === 'backdate') {
     exit;
 }
 
+if (($_GET['a'] ?? '') === 'mailq') {
+    // Trang thai thu trong hang doi gui toi email cua cac cua hang thu (de kiem tra hang doi email).
+    $st = $pdo->query("SELECT status, COUNT(*) AS n FROM mail_queue WHERE to_email LIKE 'zzreg_%@example.com' OR to_email LIKE 'zz%@example.com' GROUP BY status");
+    echo json_encode(['by_status' => $st->fetchAll(PDO::FETCH_KEY_PAIR)]);
+    exit;
+}
+
 if (($_GET['a'] ?? '') === 'setting') {
     // Dat 1 cau hinh cho cac cua hang thu 'ZZTEST Reg' (de gia lap IP khac...).
     $ids = $pdo->query("SELECT id FROM tenants WHERE name = 'ZZTEST Reg'")->fetchAll(PDO::FETCH_COLUMN);

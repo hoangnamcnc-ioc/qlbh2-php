@@ -306,11 +306,19 @@ function requireLogin(): array
     // Vai tro tuy chinh "chat" (co the 'strict'): khong kem quyen ban hang co ban cua thu ngan - chi
     // vao duoc khu Ban hang (POS, don hang, van chuyen...) khi duoc tich nhom 'pos'.
     $u = currentUser();
-    if (!empty($u['custom_role_id']) && detectPagePermissionGroup() === 'pos'
-        && in_array('strict', currentUserPermissionGroups(), true) && !userHasPermissionGroup('pos')) {
+    $strictBlockGroup = null;
+    if (!empty($u['custom_role_id']) && in_array('strict', currentUserPermissionGroups(), true)) {
+        $f = basename($_SERVER['SCRIPT_NAME']);
+        $g = detectPagePermissionGroup();
+        // Vai tro 'chat': ngoai khu Ban hang con khoa trang Khach hang / Bao hanh co ban neu khong duoc tich nhom tuong ung.
+        if ($g === 'pos' && !userHasPermissionGroup('pos')) $strictBlockGroup = 'pos';
+        elseif (in_array($f, ['customers.php', 'customer_form.php', 'customer_view.php', 'customer_debt_reminders.php'], true) && !userHasPermissionGroup('customers') && !userHasPermissionGroup('pos')) $strictBlockGroup = 'customers';
+        elseif (in_array($f, ['warranty_cards.php', 'warranty_claims.php', 'warranty_card_form.php', 'warranty_card_view.php', 'warranty_claim_form.php', 'warranty_claim_view.php'], true) && !userHasPermissionGroup('warranty') && !userHasPermissionGroup('pos')) $strictBlockGroup = 'warranty';
+    }
+    if ($strictBlockGroup !== null) {
         http_response_code(403);
         require_once __DIR__ . '/inc_header.php';
-        echo '<div class="alert alert-error">Vai trò của bạn không được dùng khu Bán hàng.</div>';
+        echo '<div class="alert alert-error">Vai trò của bạn không được dùng khu ' . ['pos' => 'Bán hàng', 'customers' => 'Khách hàng', 'warranty' => 'Bảo hành'][$strictBlockGroup] . '.</div>';
         require_once __DIR__ . '/inc_footer.php';
         exit;
     }

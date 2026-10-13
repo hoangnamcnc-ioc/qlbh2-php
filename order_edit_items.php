@@ -33,6 +33,20 @@ function layDongDon(PDO $pdo, int $orderId): array
     return $st->fetchAll();
 }
 
+/** Dieu chinh ton kho cac THANH PHAN cua 1 combo theo so luong combo thay doi (delta > 0 = lay them). */
+function dieuChinhTonCombo(PDO $pdo, int $comboProductId, int $branchId, float $delta, callable $checkStock): void
+{
+    $cs = $pdo->prepare('SELECT component_product_id, quantity AS comp_qty FROM combo_items WHERE combo_product_id = ?');
+    $cs->execute([$comboProductId]);
+    foreach ($cs->fetchAll() as $c) {
+        $need = (float) $c['comp_qty'] * $delta;
+        if ($need > 0) {
+            $checkStock((int) $c['component_product_id'], null, $need);
+        }
+        capNhatTonKho($pdo, $branchId, (int) $c['component_product_id'], null, -$need);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     if (!$editable) {
@@ -78,8 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $lines = layDongDon($pdo, $id);
             foreach ($lines as $line) {
                 $iid = (int) $line['id'];
-                if ($line['product_type'] === 'COMBO' || !array_key_exists($iid, $qtyIn)) {
-                    continue; // combo khong sua duoc o day
+                if (!array_key_exists($iid, $qtyIn)) {
+                    continue;
                 }
                 $newQty = round((float) $qtyIn[$iid], 3);
                 $newPrice = round(max(0, (float) ($priceIn[$iid] ?? $line['unit_price'])), 2);
@@ -87,8 +101,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $variantId = $line['variant_id'] ? (int) $line['variant_id'] : null;
                 $isService = $line['product_type'] === 'SERVICE';
 
+                $isCombo = $line['product_type'] === 'COMBO';
                 if ($newQty <= 0) {
-                    if (!$isService) {
+                    if ($isCombo) {
+                        dieuChinhTonCombo($pdo, (int) $line['product_id'], $branchId, -$oldQty, $checkStock);
+                    } elseif (!$isService) {
                         hoanLoHangTheoDong($pdo, $iid);
                         capNhatTonKho($pdo, $branchId, (int) $line['product_id'], $variantId, $oldQty);
                     }
@@ -97,10 +114,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
                 $delta = $newQty - $oldQty;
-                if ($delta < 0 && !$isService) {
+                if ($isCombo && $delta != 0) {
+                    dieuChinhTonCombo($pdo, (int) $line['product_id'], $branchId, $delta, $checkStock);
+                } elseif ($delta < 0 && !$isService) {
                     hoanLoHangTheoDong($pdo, $iid, -$delta);
                     capNhatTonKho($pdo, $branchId, (int) $line['product_id'], $variantId, -$delta);
-                } elseif ($delta > 0 && !$isService) {
+                } elseif ($delta > 0 && !$isService && !$isCombo) {
                     $checkStock((int) $line['product_id'], $variantId, $delta);
                     capNhatTonKho($pdo, $branchId, (int) $line['product_id'], $variantId, -$delta);
                     if (!$variantId) {
@@ -125,20 +144,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ps->execute([$pid, $tenantId]);
                 $prod = $ps->fetch();
                 if (!$prod) throw new RuntimeException('Sản phẩm thêm vào không hợp lệ.');
-                if ($prod['product_type'] === 'COMBO') throw new RuntimeException('Chưa thêm được combo vào đơn đã tạo — hãy tạo đơn mới.');
                 $vc = $pdo->prepare('SELECT COUNT(*) FROM product_variants WHERE product_id = ?');
                 $vc->execute([$pid]);
                 if ((int) $vc->fetchColumn() > 0) throw new RuntimeException('Sản phẩm "' . $prod['name'] . '" có biến thể — hãy tạo đơn mới để chọn biến thể.');
                 $price = round(max(0, (float) ($newPrices[$k] !== '' && $newPrices[$k] !== null ? $newPrices[$k] : $prod['sell_price'])), 2);
                 $isService = $prod['product_type'] === 'SERVICE';
-                if (!$isService) {
+                $isComboNew = $prod['product_type'] === 'COMBO';
+                if ($isComboNew) {
+                    dieuChinhTonCombo($pdo, $pid, $branchId, $qty, $checkStock);
+                } elseif (!$isService) {
                     $checkStock($pid, null, $qty);
                     capNhatTonKho($pdo, $branchId, $pid, null, -$qty);
                 }
                 $pdo->prepare('INSERT INTO order_items (order_id, product_id, quantity, unit_price, line_total, cost_price) VALUES (?,?,?,?,?,?)')
                     ->execute([$id, $pid, $qty, $price, round($qty * $price, 2), (float) $prod['cost_price']]);
                 $newIid = (int) $pdo->lastInsertId();
-                if (!$isService) {
+                if (!$isService && !$isComboNew) {
                     foreach (truLoHangFEFO($pdo, $pid, $branchId, $qty) as [$bid, $take]) {
                         $pdo->prepare('INSERT INTO order_item_batches (order_item_id, batch_id, quantity) VALUES (?,?,?)')->execute([$newIid, $bid, $take]);
                     }
@@ -209,7 +230,7 @@ require_once __DIR__ . '/inc_header.php';
 <?php else: ?>
 <p class="muted" style="font-size:13px;max-width:720px;">
   Đổi số lượng hoặc đơn giá, đặt số lượng <b>0</b> để bỏ dòng, hoặc thêm mặt hàng mới. Tồn kho, lô hạn dùng, tổng tiền,
-  trạng thái thanh toán và công nợ khách tự cập nhật theo. Số tiền chiết khấu của đơn được giữ nguyên (đổi ở mục "Sửa đơn"). Combo và hàng có biến thể không sửa được ở đây.
+  trạng thái thanh toán và công nợ khách tự cập nhật theo. Số tiền chiết khấu của đơn được giữ nguyên (đổi ở mục "Sửa đơn"). Sửa được cả combo (tồn kho các thành phần tự điều chỉnh); chỉ chưa <b>thêm mới</b> được hàng có biến thể (hãy tạo đơn mới để chọn biến thể).
 </p>
 <form method="post" class="card" style="padding:0;overflow-x:auto;max-width:860px;">
   <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
@@ -218,10 +239,10 @@ require_once __DIR__ . '/inc_header.php';
     <thead><tr><th>Sản phẩm</th><th class="text-right">Số lượng</th><th class="text-right">Đơn giá</th></tr></thead>
     <tbody>
       <?php foreach ($lines as $l): ?>
-        <?php $locked = $l['product_type'] === 'COMBO'; ?>
+        <?php $locked = false; ?>
         <tr>
           <td><?= e($l['product_name']) ?><?= $l['variant_name'] ? ' — ' . e($l['variant_name']) : '' ?>
-            <span class="muted" style="font-size:12px;">(<?= e($l['sku']) ?>)</span><?= $locked ? ' <span class="muted">· combo, không sửa</span>' : '' ?></td>
+            <span class="muted" style="font-size:12px;">(<?= e($l['sku']) ?>)</span><?= $l['product_type'] === 'COMBO' ? ' <span class="muted">· combo</span>' : '' ?></td>
           <td class="text-right"><input class="input" type="number" step="0.001" min="0" name="qty[<?= (int) $l['id'] ?>]" value="<?= e(rtrim(rtrim(number_format((float) $l['quantity'], 3, '.', ''), '0'), '.')) ?>" style="width:100px;text-align:right;" <?= $locked ? 'disabled' : '' ?>></td>
           <td class="text-right"><input class="input" type="number" step="1" min="0" name="price[<?= (int) $l['id'] ?>]" value="<?= e((string) round((float) $l['unit_price'])) ?>" style="width:130px;text-align:right;" <?= $locked ? 'disabled' : '' ?>></td>
         </tr>

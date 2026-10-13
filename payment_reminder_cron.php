@@ -50,4 +50,6 @@ foreach ($tenants as $t) {
         }
     }
 }
+$flushed = mailQueueFlush(20);
 echo "Da gui $sent email, nhac $orders don.\n";
+echo "Hang doi email: da xu ly $flushed thu.\n";

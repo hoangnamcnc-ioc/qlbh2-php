@@ -118,6 +118,10 @@ $navGroups['Cá nhân'] = ['cham_cong_cua_toi.php' => 'Chấm công & lương c�
 if ($strictNoPos) {
     unset($navGroups['Bán hàng']);
 }
+if (!$isManagerUp && in_array('strict', currentUserPermissionGroups(), true)) {
+    if (!userHasPermissionGroup('customers') && !userHasPermissionGroup('pos')) { unset($navGroups['Khách hàng']); }
+    if (!userHasPermissionGroup('warranty') && !userHasPermissionGroup('pos')) { unset($navGroups['Bảo hành']); }
+}
 $groupIcons = [
     'Chức năng' => '🧭',
     'Tổng quan' => '📊',
