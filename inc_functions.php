@@ -319,7 +319,7 @@ const PERMISSION_GROUPS = [
 const PERMISSION_GROUP_FILES = [
     'pos' => [
         'pos.php', 'ca_ban_hang.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
-        'order_view.php', 'order_edit.php', 'order_edit_items.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
+        'order_view.php', 'order_edit.php', 'order_edit_items.php', 'don_cho_thanh_toan.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
         'order_pay.php', 'order_returns.php', 'order_return_form.php', 'shipments.php',
         'shipment_form.php', 'shipment_reconcile.php', 'shipping_settings.php', 'channels.php',
     ],
@@ -345,7 +345,7 @@ const PERMISSION_GROUP_FILES = [
         'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
-    'finance' => ['accounting.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php'],
+    'finance' => ['accounting.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php'],
     'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
 ];
 

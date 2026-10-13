@@ -902,3 +902,30 @@ CREATE TABLE IF NOT EXISTS order_item_batches (
   FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
   FOREIGN KEY (batch_id) REFERENCES product_batches(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Giao dich ngan hang (bien dong so du) de tu doi soat chuyen khoan + nhac thanh toan don online
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  provider VARCHAR(30) NOT NULL DEFAULT 'generic',
+  tx_id VARCHAR(80) NOT NULL,
+  amount DECIMAL(14,2) NOT NULL,
+  content VARCHAR(500) NULL,
+  account_number VARCHAR(40) NULL,
+  tx_time DATETIME NOT NULL,
+  status ENUM('MATCHED','POS_REF','POS_DONE','UNMATCHED','IGNORED') NOT NULL DEFAULT 'UNMATCHED',
+  order_id INT NULL,
+  applied_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  pos_ref VARCHAR(12) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_bank_tx (tenant_id, provider, tx_id),
+  KEY idx_bank_posref (tenant_id, pos_ref),
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_reminders (
+  order_id INT NOT NULL PRIMARY KEY,
+  reminded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  channel VARCHAR(20) NOT NULL DEFAULT 'EMAIL',
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

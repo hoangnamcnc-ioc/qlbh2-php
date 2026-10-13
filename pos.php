@@ -368,6 +368,10 @@ let lastOrderId = null;
 function on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
 
 const displayChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('qlbh2_pos_display') : null;
+let qrShownForDisplay = false;
+let payRef = null;        // ma thanh toan TTxxxxxx cua don dang lap (doi sau moi lan thanh toan)
+let qrPollTimer = null;
+let qrReceived = 0;
 
 // ===== Bán hàng Offline =====
 // Khi mất mạng (thật sự mất kết nối, hoặc bật tay để test), đơn hàng được lưu tạm vào
@@ -814,7 +818,10 @@ function updateTotals() {
   renderCashSuggestions(total);
   updateChange();
   if (displayChannel) {
-    displayChannel.postMessage({ cart, subTotal, discount, total });
+    const qrInfo = (typeof qrShownForDisplay !== 'undefined' && qrShownForDisplay && typeof payRef !== 'undefined' && payRef && total > 0)
+      ? { url: `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact2.png?amount=${Math.round(total)}&addInfo=${encodeURIComponent(payRef)}&accountName=${encodeURIComponent(bankAccountName)}`, ref: payRef, received: qrReceived }
+      : null;
+    displayChannel.postMessage({ cart, subTotal, discount, total, qr: qrInfo });
   }
 }
 
@@ -920,6 +927,7 @@ function buildCheckoutPayload() {
     paid_amount: document.getElementById('split-toggle').checked
       ? splitSum()
       : (document.getElementById('partial-payment-toggle').checked ? (parseFloat(document.getElementById('paid-amount').value) || 0) : null),
+    pay_ref: (typeof qrShownForDisplay !== 'undefined' && qrShownForDisplay && payRef) ? payRef : null,
     payments: document.getElementById('split-toggle').checked ? (() => {
       const m = {};
       document.querySelectorAll('.split-in').forEach(i => { const v = parseFloat(i.value) || 0; if (v > 0) m[i.dataset.method] = v; });
@@ -945,6 +953,8 @@ document.getElementById('partial-payment-toggle').addEventListener('change', (e)
 });
 
 function resetOrderAfterCheckout() {
+  payRef = null; qrReceived = 0; qrShownForDisplay = false; stopQrPolling();
+  const qp = document.getElementById('qr-panel'); if (qp) { qp.style.display = 'none'; qp.innerHTML = ''; }
   checkoutIdemKey = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
   if (orders.length > 1) {
     orders.splice(currentOrderIndex, 1);
@@ -1174,28 +1184,73 @@ on('qa-customer-display', 'click', () => {
   updateTotals();
 });
 
+// ---- QR thanh toan chuyen khoan tai quay: ma tham chieu TTxxxxxx trong noi dung de TU DOI SOAT khi khach chuyen ----
+function newPayRef() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let r = 'TT';
+  const buf = new Uint32Array(6);
+  (self.crypto || {}).getRandomValues ? crypto.getRandomValues(buf) : buf.forEach((_, k) => buf[k] = Math.floor(Math.random() * 1e9));
+  for (let k = 0; k < 6; k++) r += alphabet[buf[k] % alphabet.length];
+  return r;
+}
+function stopQrPolling() { if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null; } }
+function qrState() {
+  const total = Math.round(currentOrderTotal());
+  return { total, url: payRef ? `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(payRef)}&accountName=${encodeURIComponent(bankAccountName)}` : '' };
+}
+function renderQrStatus() {
+  const el = document.getElementById('qr-status');
+  if (!el) return;
+  const total = Math.round(currentOrderTotal());
+  if (qrReceived >= total && total > 0) {
+    el.innerHTML = `<b style="color:#059669;">✅ Đã nhận ${formatMoney(qrReceived)} đ — bấm Thanh toán để hoàn tất</b>`;
+  } else if (qrReceived > 0) {
+    el.innerHTML = `<b style="color:#d97706;">Đã nhận ${formatMoney(qrReceived)} đ, còn thiếu ${formatMoney(total - qrReceived)} đ</b>`;
+  } else {
+    el.innerHTML = '<span class="muted">⏳ Đang chờ khách chuyển khoản... (tự cập nhật khi tiền về, cần kết nối đối soát tự động)</span>';
+  }
+}
+function pollQr() {
+  if (!payRef) return;
+  fetch('bank_status.php?ref=' + encodeURIComponent(payRef), { cache: 'no-store' }).then(r => r.json()).then(d => {
+    qrReceived = d.received || 0;
+    renderQrStatus();
+    broadcastCart();
+    if (qrReceived >= Math.round(currentOrderTotal()) && qrReceived > 0) {
+      document.getElementById('payment-method').value = 'BANK_TRANSFER';
+      stopQrPolling();
+    }
+  }).catch(() => {});
+}
+function broadcastCart() { updateTotals(); }
 on('qa-qr-payment', 'click', () => {
   const panel = document.getElementById('qr-panel');
   const isOpen = panel.style.display !== 'none';
-  if (isOpen) { panel.style.display = 'none'; return; }
+  if (isOpen) { panel.style.display = 'none'; stopQrPolling(); qrShownForDisplay = false; broadcastCart(); return; }
   if (!bankCode || !bankAccount) {
     panel.style.display = 'block';
     panel.innerHTML = '<div class="muted">Chưa cấu hình tài khoản ngân hàng. <a href="payment_settings.php">Thiết lập ngay</a>.</div>';
     return;
   }
-  const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const discount = Math.min(subTotal * 0.5, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0));
-  const total = Math.round(Math.max(0, subTotal - discount) + getShippingFee());
-  if (total <= 0) {
+  if (currentOrderTotal() <= 0) {
     panel.style.display = 'block';
     panel.innerHTML = '<div class="muted">Giỏ hàng chưa có sản phẩm để tạo mã QR.</div>';
     return;
   }
-  const addInfo = encodeURIComponent('Thanh toan don hang');
-  const acc = encodeURIComponent(bankAccountName);
-  const url = `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact2.png?amount=${total}&addInfo=${addInfo}&accountName=${acc}`;
+  if (!payRef) payRef = newPayRef();
+  qrReceived = 0;
+  const st = qrState();
   panel.style.display = 'block';
-  panel.innerHTML = `<img src="${url}" alt="Mã QR thanh toán" style="max-width:260px;"><div style="margin-top:8px;font-weight:600;">${formatMoney(total)} đ</div><div class="muted" style="font-size:12px;">Quét bằng app ngân hàng bất kỳ — nhân viên tự xác nhận đã nhận tiền trước khi hoàn tất đơn.</div>`;
+  panel.innerHTML = `<img src="${st.url}" alt="Mã QR thanh toán" style="max-width:260px;"><div style="margin-top:8px;font-weight:600;">${formatMoney(st.total)} đ</div>
+    <div class="muted" style="font-size:12px;">Nội dung: <b>${payRef}</b> — khách quét bằng app ngân hàng</div>
+    <div id="qr-status" style="margin-top:6px;font-size:13px;"></div>
+    <div class="muted" style="font-size:11.5px;margin-top:4px;">Khách đã chuyển khoản trên màn hình phụ của khách? Mở "Màn hình khách" để khách tự quét.</div>`;
+  qrShownForDisplay = true;
+  renderQrStatus();
+  broadcastCart();
+  stopQrPolling();
+  qrPollTimer = setInterval(pollQr, 3000);
+  pollQr();
 });
 
 on('qa-batches', 'click', () => {

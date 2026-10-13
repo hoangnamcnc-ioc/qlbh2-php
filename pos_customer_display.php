@@ -31,6 +31,7 @@ requireLogin();
     <div class="row"><span>Chiết khấu</span><span id="discount">0</span></div>
     <div class="total-row"><span>TỔNG TIỀN</span><span id="total">0</span></div>
   </div>
+  <div id="qr-area" style="display:none;text-align:center;margin:14px 0 6px;"></div>
   <div class="status" id="status">Chưa kết nối tới màn hình bán hàng</div>
 
   <script>
@@ -51,6 +52,18 @@ requireLogin();
       document.getElementById('subtotal').textContent = formatMoney(data.subTotal || 0);
       document.getElementById('discount').textContent = formatMoney(data.discount || 0);
       document.getElementById('total').textContent = formatMoney(data.total || 0);
+      const qa = document.getElementById('qr-area');
+      if (data.qr && data.qr.url) {
+        const got = Number(data.qr.received) || 0;
+        const done = got >= Math.round(data.total || 0) && got > 0;
+        const safeUrl = String(data.qr.url);
+        if (!qa.dataset.src || qa.dataset.src !== safeUrl) {
+          qa.dataset.src = safeUrl;
+          qa.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">Quét mã để thanh toán</div><img src="' + safeUrl.replace(/"/g, '&quot;') + '" alt="QR thanh toán" style="width:260px;max-width:90%;border-radius:10px;background:#fff;padding:6px;"><div id="qr-line" style="margin-top:6px;font-size:15px;"></div>';
+        }
+        document.getElementById('qr-line').innerHTML = done ? '<b style="color:#16a34a;">✅ Đã nhận ' + formatMoney(got) + ' đ — Cảm ơn quý khách!</b>' : (got > 0 ? 'Đã nhận ' + formatMoney(got) + ' đ' : 'Nội dung: <b>' + escHtml(data.qr.ref) + '</b>');
+        qa.style.display = 'block';
+      } else { qa.style.display = 'none'; qa.dataset.src = ''; }
     };
   </script>
 </body>

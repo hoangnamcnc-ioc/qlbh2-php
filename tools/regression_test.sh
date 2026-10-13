@@ -335,6 +335,63 @@ for i in 1 2 3 4; do curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$
 curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$PT" -d "order_id=$OQ&amount=999999999&method=BANK_TRANSFER" $A/order_pay.php
 eq "QR NH: da thanh toan du thi trang khong con hien QR" "0" "$(curl -s "$A/shop.php?s=$SLUG&ok=1&code=$QCODE" | grep -c 'img.vietqr.io')"
 
+echo "== 6t. Tu doi soat chuyen khoan (webhook bien dong so du)"
+WK=$(curl -s -b $CJ $A/bank_reconcile.php | grep -o 'value="[a-f0-9]\{40\}"' | head -1 | grep -o '[a-f0-9]\{40\}')
+[ -n "$WK" ] && ok "cua hang co khoa webhook rieng" || fail "cua hang co khoa webhook rieng" "40 ky tu hex" "rong"
+eq "webhook: thieu khoa -> 401" "401" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"transferAmount":1000}' $A/bank_webhook.php)"
+eq "webhook: sai khoa -> 401" "401" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Apikey 0000000000000000000000000000000000000000' -H 'Content-Type: application/json' -d '{"transferAmount":1000}' $A/bank_webhook.php)"
+eq "webhook: GET khong duoc -> 405" "405" "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Apikey $WK" $A/bank_webhook.php)"
+# Khach dat qua QR (chua tra) roi chuyen khoan dung noi dung = ma don
+curl -s -c $W/cj_w -o /dev/null "$A/shop.php?s=$SLUG"; TW=$(tk "$A/shop.php?s=$SLUG" $W/cj_w)
+RW=$(curl -s -b $W/cj_w -c $W/cj_w -o /dev/null -w "%{redirect_url}" --data-urlencode csrf="$TW" --data-urlencode s="$SLUG" -d "receive=pickup&customer_phone=0988000555&qty[$PID]=2" $A/shop_order.php)
+WCODE=$(echo "$RW" | grep -o 'code=[A-Z0-9]*' | cut -d= -f2)
+WORD=$(curl -s -b $CJ "$A/orders.php?q=$WCODE" | grep -o 'order_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+WCID=$(curl -s -b $CJ "$A/customers.php?q=0988000555" | grep -o 'customer_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+SW=$(probe "a=state&c=$WCID&o=$WORD"); WTOTAL=$(python -c "print(int(float($(echo "$SW" | jv "['order']['total_amount']"))))")
+R1=$(curl -s -X POST -H "Authorization: Apikey $WK" -H 'Content-Type: application/json' -d "{\"id\":9001,\"gateway\":\"VCB\",\"transactionDate\":\"2026-10-13 10:00:00\",\"accountNumber\":\"0123456789\",\"transferType\":\"in\",\"transferAmount\":$WTOTAL,\"content\":\"CK $WCODE thanh toan\"}" $A/bank_webhook.php)
+eq "webhook SePay: khop ma don trong noi dung -> MATCHED" "MATCHED" "$(echo "$R1" | jv "['results'][0]['status']")"
+SW=$(probe "a=state&c=$WCID&o=$WORD")
+eq "tu doi soat: don chuyen sang da thanh toan du" "PAID" "$(echo "$SW" | jv "['order']['payment_status']")"
+eq "tu doi soat: so quy ghi dung so tien, hinh thuc chuyen khoan" "$WTOTAL" "$(python -c "print(int(float($(echo "$SW" | jv "['by_method']['BANK_TRANSFER']"))))")"
+R2=$(curl -s -X POST -H "Authorization: Apikey $WK" -H 'Content-Type: application/json' -d "{\"id\":9001,\"transferType\":\"in\",\"transferAmount\":$WTOTAL,\"content\":\"CK $WCODE thanh toan\"}" $A/bank_webhook.php)
+eq "webhook gui lai cung ma giao dich -> DUPLICATE, khong ghi so lan 2" "DUPLICATE" "$(echo "$R2" | jv "['results'][0]['status']")"
+SW=$(probe "a=state&c=$WCID&o=$WORD")
+eq "gui lai: so quy van khong doi" "$WTOTAL" "$(python -c "print(int(float($(echo "$SW" | jv "['cash_net']"))))")"
+R3=$(curl -s -X POST -H "Authorization: Apikey $WK" -H 'Content-Type: application/json' -d '{"id":9002,"transferType":"in","transferAmount":55000,"content":"khong co ma don"}' $A/bank_webhook.php)
+eq "giao dich khong co ma don -> UNMATCHED (cho gan tay)" "UNMATCHED" "$(echo "$R3" | jv "['results'][0]['status']")"
+eq "webhook: giao dich tien RA bi bo qua" "0" "$(curl -s -X POST -H "Authorization: Apikey $WK" -H 'Content-Type: application/json' -d '{"id":9003,"transferType":"out","transferAmount":1000,"content":"x"}' $A/bank_webhook.php | jv "['processed']")"
+eq "webhook Casso: dang data[] cung nhan duoc" "1" "$(curl -s -X POST -H "secure-token: $WK" -H 'Content-Type: application/json' -d '{"error":0,"data":[{"id":7001,"description":"TT khong ma","amount":20000,"when":"2026-10-13 10:05:00"}]}' $A/bank_webhook.php | jv "['processed']")"
+curl -s -c $W/cj_w2 -o /dev/null "$A/shop.php?s=$SLUG"; TW2=$(tk "$A/shop.php?s=$SLUG" $W/cj_w2)
+RW2=$(curl -s -b $W/cj_w2 -c $W/cj_w2 -o /dev/null -w "%{redirect_url}" --data-urlencode csrf="$TW2" --data-urlencode s="$SLUG" -d "receive=pickup&customer_phone=0988000666&qty[$PID]=1" $A/shop_order.php)
+WCODE2=$(echo "$RW2" | grep -o 'code=[A-Z0-9]*' | cut -d= -f2)
+WORD2=$(curl -s -b $CJ "$A/orders.php?q=$WCODE2" | grep -o 'order_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+UTX=$(curl -s -b $CJ $A/bank_reconcile.php | grep -o 'name="tx" value="[0-9]*"' | head -1 | grep -o '[0-9]*')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/bank_reconcile.php $CJ)" -d "action=assign&tx=$UTX&code=$WCODE2" $A/bank_reconcile.php
+SW2=$(probe "a=state&c=0&o=$WORD2")
+eq "gan tay giao dich chua khop vao don: so quy ghi nhan" "1" "$([ "$(python -c "print(int(float($(echo "$SW2" | jv "['cash_net']"))))")" -gt 0 ] && echo 1 || echo 0)"
+
+echo "== 6u. QR thanh toan tai quay (POS) + tu bao da nhan tien"
+POSREF="TT"$(python -c "import random;print(''.join(random.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(6)))")
+eq "POS: ma thanh toan chua co tien -> received 0" "0" "$(curl -s -b $CJ "$A/bank_status.php?ref=$POSREF" | jv "['received']")"
+RP=$(curl -s -X POST -H "Authorization: Apikey $WK" -H 'Content-Type: application/json' -d "{\"id\":9100,\"transferType\":\"in\",\"transferAmount\":100000,\"content\":\"Thanh toan $POSREF\"}" $A/bank_webhook.php)
+eq "POS: chuyen khoan co ma TT -> POS_REF" "POS_REF" "$(echo "$RP" | jv "['results'][0]['status']")"
+eq "POS: man hinh thu ngan thay da nhan 100000" "100000" "$(python -c "print(int(float($(curl -s -b $CJ "$A/bank_status.php?ref=$POSREF" | jv "['received']"))))")"
+RPOS=$(checkout "{\"csrf\":\"$PT\",\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}],\"payment_method\":\"BANK_TRANSFER\",\"pay_ref\":\"$POSREF\"}")
+eq "POS: thanh toan don xong" "1" "$([ -n "$(echo "$RPOS" | jv "['order_id']")" ] && echo 1 || echo 0)"
+eq "POS: sau khi thanh toan, giao dich duoc gan vao don (khong con cho)" "0" "$(python -c "print(int(float($(curl -s -b $CJ "$A/bank_status.php?ref=$POSREF" | jv "['received']"))))")"
+eq "POS: ma thanh toan sai dinh dang bi tu choi" "invalid_ref" "$(curl -s -b $CJ "$A/bank_status.php?ref=ABC" | jv "['error']")"
+
+echo "== 6v. Nhac don online chua thanh toan"
+probe "a=backdate" >/dev/null
+RM=$(curl -s -b $CJ "$A/don_cho_thanh_toan.php?m=60")
+eq "nhac TT: don online chua tra qua 1 gio hien trong danh sach (co nut Goi/SMS)" "1" "$([ "$(echo "$RM" | grep -c 'sms:')" -ge 1 ] && echo 1 || echo 0)"
+eq "nhac TT: tin nhan soan san kem link theo doi don" "1" "$([ "$(echo "$RM" | grep -c 'shop_track.php')" -ge 1 ] && echo 1 || echo 0)"
+RID=$(echo "$RM" | grep -o 'name="order_id" value="[0-9]*"' | head -1 | grep -o '[0-9]*')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk "$A/don_cho_thanh_toan.php" $CJ)" -d "order_id=$RID" $A/don_cho_thanh_toan.php
+eq "nhac TT: bam 'Da nhac' ghi nhan thoi gian nhac" "1" "$([ "$(curl -s -b $CJ "$A/don_cho_thanh_toan.php?m=60" | grep -c 'Đã nhắc [0-9]')" -ge 1 ] && echo 1 || echo 0)"
+eq "nhac TT: cron sai khoa bi tu choi (403)" "403" "$(curl -s -o /dev/null -w '%{http_code}' "$A/payment_reminder_cron.php?key=sai")"
+eq "doi soat chuyen khoan: thu ngan khong vao duoc (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/bank_reconcile.php)"
+
 echo "== 6l. Tim don hang"
 eq "tim don theo ten khach 'Khach COD'" "1" "$([ "$(curl -s -b $CJ --get --data-urlencode 'q=Khach COD' $A/orders.php | grep -c 'Khach COD')" -ge 1 ] && echo 1 || echo 0)"
 eq "tim don theo SDT khach 0922000111" "1" "$([ "$(curl -s -b $CJ "$A/orders.php?q=0922000111" | grep -c 'order_view.php?id=')" -ge 1 ] && echo 1 || echo 0)"

@@ -37,6 +37,15 @@ if (($_GET['a'] ?? '') === 'state') {
     exit;
 }
 
+if (($_GET['a'] ?? '') === 'backdate') {
+    // Lui gio tao cua cac don ONLINE chua thanh toan cua cua hang thu 2 gio (de thu nhac thanh toan sau 1 gio).
+    $n = $pdo->exec("UPDATE orders o JOIN branches b ON b.id = o.branch_id JOIN tenants t ON t.id = b.tenant_id
+                     SET o.created_at = DATE_SUB(NOW(), INTERVAL 2 HOUR)
+                     WHERE t.name = 'ZZTEST Reg' AND o.source = 'ONLINE' AND o.total_amount > o.paid_amount AND o.status <> 'CANCELLED'");
+    echo json_encode(['backdated' => $n]);
+    exit;
+}
+
 if (($_GET['a'] ?? '') === 'setting') {
     // Dat 1 cau hinh cho cac cua hang thu 'ZZTEST Reg' (de gia lap IP khac...).
     $ids = $pdo->query("SELECT id FROM tenants WHERE name = 'ZZTEST Reg'")->fetchAll(PDO::FETCH_COLUMN);

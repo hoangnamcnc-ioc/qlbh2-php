@@ -480,6 +480,12 @@ try {
     }
 
     $pdo->commit();
+    // Khach da chuyen khoan qua ma QR tai quay (ma TTxxxxxx): gan giao dich ngan hang vao don nay de khong bi tinh lai.
+    $payRef = strtoupper(trim((string) ($input['pay_ref'] ?? '')));
+    if (!$isDraft && preg_match('/^TT[A-HJ-NP-Z2-9]{6}$/', $payRef)) {
+        $pdo->prepare("UPDATE bank_transactions SET status = 'POS_DONE', order_id = ? WHERE tenant_id = ? AND pos_ref = ? AND status = 'POS_REF'")
+            ->execute([$orderId, $tenantId, $payRef]);
+    }
     $okResponse = ['order_id' => $orderId, 'code' => $code];
     if ($idemKey !== '') {
         $_SESSION['idem'][$idemKey] = $okResponse;

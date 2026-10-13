@@ -27,6 +27,7 @@ $navGroups = [
             'order_form.php' => 'Tạo đơn giao hàng',
             'orders.php' => 'Danh sách đơn hàng',
             'order_returns.php' => 'Đơn trả hàng',
+            'don_cho_thanh_toan.php' => 'Đơn online chờ thanh toán',
             'shipments.php' => 'Vận chuyển',
         ],
         $canGroup('pos') ? ['channels.php' => 'Kênh bán hàng'] : []
@@ -75,6 +76,7 @@ if ($canGroup('finance')) {
         'reports.php' => 'Báo cáo',
         'accounting.php' => 'Kế toán và Thuế',
         'cong_no.php' => 'Công nợ phải thu / phải trả',
+        'bank_reconcile.php' => 'Đối soát chuyển khoản',
         'doi_chieu.php' => 'Đối chiếu số liệu',
     ];
 }
