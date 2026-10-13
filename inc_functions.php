@@ -210,7 +210,7 @@ function redirect(string $to): void
 
 function genCode(string $prefix): string
 {
-    return $prefix . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
+    return $prefix . strtoupper(base_convert((string) (int) (microtime(true) * 1000000), 10, 36));
 }
 
 /** Lấy giá trị POST đã trim, hoặc chuỗi rỗng. */

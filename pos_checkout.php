@@ -409,7 +409,7 @@ try {
     }
     $initialStatus = $isDraft ? 'DRAFT' : 'COMPLETED';
 
-    $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
+    $code = 'DH' . strtoupper(base_convert((string) (int) (microtime(true) * 1000000), 10, 36));
 
     $pdo->prepare(
         'INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, source_id, channel_id, status, payment_status, sub_total, discount, coupon_code, promotion_id, shipping_fee, shipping_address, is_delivery, note, tags, total_amount, paid_amount)

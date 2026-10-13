@@ -119,7 +119,7 @@ try {
     $channelStmt->execute([$shopTenantId]);
     $channelId = $channelStmt->fetchColumn() ?: null;
 
-    $code = 'DH' . strtoupper(base_convert((string) (microtime(true) * 1000), 10, 36));
+    $code = 'DH' . strtoupper(base_convert((string) (int) (microtime(true) * 1000000), 10, 36));
     $pdo->prepare(
         "INSERT INTO orders (code, branch_id, customer_id, sold_by_id, source, status, payment_status, sub_total, total_amount, paid_amount, is_delivery, shipping_address, note, channel_id)
          VALUES (?, ?, ?, ?, 'ONLINE', 'DRAFT', 'UNPAID', ?, ?, 0, 1, ?, ?, ?)"
