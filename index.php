@@ -36,6 +36,10 @@ $revenueToday = $pdo->prepare(
 );
 $revenueToday->execute([$today, ...$branchParam]);
 $revenueToday = (float) $revenueToday->fetch()['total'];
+// Doanh thu thuan: tru tien hang bi tra lai phat sinh trong ngay
+$retToday = $pdo->prepare("SELECT COALESCE(SUM(r.refund_amount),0) FROM order_returns r JOIN orders o ON o.id = r.order_id WHERE r.created_at >= ?$branchWhere");
+$retToday->execute([$today, ...$branchParam]);
+$revenueToday -= (float) $retToday->fetchColumn();
 
 $newOrdersToday = $pdo->prepare("SELECT COUNT(*) AS c FROM orders o WHERE created_at >= ?$branchWhere");
 $newOrdersToday->execute([$today, ...$branchParam]);
@@ -75,6 +79,11 @@ $stmt->execute([$from7, ...$branchParam]);
 $revenueByDay = [];
 foreach ($stmt->fetchAll() as $r) {
     $revenueByDay[$r['d']] = (float) $r['total'];
+}
+$retChart = $pdo->prepare("SELECT DATE(r.created_at) AS d, COALESCE(SUM(r.refund_amount),0) AS t FROM order_returns r JOIN orders o ON o.id = r.order_id WHERE r.created_at >= ?$branchWhere GROUP BY DATE(r.created_at)");
+$retChart->execute([$from7, ...$branchParam]);
+foreach ($retChart->fetchAll() as $r) {
+    $revenueByDay[$r['d']] = ($revenueByDay[$r['d']] ?? 0) - (float) $r['t'];
 }
 $chartDays = [];
 for ($i = 6; $i >= 0; $i--) {

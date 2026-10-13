@@ -111,11 +111,17 @@ eq "cham cong vao ca lan 2 bi bao da cham" "1" "$(curl -s -b $W/cj_cash -c $W/cj
 echo "== 6. Shop online theo tung cua hang"
 SLUG=$(curl -s -b $CJ $A/online_shop_settings.php | grep -o 'name="shop_slug" value="[^"]*"' | sed 's/.*value="//;s/"//')
 [ -n "$SLUG" ] && ok "cua hang co duong dan rieng ($SLUG)" || fail "cua hang co duong dan rieng" "co slug" "rong"
-eq "trang shop hien san pham cua cua hang" "1" "$(curl -s "$A/shop.php?s=$SLUG" | grep -c 'SP Reg')"
+eq "trang shop hien san pham cua cua hang" "1" "$([ "$(curl -s "$A/shop.php?s=$SLUG" | grep -c 'SP Reg')" -ge 1 ] && echo 1 || echo 0)"
 eq "slug sai tra 404" "404" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop.php?s=khong-ton-tai-reg")"
 curl -s -c $W/cj_pub -o /dev/null "$A/shop.php?s=$SLUG"; TT=$(tk "$A/shop.php?s=$SLUG" $W/cj_pub)
 curl -s -b $W/cj_pub -c $W/cj_pub -o /dev/null --data-urlencode csrf="$TT" --data-urlencode s="$SLUG" -d "customer_name=Khach+Web&customer_phone=0955000111&customer_address=HN&qty[$PID]=1" $A/shop_order.php
 eq "don online vao dung cua hang (danh sach don nhap)" "1" "$(curl -s -b $CJ "$A/orders.php?status=DRAFT" | grep -c 'Khach Web')"
+
+curl -s -c $W/cj_pub -o /dev/null "$A/shop.php?s=$SLUG&t=Ban%203"; TT=$(tk "$A/shop.php?s=$SLUG&t=Ban%203" $W/cj_pub)
+eq "QR theo ban: trang shop hien vi tri 'Ban 3'" "1" "$([ "$(curl -s "$A/shop.php?s=$SLUG&t=Ban%203" | grep -c 'Ban 3')" -ge 1 ] && echo 1 || echo 0)"
+curl -s -b $W/cj_pub -c $W/cj_pub -o /dev/null --data-urlencode csrf="$TT" --data-urlencode s="$SLUG" --data-urlencode t="Ban 3" -d "receive=pickup&customer_phone=0966000333&qty[$PID]=1" $A/shop_order.php
+eq "QR theo ban: don nhan tai cho (khong can dia chi/ten) ghi [Ban 3] vao don" "1" "$([ "$(curl -s -b $CJ "$A/orders.php?status=DRAFT" | grep -c 'Khách Ban 3\|Ban 3')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang cau hinh co ma QR cho khach quet" "1" "$([ "$(curl -s -b $CJ $A/online_shop_settings.php | grep -c 'qr-main')" -ge 1 ] && echo 1 || echo 0)"
 
 echo "== 6b. COD: doi soat ghi so quy, don, cong no"
 BASEB="\"csrf\":\"$PT\",\"payment_method\":\"CASH\",\"customer_phone\":\"0922000111\",\"customer_name\":\"Khach COD\""
@@ -244,6 +250,11 @@ TC=$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
 [ "$TC" -ge 5 ] && [ "$TC" -lt "$TA" ] && ok "thu ngan chi thay chuc nang duoc phep ($TC o < $TA)" || fail "thu ngan thay it o hon quan tri" "5..$((TA-1))" "$TC"
 eq "thu ngan khong thay o Cau hinh/Bao cao trong so do" "0" "$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'href="settings.php"\|href="reports.php"')"
 eq "menu co muc Goc y / Bao loi" "1" "$([ "$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'Góp ý / Báo lỗi')" -ge 1 ] && echo 1 || echo 0)"
+
+echo "== 6l. Tim don hang"
+eq "tim don theo ten khach 'Khach COD'" "1" "$([ "$(curl -s -b $CJ --get --data-urlencode 'q=Khach COD' $A/orders.php | grep -c 'Khach COD')" -ge 1 ] && echo 1 || echo 0)"
+eq "tim don theo SDT khach 0922000111" "1" "$([ "$(curl -s -b $CJ "$A/orders.php?q=0922000111" | grep -c 'order_view.php?id=')" -ge 1 ] && echo 1 || echo 0)"
+eq "tim khong ra: khong co don nao" "0" "$(curl -s -b $CJ "$A/orders.php?q=khongcoketqua999" | grep -c 'order_view.php?id=')"
 
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)

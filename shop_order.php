@@ -29,11 +29,29 @@ $customerAddress = post('customer_address');
 $note = post('note') ?: null;
 $qtyInput = $_POST['qty'] ?? [];
 
+// Khach quet QR tai quay/ban: nhan tai cua hang (khong can dia chi), vi tri (vd "Ban 3") ghi vao ghi chu don.
+$tableLabel = mb_substr(trim(preg_replace('/[^\p{L}\p{N} .\-]/u', '', (string) ($_POST['t'] ?? ''))), 0, 40);
+$isPickup = ($_POST['receive'] ?? 'delivery') === 'pickup';
+if ($isPickup) {
+    $customerAddress = $tableLabel !== '' ? 'Phục vụ tại chỗ: ' . $tableLabel : 'Nhận tại cửa hàng';
+}
+if ($customerName === '') {
+    $customerName = $tableLabel !== '' ? 'Khách ' . $tableLabel : 'Khách đặt online ' . substr($customerPhone, -4);
+}
+if ($tableLabel !== '') {
+    $note = '[' . $tableLabel . '] ' . ($note ?? '');
+}
+if ($shopQ !== '' && $tableLabel !== '') {
+    $shopQ .= 't=' . urlencode($tableLabel) . '&';
+} elseif ($tableLabel !== '') {
+    $shopQ = 't=' . urlencode($tableLabel) . '&';
+}
+
 if (!$enabled || !$branch) {
     redirect('shop.php?' . $shopQ . 'err=' . urlencode('Cửa hàng hiện chưa mở đặt hàng online.'));
 }
-if ($customerName === '' || $customerPhone === '' || $customerAddress === '') {
-    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.'));
+if ($customerPhone === '' || $customerAddress === '') {
+    redirect('shop.php?' . $shopQ . 'err=' . urlencode('Vui lòng nhập số điện thoại' . ($isPickup ? '.' : ' và địa chỉ nhận hàng.')));
 }
 if (!is_array($qtyInput)) {
     redirect('shop.php?' . $shopQ . 'err=' . urlencode('Dữ liệu đặt hàng không hợp lệ.'));

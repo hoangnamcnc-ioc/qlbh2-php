@@ -400,6 +400,26 @@ function taoDuLieuMau(PDO $pdo, int $tenantId, int $branchId, int $adminId): voi
             }
         }
 
+        // ---- Kiem kho cuoi tuan: phat hien thieu hut 2 mat hang -> ton duoi dinh muc de minh hoa "Goi y nhap hang" ----
+        $adjust = [];
+        foreach ([20, 22] as $pi) { // Hat nem Knorr, Bot giat OMO
+            $target = max(0.0, (float) $minStock[$pi] - 2);
+            if ($stock[$pi] > $target) {
+                $adjust[$pi] = [$stock[$pi], $target];
+            }
+        }
+        if ($adjust) {
+            $tsKk = $dayTs(7, '21:30');
+            $pdo->prepare("INSERT INTO stock_takes (code, branch_id, created_by_id, status, balanced_by_id, balanced_at, note, created_at) VALUES (?,?,?, 'BALANCED', ?, ?, ?, ?)")
+                ->execute(['KKM' . $tenantId . '-1', $branchId, $adminId, $adminId, $tsKk, 'Kiểm kê cuối tuần (dữ liệu mẫu): phát hiện thiếu hụt', $tsKk]);
+            $kkId = (int) $pdo->lastInsertId();
+            foreach ($adjust as $pi => [$sys, $counted]) {
+                $pdo->prepare('INSERT INTO stock_take_items (take_id, product_id, system_qty, counted_qty) VALUES (?,?,?,?)')
+                    ->execute([$kkId, $prod[$pi]['id'], $sys, $counted]);
+                $stock[$pi] = $counted;
+            }
+        }
+
         // ---- Chot ton kho, cong no, diem, ma giam gia ----
         foreach ($prod as $i => $p) {
             $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity, min_stock) VALUES (?,?,?,?)')

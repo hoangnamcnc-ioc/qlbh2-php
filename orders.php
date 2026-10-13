@@ -13,6 +13,7 @@ $toDate = $_GET['to'] ?? '';
 $staffId = (int) ($_GET['staff_id'] ?? 0);
 $channelId = (int) ($_GET['channel_id'] ?? 0);
 $sourceId = (int) ($_GET['source_id'] ?? 0);
+$keyword = trim((string) ($_GET['q'] ?? ''));
 
 $pdo = db();
 $tenantId = currentTenantId();
@@ -35,6 +36,12 @@ $sql = 'SELECT o.*, c.name AS customer_name, u.name AS staff_name, sc.name AS ch
 $where = ['b.tenant_id = ?'];
 $params = [$tenantId];
 
+if ($keyword !== '') {
+    // Tim theo ma don, ma don ben ngoai, ten hoac SDT khach (quan ly can tim lai don khi khach goi hoi).
+    $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $keyword) . '%';
+    $where[] = '(o.code LIKE ? OR o.external_order_code LIKE ? OR c.name LIKE ? OR c.phone LIKE ?)';
+    array_push($params, $like, $like, $like, $like);
+}
 if ($status !== '' && array_key_exists($status, $statusLabels)) {
     $where[] = 'o.status = ?';
     $params[] = $status;
@@ -66,7 +73,7 @@ if (!hasRole('ADMIN', 'MANAGER')) {
 }
 $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
 
-$countStmt = $pdo->prepare('SELECT COUNT(*) FROM orders o JOIN branches b ON b.id = o.branch_id' . $whereSql);
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM orders o JOIN branches b ON b.id = o.branch_id LEFT JOIN customers c ON c.id = o.customer_id' . $whereSql);
 $countStmt->execute($params);
 $totalOrders = (int) $countStmt->fetchColumn();
 
@@ -100,6 +107,7 @@ $exportQuery = http_build_query(array_filter([
 </div>
 
 <form style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+  <input type="search" name="q" value="<?= e($keyword) ?>" class="input" placeholder="Tìm mã đơn, tên hoặc SĐT khách..." style="max-width:260px;">
   <select name="status" class="input" style="max-width:180px;">
     <option value="">Tất cả trạng thái</option>
     <?php foreach ($statusLabels as $k => $label): ?>

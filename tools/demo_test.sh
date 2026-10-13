@@ -47,6 +47,30 @@ ge "bao cao doanh thu hien duoc" 1 "$RP"
 eq "trang POS mo duoc khi co du lieu mau" "200" "$(curl -s -b $W/a -o /dev/null -w '%{http_code}' $A/pos.php)"
 eq "khong tao them du lieu mau khi da co (chan POST create)" "$(echo "$S" | grep '^Sản phẩm=' | cut -d= -f2)" "$(curl -s -b $W/a -c $W/a -o /dev/null --data-urlencode csrf="$(tk $A/du_lieu_mau.php $W/a)" -d "action=create" $A/du_lieu_mau.php; stat $W/a | grep '^Sản phẩm=' | cut -d= -f2)"
 
+# Doanh thu phai NHAT QUAN giua bao cao (tong, theo kenh, theo ngay), trang tong quan va ke toan thue (da tru hang tra lai)
+FR=$(date -d '-8 days' +%Y-%m-%d); TO=$(date +%Y-%m-%d)
+REP=$(curl -s -b $W/a "$A/reports.php?from=$FR&to=$TO" | python -c "
+import sys,re
+h=sys.stdin.buffer.read().decode('utf-8','replace')
+h=re.sub(r'<style.*?</style>|<script.*?</script>','',h,flags=re.S)
+t=re.sub(r'\\s+',' ',re.sub(r'<[^>]+>',' ',h))
+num=lambda x:int(x.replace('.',''))
+head=re.search(r'Doanh thu ([\\d.]+) Số đơn hàng',t)
+chan=re.search(r'Doanh thu theo kênh bán hàng Kênh bán Số đơn Doanh thu Trực tiếp \\d+ ([\\d.]+)',t)
+print((num(head.group(1)) if head else -1), (num(chan.group(1)) if chan else -2))
+")
+set -- $REP
+eq "bao cao: doanh thu tong = doanh thu theo kenh (da tru hang tra lai)" "$1" "$2"
+ACC=$(curl -s -b $W/a "$A/accounting.php?nam=$(date +%Y)" | python -c "
+import sys,re
+h=sys.stdin.buffer.read().decode('utf-8','replace')
+h=re.sub(r'<style.*?</style>|<script.*?</script>','',h,flags=re.S)
+t=re.sub(r'\\s+',' ',re.sub(r'<[^>]+>',' ',h))
+m=re.search(r'Doanh thu năm \\d{4} ([\\d.]+)',t)
+print(int(m.group(1).replace('.','')) if m else -3)
+")
+eq "ke toan thue: doanh thu nam = doanh thu bao cao (cung quy tac tru hang tra lai)" "$1" "$ACC"
+
 echo "== 2. Cua hang khac dang hoat dong (kiem tra xoa khong anh huong)"
 signup $W/b zzdemo_b 0
 eq "dang ky KHONG chon du lieu mau: khong co banner" "0" "$(curl -s -b $W/b $A/index.php | grep -c 'dữ liệu mẫu')"

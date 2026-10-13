@@ -106,6 +106,19 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $byDay = $stmt->fetchAll();
+// Tru tien hang bi tra lai (theo ngay phat sinh tra) khoi doanh thu theo ngay
+$retDay = $pdo->prepare(
+    "SELECT DATE(r.created_at) AS d, COALESCE(SUM(r.refund_amount),0) AS tra_hang
+     FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ? GROUP BY DATE(r.created_at)"
+);
+$retDay->execute([$fromDt, $toDt, $tenantId]);
+$retDayMap = [];
+foreach ($retDay->fetchAll() as $r) { $retDayMap[$r['d']] = (float) $r['tra_hang']; }
+foreach ($byDay as &$rowDay) { $rowDay['total'] = (float) $rowDay['total'] - ($retDayMap[$rowDay['d']] ?? 0); unset($retDayMap[$rowDay['d']]); }
+unset($rowDay);
+foreach ($retDayMap as $d => $v) { $byDay[] = ['d' => $d, 'order_count' => 0, 'total' => -$v]; }
+usort($byDay, static fn($a, $b) => strcmp($b['d'], $a['d']));
 
 // --- Tồn kho ---
 $stockStmt = $pdo->prepare(
@@ -129,6 +142,16 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $byChannel = $stmt->fetchAll();
+$retCh = $pdo->prepare(
+    "SELECT COALESCE(sc.name, 'Trực tiếp') AS channel_name, COALESCE(SUM(r.refund_amount),0) AS tra_hang
+     FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id LEFT JOIN sales_channels sc ON sc.id = o.channel_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ? GROUP BY o.channel_id"
+);
+$retCh->execute([$fromDt, $toDt, $tenantId]);
+$retChMap = [];
+foreach ($retCh->fetchAll() as $r) { $retChMap[$r['channel_name']] = (float) $r['tra_hang']; }
+foreach ($byChannel as &$rowCh) { $rowCh['total'] = (float) $rowCh['total'] - ($retChMap[$rowCh['channel_name']] ?? 0); }
+unset($rowCh);
 
 // --- Doanh thu theo phương thức thanh toán ---
 $paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản', 'CARD' => 'Quẹt thẻ', 'QR_CODE' => 'Quét mã QR'];
@@ -150,6 +173,16 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$fromDt, $toDt, $tenantId]);
 $byStaff = $stmt->fetchAll();
+$retSt = $pdo->prepare(
+    "SELECT u.name AS staff_name, COALESCE(SUM(r.refund_amount),0) AS tra_hang
+     FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = o.sold_by_id
+     WHERE r.created_at BETWEEN ? AND ? AND b.tenant_id = ? GROUP BY o.sold_by_id"
+);
+$retSt->execute([$fromDt, $toDt, $tenantId]);
+$retStMap = [];
+foreach ($retSt->fetchAll() as $r) { $retStMap[$r['staff_name']] = (float) $r['tra_hang']; }
+foreach ($byStaff as &$rowSt) { $rowSt['total'] = (float) $rowSt['total'] - ($retStMap[$rowSt['staff_name']] ?? 0); }
+unset($rowSt);
 
 // --- Trả hàng trong kỳ ---
 $stmt = $pdo->prepare(

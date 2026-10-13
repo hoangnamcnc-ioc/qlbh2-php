@@ -35,13 +35,23 @@ $tenantId = currentTenantId();
 $rows = $pdo->prepare(
     "SELECT MONTH(o.created_at) AS thang, COALESCE(SUM(o.total_amount),0) AS doanh_thu
      FROM orders o JOIN branches b ON b.id = o.branch_id
-     WHERE YEAR(o.created_at) = ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE YEAR(o.created_at) = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      GROUP BY MONTH(o.created_at)"
 );
 $rows->execute([$nam, $tenantId]);
 $byMonth = array_fill(1, 12, 0.0);
 foreach ($rows->fetchAll() as $r) {
     $byMonth[(int) $r['thang']] = (float) $r['doanh_thu'];
+}
+// Doanh thu tinh thue la doanh thu THUAN: tru tien hang ban bi tra lai (theo thang phat sinh tra hang).
+$retRows = $pdo->prepare(
+    "SELECT MONTH(r.created_at) AS thang, COALESCE(SUM(r.refund_amount),0) AS tra_hang
+     FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE YEAR(r.created_at) = ? AND b.tenant_id = ? GROUP BY MONTH(r.created_at)"
+);
+$retRows->execute([$nam, $tenantId]);
+foreach ($retRows->fetchAll() as $r) {
+    $byMonth[(int) $r['thang']] = max(0.0, $byMonth[(int) $r['thang']] - (float) $r['tra_hang']);
 }
 $tongDoanhThuNam = array_sum($byMonth);
 $vuotNguong = $tongDoanhThuNam > NGUONG_MIEN_THUE_NAM;
@@ -76,14 +86,15 @@ $hienCotThue = $vuotNguong && $nhomThue === '2';
 
 $soRows = $pdo->prepare(
     "SELECT o.code, DATE(o.created_at) AS ngay, c.name AS khach_hang,
-            COALESCE(cat.name, 'Chưa phân loại') AS nhom, oi.line_total
+            COALESCE(cat.name, 'Chưa phân loại') AS nhom,
+            oi.line_total * (1 - IF(o.sub_total > 0, o.discount / o.sub_total, 0)) AS line_total
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
      JOIN branches b ON b.id = o.branch_id
      LEFT JOIN customers c ON c.id = o.customer_id
      JOIN products p ON p.id = oi.product_id
      LEFT JOIN categories cat ON cat.id = p.category_id
-     WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'CANCELLED' AND b.tenant_id = ?
+     WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?
      ORDER BY cat.name, o.created_at"
 );
 $soRows->execute([$tuNgay, $denNgay, $tenantId]);
@@ -95,6 +106,15 @@ $tongTatCa = 0;
 foreach ($nhomMap as $dong) {
     foreach ($dong as $d) $tongTatCa += (float) $d['line_total'];
 }
+// Hang ban bi tra lai trong ky: ghi giam doanh thu (dong am) de so khop voi doanh thu thuan.
+$traRows = $pdo->prepare(
+    "SELECT r.code, DATE(r.created_at) AS ngay, r.refund_amount
+     FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+     WHERE DATE(r.created_at) BETWEEN ? AND ? AND b.tenant_id = ? ORDER BY r.created_at"
+);
+$traRows->execute([$tuNgay, $denNgay, $tenantId]);
+$traHang = $traRows->fetchAll();
+$tongTra = array_sum(array_map(static fn($r) => (float) $r['refund_amount'], $traHang));
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -219,8 +239,19 @@ require_once __DIR__ . '/inc_header.php';
       </table>
     </div>
   <?php endforeach; ?>
-  <?php if ($nhomMap): ?>
-    <p style="text-align:right;font-weight:700;font-size:15px;color:#2563eb;margin-top:8px;">Tổng tất cả nhóm: <?= money($tongTatCa) ?></p>
+  <?php if ($traHang): ?>
+    <h3 style="font-size:13px;font-weight:600;margin:16px 0 6px;">Hàng bán bị trả lại (ghi giảm doanh thu)</h3>
+    <div class="card" style="padding:0;overflow-x:auto;margin-bottom:8px;"><table>
+      <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Số tiền</th></tr></thead>
+      <tbody>
+        <?php foreach ($traHang as $t): ?>
+          <tr><td class="muted" style="font-family:monospace;"><?= e($t['code']) ?></td><td class="muted"><?= date('d/m/Y', strtotime($t['ngay'])) ?></td><td>Khách trả lại hàng</td><td class="text-right" style="color:#dc2626;">-<?= money($t['refund_amount']) ?></td></tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table></div>
+  <?php endif; ?>
+  <?php if ($nhomMap || $traHang): ?>
+    <p style="text-align:right;font-weight:700;font-size:15px;color:#2563eb;margin-top:8px;">Tổng doanh thu thuần trong kỳ (sau chiết khấu, trừ hàng trả lại): <?= money(max(0, $tongTatCa - $tongTra)) ?></p>
   <?php endif; ?>
 </div>
 
