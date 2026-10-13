@@ -3,7 +3,7 @@ require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 
 if (currentUser()) {
-    redirect('index.php');
+    redirect('so_do_chuc_nang.php');
 }
 
 $error = null;
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? 'Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.'
                 : 'Email hoặc mật khẩu không đúng';
         } else {
-            redirect('index.php');
+            redirect('so_do_chuc_nang.php');
         }
     }
 }

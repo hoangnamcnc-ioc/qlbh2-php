@@ -35,7 +35,7 @@ if ($loggedInUser && !isset($_GET['new'])) {
       <div class="box">
         <h1>Bạn đang đăng nhập</h1>
         <p>Trình duyệt này đang đăng nhập tài khoản <b><?= e($loggedInUser['email']) ?></b> (<?= e($loggedInUser['name']) ?>). Bạn muốn tiếp tục vào hệ thống với tài khoản này, hay đăng ký một tài khoản/cửa hàng mới?</p>
-        <a class="choice-btn choice-primary" href="index.php">Tiếp tục vào hệ thống</a>
+        <a class="choice-btn choice-primary" href="so_do_chuc_nang.php">Tiếp tục vào hệ thống</a>
         <a class="choice-btn choice-secondary" href="dang-ky.php?new=1">Đăng ký tài khoản mới</a>
       </div>
     </body>
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity('TENANT_SIGNUP', "tenant=$companyName email=$email");
                 rateLimitRecordFailure('signup');
 
-                redirect('index.php?welcome=1');
+                redirect('so_do_chuc_nang.php?welcome=1');
             } catch (Throwable $ex) {
                 $pdo->rollBack();
                 $error = 'Không thể tạo tài khoản, vui lòng thử lại';

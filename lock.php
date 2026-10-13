@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($row && password_verify($password, $row['password_hash'])) {
         $_SESSION['locked'] = false;
         logActivity('UNLOCK', $user['email'] ?? '');
-        redirect('index.php');
+        redirect('so_do_chuc_nang.php');
     }
     $error = 'Mật khẩu không đúng.';
 }

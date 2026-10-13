@@ -105,6 +105,12 @@ $stages = [
   @media (max-width: 520px) { .sdcn-grid { grid-template-columns:1fr 1fr; } }
 </style>
 
+<?php if (isset($_GET['welcome'])): ?>
+  <div class="alert alert-success" style="margin-bottom:16px;">
+    🎉 Chào mừng bạn đến với QLBH-CLOUD! Tài khoản dùng thử miễn phí 12 tháng đã sẵn sàng. Đi theo các bước từ trái sang phải:
+    thêm sản phẩm ở bước 1, bán hàng thử ở bước 3. Muốn xem thử số liệu có sẵn, vào ô <b>Dữ liệu mẫu</b>.
+  </div>
+<?php endif; ?>
 <h1 style="font-size:24px;font-weight:600;margin:0 0 6px;">Sơ đồ chức năng</h1>
 <p class="sdcn-intro">
   Luồng làm việc của cửa hàng theo chiều mũi tên: thiết lập → cung ứng & kho → bán hàng & vận chuyển → hậu kiểm & báo cáo.

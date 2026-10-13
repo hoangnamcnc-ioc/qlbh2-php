@@ -244,6 +244,8 @@ eq "het han: admin van tai duoc du lieu cua minh (tenant_export 200)" "200" "$EX
 probe "a=unexpire" >/dev/null
 
 echo "== 6k. So do chuc nang"
+LGT=$(tk $A/login.php $W/cj_land); LAND=$(curl -s -b $W/cj_land -c $W/cj_land -o /dev/null -w "%{redirect_url}" --form-string csrf="$LGT" --form-string email=zzreg_cash@example.com --form-string password=Test1234 $A/login.php)
+eq "dang nhap xong vao thang trang So do chuc nang" "$A/so_do_chuc_nang.php" "$LAND"
 TA=$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
 TC=$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
 [ "$TA" -ge 25 ] && ok "quan tri thay day du so do ($TA o)" || fail "quan tri thay day du so do" ">=25 o" "$TA"
