@@ -32,7 +32,7 @@ trap 'finish; rm -rf "$W"' EXIT
 echo "== Chuan bi cua hang thu"
 probe "a=cleanup" >/dev/null   # xoa du lieu thu cua lan chay truoc neu con sot
 CJ="$W/cj_a"
-curl -s -b $CJ -c $CJ -o /dev/null --form-string csrf="$(tk $A/dang-ky.php $CJ)" --form-string company_name="ZZTEST Reg" --form-string admin_name="ZZ" --form-string email="zzreg_admin@example.com" --form-string password=Test1234 $A/dang-ky.php
+curl -s -b $CJ -c $CJ -o /dev/null --form-string csrf="$(tk $A/dang-ky.php $CJ)" --form-string accept_terms=1 --form-string company_name="ZZTEST Reg" --form-string admin_name="ZZ" --form-string email="zzreg_admin@example.com" --form-string password=Test1234 $A/dang-ky.php
 T=$(tk $A/product_form.php $CJ)
 curl -s -b $CJ -c $CJ -o /dev/null --form-string csrf="$T" --form-string name="SP Reg" --form-string sku=REG1 --form-string unit=cai --form-string product_type=NORMAL --form-string cost_price=60000 --form-string sell_price=100000 --form-string initial_qty=20 --form-string min_stock=0 $A/product_form.php
 PID=$(curl -s -b $CJ "$A/pos_search.php?q=REG1" | python -c "import sys,json;print(json.load(sys.stdin)[0]['id'])" 2>/dev/null)
@@ -242,6 +242,19 @@ probe "a=expire" >/dev/null
 EXP=$(curl -s -b $CJ -o /dev/null -w "%{http_code}" -X POST -d "csrf=$(tk $A/tenant_export.php $CJ)&download=1" $A/tenant_export.php)
 eq "het han: admin van tai duoc du lieu cua minh (tenant_export 200)" "200" "$EXP"
 probe "a=unexpire" >/dev/null
+
+echo "== 6x. Phap ly: dieu khoan, bao mat, ban quyen, mien tru"
+eq "trang Dieu khoan su dung mo cong khai (200)" "200" "$(curl -s -o /dev/null -w '%{http_code}' $A/dieu_khoan.php)"
+eq "trang Chinh sach bao mat mo cong khai (200)" "200" "$(curl -s -o /dev/null -w '%{http_code}' $A/chinh_sach_bao_mat.php)"
+eq "dieu khoan co noi dung mien tru thue/ke toan va gioi han trach nhiem" "1" "$([ "$(curl -s $A/dieu_khoan.php | grep -c 'Miễn trừ trách nhiệm')" -ge 1 ] && echo 1 || echo 0)"
+eq "man hinh quan ly co dong ban quyen + lien ket dieu khoan o chan trang" "1" "$([ "$(curl -s -b $CJ $A/index.php | grep -c 'Điều khoản sử dụng')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang dang nhap co dong ban quyen" "1" "$([ "$(curl -s $A/login.php | grep -c 'Bảo lưu mọi quyền')" -ge 1 ] && echo 1 || echo 0)"
+eq "bao cao co dong mien tru tham khao" "1" "$([ "$(curl -s -b $CJ $A/reports.php | grep -c 'tham khảo')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang dat hang cho khach co dong rieng tu" "1" "$([ "$(curl -s "$A/shop.php?s=$SLUG" | grep -c 'Chính sách bảo mật')" -ge 1 ] && echo 1 || echo 0)"
+curl -s -c $W/cj_nt -o /dev/null $A/dang-ky.php
+NOTERMS=$(curl -s -b $W/cj_nt -c $W/cj_nt -o /dev/null -w "%{http_code} %{redirect_url}" --form-string csrf="$(tk $A/dang-ky.php $W/cj_nt)" --form-string company_name="ZZTEST Reg" --form-string admin_name="NoTerms" --form-string email="zzreg_noterms@example.com" --form-string password=Test1234 $A/dang-ky.php)
+eq "dang ky KHONG tich dong y dieu khoan thi khong tao tai khoan (200, o lai trang)" "200 " "$NOTERMS"
+eq "dang ky co ghi lai thoi diem dong y dieu khoan" "1" "$([ "$(probe "a=terms" | jv "['accepted']")" -ge 1 ] && echo 1 || echo 0)"
 
 echo "== 6k. So do chuc nang"
 LGT=$(tk $A/login.php $W/cj_land); LAND=$(curl -s -b $W/cj_land -c $W/cj_land -o /dev/null -w "%{redirect_url}" --form-string csrf="$LGT" --form-string email=zzreg_cash@example.com --form-string password=Test1234 $A/login.php)

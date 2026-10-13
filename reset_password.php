@@ -94,5 +94,6 @@ if (!$reset) {
       </form>
     <?php endif; ?>
   </div>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml('position:static;'); ?>
 </body>
 </html>

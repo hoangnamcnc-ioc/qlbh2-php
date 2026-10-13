@@ -21,7 +21,7 @@ eq()   { [ "$2" = "$3" ] && ok "$1" || fail "$1" "$2" "$3"; }
 ge()   { [ "$3" -ge "$2" ] 2>/dev/null && ok "$1 ($3)" || fail "$1" ">=$2" "$3"; }
 signup() { # signup <cookie> <email> <demo 1|0>
   local extra=""; [ "$3" = "1" ] && extra="--form-string demo_data=1"
-  curl -s -b $1 -c $1 -o /dev/null --form-string csrf="$(tk $A/dang-ky.php $1)" --form-string company_name="ZZTEST Reg" --form-string admin_name="Chu $2" --form-string email="$2@example.com" --form-string password=Test1234 $extra $A/dang-ky.php; }
+  curl -s -b $1 -c $1 -o /dev/null --form-string csrf="$(tk $A/dang-ky.php $1)" --form-string accept_terms=1 --form-string company_name="ZZTEST Reg" --form-string admin_name="Chu $2" --form-string email="$2@example.com" --form-string password=Test1234 $extra $A/dang-ky.php; }
 stat() { curl -s -b "$1" "$A/du_lieu_mau.php" | python -c "
 import sys,re
 h=re.sub(r'<[^>]+>',' ',sys.stdin.read())

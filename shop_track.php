@@ -168,5 +168,6 @@ $currentIdx = $order ? array_search($order['status'], $stepKeys, true) : false;
 
   <p style="text-align:center;"><a href="<?= e($shopLink) ?>">← Quay lại chọn hàng</a></p>
 </div>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml(); ?>
 </body>
 </html>

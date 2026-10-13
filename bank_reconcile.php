@@ -139,4 +139,5 @@ require_once __DIR__ . '/inc_header.php';
   </table>
 </div>
 
+<p class="muted" style="font-size:12px;margin:14px 0 0;max-width:820px;">⚖️ Đối soát tự động dựa trên thông báo biến động số dư của dịch vụ bên thứ ba nên có thể chậm hoặc thiếu. Cửa hàng chịu trách nhiệm kiểm tra sao kê ngân hàng và xác nhận đã nhận tiền trước khi giao hàng.</p>
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

@@ -64,5 +64,6 @@ $storeLogo = getSetting('store_logo', '');
     </form>
     <a class="logout-link" href="logout.php">Đăng xuất tài khoản khác</a>
   </div>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml('position:static;'); ?>
 </body>
 </html>

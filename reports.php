@@ -272,6 +272,7 @@ if (isset($_GET['export'])) {
     $n = static fn($v): string => (string) round((float) $v);
     $r = [
         ['BÁO CÁO BÁN HÀNG', '', '', '', ''],
+        ['Lưu ý: số liệu tham khảo từ dữ liệu bạn nhập, không thay thế tư vấn của kế toán/cơ quan thuế.', '', '', '', ''],
         ['Cửa hàng', getSetting('store_name', 'Cửa hàng'), '', '', ''],
         ['Kỳ báo cáo', date('d/m/Y', strtotime($from)) . ' - ' . date('d/m/Y', strtotime($to)), '', '', ''],
         ['', '', '', '', ''],
@@ -587,4 +588,5 @@ if (isset($_GET['export'])) {
   </table>
 </div>
 
+<p class="muted" style="font-size:12px;margin:14px 0 0;max-width:820px;">⚖️ Số liệu trên trang này được tính từ dữ liệu bạn nhập theo cách tính mặc định của phần mềm, chỉ mang tính <b>tham khảo</b> và không thay thế tư vấn của kế toán/cơ quan thuế. Xem <a href="dieu_khoan.php" target="_blank" rel="noopener">Điều khoản sử dụng</a>.</p>
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

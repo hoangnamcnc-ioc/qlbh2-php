@@ -2,6 +2,7 @@
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 require_once __DIR__ . '/inc_demo.php';
+require_once __DIR__ . '/inc_legal.php';
 
 // Neu da dang nhap roi thi hoi ro: vao he thong tiep hay dang ky tai khoan (cua hang) moi -
 // tranh nguoi dung bam "Dung thu" tren kt-soft.vn nhung trinh duyet dang co san phien dang nhap
@@ -70,6 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // da bi khoa o tren - khong xu ly tiep
     } elseif ($companyName === '' || $adminName === '' || $email === '' || strlen($password) < 6) {
         $error = 'Vui lòng nhập đủ Tên cửa hàng, Tên người quản trị, Email và Mật khẩu (tối thiểu 6 ký tự)';
+    } elseif (empty($_POST['accept_terms'])) {
+        $error = 'Vui lòng đọc và đồng ý với Điều khoản sử dụng và Chính sách bảo mật để tạo tài khoản.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Email không hợp lệ';
     } else {
@@ -98,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare(
                     'INSERT INTO store_settings (tenant_id, setting_key, setting_value) VALUES (?, ?, ?)'
                 )->execute([$tenantId, 'store_name', $companyName]);
+                // Ghi lai thoi diem + phien ban dieu khoan nguoi dung da dong y (bang chung khi can).
+                foreach (['terms_accepted_at' => date('Y-m-d H:i:s'), 'terms_version' => LEGAL_TERMS_VERSION, 'terms_accepted_ip' => clientIp()] as $k => $v) {
+                    $pdo->prepare('INSERT INTO store_settings (tenant_id, setting_key, setting_value) VALUES (?, ?, ?)')->execute([$tenantId, $k, $v]);
+                }
 
                 $pdo->commit();
 
@@ -196,10 +203,15 @@ $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
         <input type="checkbox" name="demo_data" value="1" style="width:auto;margin-top:3px;" <?= (!isset($_POST['company_name']) || !empty($_POST['demo_data'])) ? 'checked' : '' ?>>
         <span><b>Tạo sẵn dữ liệu mẫu 1 tuần bán hàng</b> để tham khảo (hàng hóa, đơn bán, kho, sổ quỹ…). Có thể xóa sạch bất cứ lúc nào để bắt đầu dùng chính thức.</span>
       </label>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;font-size:13.5px;margin:0 0 14px;line-height:1.45;cursor:pointer;">
+        <input type="checkbox" name="accept_terms" value="1" required style="width:auto;margin-top:3px;" <?= !empty($_POST['accept_terms']) ? 'checked' : '' ?>>
+        <span>Tôi đã đọc và đồng ý với <a href="dieu_khoan.php" target="_blank" rel="noopener">Điều khoản sử dụng</a> và <a href="chinh_sach_bao_mat.php" target="_blank" rel="noopener">Chính sách bảo mật</a>.</span>
+      </label>
       <button type="submit">Bắt đầu dùng thử miễn phí</button>
     </form>
 
     <div class="login-link">Đã có tài khoản? <a href="login.php">Đăng nhập</a></div>
   </div>
+<?php echo legalFooterHtml('position:static;'); ?>
 </body>
 </html>

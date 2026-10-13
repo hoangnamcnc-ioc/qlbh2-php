@@ -217,6 +217,7 @@ $categories = array_keys($categories);
         <textarea class="f" name="note" rows="2" placeholder="vd: giao giờ hành chính..."></textarea>
         <button type="submit" class="go" style="width:100%;margin-top:16px;">Đặt hàng</button>
         <p class="muted" style="margin:10px 0 0;">Chưa thanh toán online — cửa hàng sẽ xác nhận rồi thu tiền khi giao/phục vụ.</p>
+        <p class="muted" style="margin:8px 0 0;font-size:12px;">Số điện thoại, tên và địa chỉ bạn nhập chỉ được gửi cho cửa hàng để xác nhận và giao đơn này. Xem <a href="chinh_sach_bao_mat.php" target="_blank" rel="noopener">Chính sách bảo mật</a>.</p>
       </div>
     </div>
 
@@ -297,5 +298,6 @@ $categories = array_keys($categories);
   recalc();
 })();
 </script>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml('padding-bottom:90px;'); ?>
 </body>
 </html>

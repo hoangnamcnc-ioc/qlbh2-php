@@ -1,4 +1,5 @@
     </div>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml(); ?>
   </div>
 </div>
 <div id="qlbhLoadingBar" style="position:fixed;top:0;left:0;height:3px;width:0;background:var(--brand,#2563eb);z-index:9999;transition:width .3s ease;opacity:0;"></div>

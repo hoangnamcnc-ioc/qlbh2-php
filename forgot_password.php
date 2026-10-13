@@ -93,5 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <a href="login.php" class="back-link">← Quay lại đăng nhập</a>
     <?php endif; ?>
   </div>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml('position:static;'); ?>
 </body>
 </html>

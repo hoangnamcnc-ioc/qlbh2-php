@@ -24,7 +24,7 @@ leak() { LEAK=$((LEAK+1)); echo "  RO RI  $1"; }
 probe "a=cleanup" >/dev/null
 CA="$W/a"; CB="$W/b"
 for X in a b; do
-  curl -s -b $W/$X -c $W/$X -o /dev/null --form-string csrf="$(tk $A/dang-ky.php $W/$X)" --form-string company_name="ZZTEST Reg" --form-string admin_name="Admin $X" --form-string email="zziso_$X@example.com" --form-string password=Test1234 $A/dang-ky.php
+  curl -s -b $W/$X -c $W/$X -o /dev/null --form-string csrf="$(tk $A/dang-ky.php $W/$X)" --form-string accept_terms=1 --form-string company_name="ZZTEST Reg" --form-string admin_name="Admin $X" --form-string email="zziso_$X@example.com" --form-string password=Test1234 $A/dang-ky.php
 done
 echo "== Tao du lieu LEAKMARK o cua hang A"
 post() { # post <cookie> <url> <data...>  (dang form-urlencoded, tu lay csrf tu chinh trang)

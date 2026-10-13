@@ -46,6 +46,12 @@ if (($_GET['a'] ?? '') === 'backdate') {
     exit;
 }
 
+if (($_GET['a'] ?? '') === 'terms') {
+    $n = (int) $pdo->query("SELECT COUNT(*) FROM store_settings s JOIN tenants t ON t.id = s.tenant_id WHERE t.name = 'ZZTEST Reg' AND s.setting_key = 'terms_accepted_at'")->fetchColumn();
+    echo json_encode(['accepted' => $n]);
+    exit;
+}
+
 if (($_GET['a'] ?? '') === 'mailq') {
     // Trang thai thu trong hang doi gui toi email cua cac cua hang thu (de kiem tra hang doi email).
     $st = $pdo->query("SELECT status, COUNT(*) AS n FROM mail_queue WHERE to_email LIKE 'zzreg_%@example.com' OR to_email LIKE 'zz%@example.com' GROUP BY status");

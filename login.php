@@ -69,5 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <button type="submit">Đăng nhập</button>
     <a href="forgot_password.php" style="display:block;text-align:center;margin-top:14px;font-size:13px;color:#64748b;">Quên mật khẩu?</a>
   </form>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml('position:static;'); ?>
 </body>
 </html>

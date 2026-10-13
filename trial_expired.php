@@ -56,5 +56,6 @@ $isPaidExpired = $stmt->fetchColumn() === 'PAID';
     </p>
     <a class="logout-link" href="logout.php">Đăng xuất</a>
   </div>
+<?php require_once __DIR__ . '/inc_legal.php'; echo legalFooterHtml('position:static;'); ?>
 </body>
 </html>
