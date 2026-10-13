@@ -49,9 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Chiết khấu mới làm tổng đơn (' . money($newTotal) . ') thấp hơn số tiền đã thu (' . money($paid) . '). Hãy tạo phiếu trả hàng/hoàn tiền thay vì tăng chiết khấu.');
             }
             $payStatus = $paid >= $newTotal && $newTotal > 0 ? 'PAID' : ($paid > 0 ? 'PARTIAL' : 'UNPAID');
-            if ($order['status'] === 'DRAFT') {
-                $payStatus = 'UNPAID';
-            }
             $pdo->prepare('UPDATE orders SET note = ?, discount = ?, total_amount = ?, payment_status = ?, tags = ?, channel_id = ?, source_id = ?, external_order_code = ? WHERE id = ?')
                 ->execute([$note, $discount, $newTotal, $payStatus, $tags, $channelId, $sourceId, $externalCode, $id]);
 

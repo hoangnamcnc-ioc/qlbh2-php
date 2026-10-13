@@ -370,6 +370,10 @@ curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/bank_reconcile
 SW2=$(probe "a=state&c=0&o=$WORD2")
 eq "gan tay giao dich chua khop vao don: so quy ghi nhan" "1" "$([ "$(python -c "print(int(float($(echo "$SW2" | jv "['cash_net']"))))")" -gt 0 ] && echo 1 || echo 0)"
 
+TE2=$(tk "$A/order_edit.php?id=$WORD2" $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TE2" -d "discount=0&note=sua" "$A/order_edit.php?id=$WORD2"
+eq "sua don dat truoc da nhan 1 phan tien chuyen khoan: trang thai thanh toan giu PARTIAL (khong ve UNPAID)" "PARTIAL" "$(probe "a=state&c=0&o=$WORD2" | jv "['order']['payment_status']")"
+
 echo "== 6u. QR thanh toan tai quay (POS) + tu bao da nhan tien"
 POSREF="TT"$(python -c "import random;print(''.join(random.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(6)))")
 eq "POS: ma thanh toan chua co tien -> received 0" "0" "$(curl -s -b $CJ "$A/bank_status.php?ref=$POSREF" | jv "['received']")"

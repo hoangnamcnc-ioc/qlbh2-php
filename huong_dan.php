@@ -265,4 +265,18 @@ require_once __DIR__ . '/inc_header.php';
   </div>
 </div>
 
+<div class="card" style="margin-bottom:16px;">
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">Tính năng mới: đặt hàng qua QR, đối soát chuyển khoản, dữ liệu mẫu</h2>
+  <ul style="margin:0 0 0 18px;padding:0;font-size:14px;line-height:1.7;">
+    <li><b>Khách quét QR chọn hàng:</b> Cấu hình → Đặt hàng Online → in poster QR (chung hoặc riêng từng bàn/quầy). Khách quét, chọn hàng, đặt; đơn về <i>Đặt hàng (chờ xử lý)</i>. Khách có thể theo dõi đơn bằng mã đơn + số điện thoại.</li>
+    <li><b>Thanh toán QR ngân hàng:</b> khai báo tài khoản ở Cấu hình → Thanh toán. Sau khi đặt, khách thấy mã QR đúng số tiền, nội dung là mã đơn.</li>
+    <li><b>Tự đối soát chuyển khoản:</b> Tài chính → Đối soát chuyển khoản. Kết nối dịch vụ thông báo biến động số dư (SePay/Casso) bằng địa chỉ và khóa trên trang; tiền về là đơn tự được ghi thu. Giao dịch chưa khớp thì gán tay vào đơn.</li>
+    <li><b>QR tại quầy POS:</b> bấm "QR thanh toán" khi khách chuyển khoản; màn hình tự báo "đã nhận tiền" nếu đã kết nối đối soát tự động. Có thể hiện QR cho khách trên "Màn hình khách".</li>
+    <li><b>Nhắc khách chưa trả:</b> Bán hàng → Đơn online chờ thanh toán (quá 1 giờ): gọi, nhắn SMS soạn sẵn hoặc Zalo.</li>
+    <li><b>Chia nhiều hình thức thanh toán</b> trong một đơn ngay ở POS (tiền mặt + chuyển khoản…).</li>
+    <li><b>Dữ liệu mẫu:</b> Cấu hình → Dữ liệu mẫu để xem thử 1 tuần bán hàng; xong thì xóa sạch để bắt đầu dùng chính thức (xóa luôn cả dữ liệu bạn nhập thêm).</li>
+    <li><b>Sơ đồ chức năng</b> (menu Chức năng) cho thấy toàn bộ luồng làm việc theo 4 bước và chỉ những chức năng bạn được dùng.</li>
+  </ul>
+</div>
+
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

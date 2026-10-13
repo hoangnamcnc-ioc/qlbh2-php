@@ -180,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($newTotal < $paid) {
                 throw new RuntimeException('Tổng đơn mới (' . money($newTotal) . ') thấp hơn số tiền đã thu (' . money($paid) . '). Hãy hoàn tiền/tạo phiếu trả hàng thay vì giảm đơn.');
             }
-            $payStatus = $order['status'] === 'DRAFT' ? 'UNPAID' : ($paid >= $newTotal && $newTotal > 0 ? 'PAID' : ($paid > 0 ? 'PARTIAL' : 'UNPAID'));
+            $payStatus = $paid >= $newTotal && $newTotal > 0 ? 'PAID' : ($paid > 0 ? 'PARTIAL' : 'UNPAID');
             $pdo->prepare('UPDATE orders SET sub_total = ?, discount = ?, total_amount = ?, payment_status = ? WHERE id = ?')
                 ->execute([$subTotal, $discount, $newTotal, $payStatus, $id]);
 

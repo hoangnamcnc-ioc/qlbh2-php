@@ -13,3 +13,5 @@ Cần đặt biến môi trường `FTP_USERPASS='tên_đăng_nhập:mật_khẩ
   rồi từ cửa hàng B mở mọi trang, quét id, gọi API tìm kiếm/xuất file, thử ghi chéo; báo "rò rỉ" nếu thấy dữ liệu của A.
 - `tools/demo_test.sh` — kiểm thử dữ liệu mẫu: đăng ký có/không tạo mẫu, sổ sách nhất quán (đối chiếu chỉ còn 1 ca lệch cố ý),
   xóa sạch để bắt đầu chính thức, và xóa không ảnh hưởng cửa hàng khác.
+
+**Thứ tự kiểm tra trước/sau mỗi lần deploy:** `tools/deploy.sh <file>...` → `tools/regression_test.sh` → `tools/isolation_test.sh` → `tools/demo_test.sh`. Các bộ test tự tạo cửa hàng thử tên `ZZTEST Reg` và tự xóa; chỉ cần biến `FTP_USERPASS`.
