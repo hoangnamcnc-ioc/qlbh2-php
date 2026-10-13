@@ -42,6 +42,12 @@ $stages = [
         ['💲', 'Bảng giá', 'Giá theo nhóm khách', 'price_lists.php'],
         ['🙋', 'Khách hàng', 'Hồ sơ, công nợ, điểm', 'customers.php'],
         ['🏅', 'Nhóm & hạng khách', 'Nhóm, hạng thành viên, ưu đãi', 'groups.php'],
+        ['🏷️', 'Nhãn hiệu', 'Thương hiệu của sản phẩm', 'brands.php'],
+        ['🛡️', 'Chính sách bảo hành', 'Thời hạn bảo hành theo hàng', 'warranty_policies.php'],
+        ['🚚', 'Cấu hình giao hàng', 'Phí giao hàng gợi ý, đối tác', 'shipping_settings.php'],
+        ['📣', 'Cấu hình kênh marketing', 'Kênh gửi tin cho khách', 'marketing_settings.php'],
+        ['📥', 'Nhập từ QLBH-SOFT', 'Chuyển dữ liệu từ bản máy tính', 'import_from_soft.php'],
+        ['⏳', 'Yêu cầu gia hạn', 'Gia hạn gói dùng thử', 'gia_han.php'],
         ['⚙️', 'Cấu hình', 'Cửa hàng, thanh toán, thuế, in', 'settings.php'],
         ['🧪', 'Dữ liệu mẫu', 'Xem thử 1 tuần bán hàng, xóa để bắt đầu', 'du_lieu_mau.php'],
     ]],
@@ -54,6 +60,7 @@ $stages = [
         ['📋', 'Kiểm hàng', 'Đếm thực tế, cân bằng kho', 'stock_takes.php'],
         ['🔁', 'Chuyển hàng', 'Giữa các chi nhánh', 'stock_transfers.php'],
         ['💡', 'Gợi ý nhập hàng', 'Hàng sắp hết, nên nhập', 'reorder_suggestions.php'],
+        ['🧾', 'Điều chỉnh giá vốn', 'Sửa giá vốn có lịch sử', 'price_adjustments.php'],
         ['🏷️', 'In tem giá / mã vạch', 'Tem dán hàng', 'product_labels.php'],
     ]],
     ['3. Bán hàng & vận chuyển', 'Hằng ngày tại quầy và giao hàng', [
@@ -65,6 +72,11 @@ $stages = [
         ['↩️', 'Đơn trả hàng', 'Khách trả hàng, hoàn tiền', 'order_returns.php'],
         ['⏰', 'Đơn online chờ thanh toán', 'Nhắc khách chưa trả sau 1 giờ', 'don_cho_thanh_toan.php'],
         ['🛡️', 'Bảo hành', 'Thẻ bảo hành, yêu cầu bảo hành', 'warranty_cards.php'],
+        ['🔧', 'Yêu cầu bảo hành', 'Tiếp nhận và xử lý bảo hành', 'warranty_claims.php'],
+        ['🛍️', 'Kênh bán hàng', 'Shopee, Facebook, tại quầy...', 'channels.php'],
+        ['🎫', 'Mã giảm giá', 'Coupon cho khách', 'coupons.php'],
+        ['📢', 'Chiến dịch marketing', 'Gửi ưu đãi cho nhóm khách', 'campaigns.php'],
+        ['🔔', 'Nhắc nợ khách hàng', 'Khách còn nợ lâu ngày', 'customer_debt_reminders.php'],
         ['🎟️', 'Khuyến mại & mã giảm giá', 'Chương trình, coupon, quà tặng', 'promotions.php'],
         ['🌐', 'Cửa hàng online', 'Link đặt hàng riêng cho khách', 'online_shop_settings.php'],
     ]],
@@ -76,15 +88,32 @@ $stages = [
         ['📒', 'Công nợ phải thu/trả', 'Khách nợ, nợ nhà cung cấp, xuất Excel', 'cong_no.php'],
         ['🔎', 'Đối chiếu số liệu', 'Tự tìm chỗ sổ sách không khớp', 'doi_chieu.php'],
         ['⏱️', 'Chấm công & lương của tôi', 'Vào/ra ca, lương tạm tính', 'cham_cong_cua_toi.php'],
+        ['🗓️', 'Lịch làm việc', 'Phân ca cho nhân viên', 'work_schedules.php'],
+        ['💰', 'Bảng lương', 'Tính lương theo giờ công và hoa hồng', 'payroll.php'],
         ['🗓️', 'Chấm công, lịch & bảng lương', 'Quản lý nhân sự, trả lương', 'attendance.php'],
         ['🕵️', 'Nhật ký hoạt động', 'Ai đã làm gì, lúc nào', 'activity_log.php'],
         ['💾', 'Xuất dữ liệu', 'Tải toàn bộ dữ liệu của cửa hàng', 'tenant_export.php'],
     ]],
 ];
+// Luoi an toan: bat ky chuc nang nao co trong MENU cua vai tro nay ma chua co o rieng tren so do thi tu dong them vao the "Khac",
+// de so do luon liet ke DUNG va DU cac chuc nang cua vai tro (ke ca chuc nang moi them sau nay).
+$onMap = [];
+foreach ($stages as [$t0, $s0, $tl]) { foreach ($tl as $x) { $onMap[$x[3]] = true; } }
+$extra = [];
+foreach ($navGroups as $links) {
+    foreach ($links as $file => $text) {
+        if (!isset($onMap[$file]) && !in_array($file, ['so_do_chuc_nang.php', 'huong_dan.php', 'index.php', '#goi-y', 'logout.php'], true) && str_ends_with($file, '.php')) {
+            $extra[] = ['🔹', $text, 'Chức năng khác', $file];
+        }
+    }
+}
+if ($extra) {
+    $stages[] = ['Khác', 'Các chức năng còn lại của bạn', $extra];
+}
 ?>
 <style>
   .sdcn-intro { color:#64748b; font-size:14px; margin:0 0 18px; max-width:880px; line-height:1.55; }
-  .sdcn-flow { display:flex; align-items:stretch; gap:6px; }
+  .sdcn-flow { display:flex; align-items:stretch; gap:6px; flex-wrap:wrap; }
   .sdcn-stage { flex:1 1 0; min-width:0; background:#f0f7ff; border:2px solid #cfe3fb; border-radius:18px; padding:14px 14px 16px; }
   .sdcn-stage h2 { font-size:16px; margin:0; color:#0f2a4d; }
   .sdcn-stage .sub { font-size:12.5px; color:#3b82c4; margin:2px 0 12px; }
@@ -119,7 +148,7 @@ $stages = [
 
 <div class="sdcn-flow">
   <?php foreach ($stages as $i => [$title, $sub, $tiles]): ?>
-    <?php if ($i > 0): ?><div class="sdcn-arrow" aria-hidden="true">➜</div><?php endif; ?>
+    <?php if ($i > 0 && $title !== 'Khác'): ?><div class="sdcn-arrow" aria-hidden="true">➜</div><?php endif; ?>
     <section class="sdcn-stage">
       <h2><?= e($title) ?></h2>
       <div class="sub"><?= e($sub) ?></div>

@@ -251,6 +251,17 @@ TC=$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
 [ "$TA" -ge 25 ] && ok "quan tri thay day du so do ($TA o)" || fail "quan tri thay day du so do" ">=25 o" "$TA"
 [ "$TC" -ge 5 ] && [ "$TC" -lt "$TA" ] && ok "thu ngan chi thay chuc nang duoc phep ($TC o < $TA)" || fail "thu ngan thay it o hon quan tri" "5..$((TA-1))" "$TC"
 eq "thu ngan khong thay o Cau hinh/Bao cao trong so do" "0" "$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'href="settings.php"\|href="reports.php"')"
+for RR in cash chat; do
+  MISS=$(curl -s -b $W/cj_$RR $A/so_do_chuc_nang.php | python -c "
+import sys,re
+h=sys.stdin.buffer.read().decode('utf-8','replace')
+side=h[h.find('<aside'):h.find('</aside>')]
+menu=set(re.findall(r'href=\"([a-z_0-9]+\.php)\"',side))-{'so_do_chuc_nang.php','huong_dan.php','index.php','change_password.php'}
+tiles=set(re.findall(r'class=\"sdcn-tile\" href=\"([a-z_0-9]+\.php)\"',h))
+print(len(menu-tiles), len(tiles-menu-{'cham_cong_cua_toi.php'}))
+")
+  eq "so do chuc nang vai tro $RR: dung va du chuc nang trong menu (thieu, thua)" "0 0" "$MISS"
+done
 eq "menu co muc Goc y / Bao loi" "1" "$([ "$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'Góp ý / Báo lỗi')" -ge 1 ] && echo 1 || echo 0)"
 
 echo "== 6m. Chia nhieu hinh thuc thanh toan"
