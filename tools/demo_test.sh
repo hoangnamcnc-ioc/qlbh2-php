@@ -71,6 +71,12 @@ print(int(m.group(1).replace('.','')) if m else -3)
 ")
 eq "ke toan thue: doanh thu nam = doanh thu bao cao (cung quy tac tru hang tra lai)" "$1" "$ACC"
 
+SLUGA=$(curl -s -b $W/a $A/online_shop_settings.php | grep -o 'name="shop_slug" value="[^"]*"' | sed 's/.*value="//;s/"//')
+IMG=$(curl -s "$A/shop.php?s=$SLUGA" | grep -o 'uploads/products/demo[^"]*' | head -1)
+eq "du lieu mau co anh san pham tren trang dat hang cua khach" "200" "$([ -n "$IMG" ] && curl -s -o /dev/null -w '%{http_code}' "$A/$IMG" || echo none)"
+eq "du lieu mau: tong quan chu quan co chi so lai gop va tien so quy" "1" "$([ "$(curl -s -b $W/a $A/index.php | grep -c 'Lãi gộp hôm nay')" -ge 1 ] && echo 1 || echo 0)"
+eq "du lieu mau: co cong no phai thu/phai tra de xem" "1" "$([ "$(curl -s -b $W/a $A/cong_no.php | grep -c 'order\|customer_view.php')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 2. Cua hang khac dang hoat dong (kiem tra xoa khong anh huong)"
 signup $W/b zzdemo_b 0
 eq "dang ky KHONG chon du lieu mau: khong co banner" "0" "$(curl -s -b $W/b $A/index.php | grep -c 'dữ liệu mẫu')"
@@ -87,6 +93,7 @@ eq "du lieu van con sau khi go sai" "1" "$([ "$(stat $W/a | grep '^Sản phẩm=
 curl -s -b $W/a -c $W/a -o /dev/null --data-urlencode csrf="$TW" -d "action=wipe&confirm_text=xoa&confirm_check=1" $A/du_lieu_mau.php
 eq "sau khi xoa: san pham ve 0" "0" "$(curl -s -b $W/a "$A/products.php" | grep -c 'name="sku"\|product_form.php?id=')"
 eq "sau khi xoa: het banner du lieu mau" "0" "$(curl -s -b $W/a $A/index.php | grep -c 'dữ liệu mẫu')"
+eq "sau khi xoa: file anh san pham mau da bi xoa khoi may chu" "404" "$(curl -s -o /dev/null -w '%{http_code}' "$A/$IMG?nocache=$RANDOM")"
 eq "sau khi xoa: dang nhap admin van binh thuong (200)" "200" "$(curl -s -b $W/a -o /dev/null -w '%{http_code}' $A/index.php)"
 eq "sau khi xoa: nhan vien mau da bi xoa" "0" "$(curl -s -b $W/a $A/users.php | grep -c 'demo\.invalid\|Thu ngân Lan')"
 eq "sau khi xoa: cua hang trong, cho phep tao lai du lieu mau" "1" "$([ "$(curl -s -b $W/a $A/du_lieu_mau.php | grep -c 'Tạo dữ liệu mẫu 1 tuần')" -ge 1 ] && echo 1 || echo 0)"

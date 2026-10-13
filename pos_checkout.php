@@ -48,6 +48,21 @@ $orderTags = trim((string) ($input['tags'] ?? '')) ?: null;
 $paidAmountInput = $input['paid_amount'] ?? null;
 $paidAmountInput = $paidAmountInput === null || $paidAmountInput === '' ? null : max(0, (float) $paidAmountInput);
 $isDraft = !empty($input['draft']);
+// Chia nhieu hinh thuc thanh toan: {"CASH": 100000, "BANK_TRANSFER": 50000, ...}. Neu co thi so tien da thu = tong cac phan.
+$splitPayments = [];
+if (!empty($input['payments']) && is_array($input['payments'])) {
+    foreach (['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'] as $m) {
+        $v = (float) ($input['payments'][$m] ?? 0);
+        if (is_finite($v) && $v > 0) {
+            $splitPayments[$m] = round($v);
+        }
+    }
+    if ($splitPayments) {
+        $input['paid_amount'] = array_sum($splitPayments);
+    }
+}
+$paidAmountInput = $input['paid_amount'] ?? null;
+$paidAmountInput = $paidAmountInput === null || $paidAmountInput === '' ? null : max(0, (float) $paidAmountInput);
 $sourceIdInput = (int) ($input['source_id'] ?? 0) ?: null;
 $channelIdInput = (int) ($input['channel_id'] ?? 0) ?: null;
 $soldByInput = (int) ($input['sold_by_id'] ?? 0) ?: null;
@@ -427,9 +442,28 @@ try {
         createWarrantyCardsForOrder($orderId, $customerId, $user['id']);
 
         if ($paidAmount > 0) {
-            $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')
-                ->execute([$orderId, $paymentMethod, $paidAmount]);
-            recordCashbookEntry($branchId, 'RECEIPT', $paidAmount, "Thu tiền bán hàng $code", $paymentMethod, $user['id'], $orderId);
+            // Phan bo so tien da thu theo tung hinh thuc. Chia nhieu hinh thuc: khoan khong phai tien mat duoc ghi
+            // dung so khach tra (toi da bang tong don), tien mat lay phan con lai (tien khach dua thua = tien thoi lai).
+            $parts = [];
+            if ($splitPayments) {
+                $left = $paidAmount;
+                foreach (['BANK_TRANSFER', 'CARD', 'QR_CODE'] as $m) {
+                    if (!empty($splitPayments[$m]) && $left > 0) {
+                        $take = min($splitPayments[$m], $left);
+                        $parts[$m] = $take;
+                        $left -= $take;
+                    }
+                }
+                if ($left > 0) {
+                    $parts['CASH'] = $left;
+                }
+            } else {
+                $parts[$paymentMethod] = $paidAmount;
+            }
+            foreach ($parts as $m => $amt) {
+                $pdo->prepare('INSERT INTO payments (order_id, method, amount) VALUES (?,?,?)')->execute([$orderId, $m, $amt]);
+                recordCashbookEntry($branchId, 'RECEIPT', $amt, "Thu tiền bán hàng $code", $m, $user['id'], $orderId);
+            }
         }
 
         if ($customerId) {

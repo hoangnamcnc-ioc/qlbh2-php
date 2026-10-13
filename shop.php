@@ -127,7 +127,8 @@ $categories = array_keys($categories);
   <?php if (isset($_GET['ok'])): ?>
     <div class="alert alert-success" style="font-size:15px;">
       ✅ <b>Đặt hàng thành công!</b> Mã đơn <b><?= e($_GET['code'] ?? '') ?></b>.<br>
-      Cửa hàng sẽ xác nhận với bạn sớm nhất<?= $tableLabel !== '' ? ' và phục vụ tại ' . e($tableLabel) : '' ?>. Cảm ơn bạn!
+      Cửa hàng sẽ xác nhận với bạn sớm nhất<?= $tableLabel !== '' ? ' và phục vụ tại ' . e($tableLabel) : '' ?>. Cảm ơn bạn!<br>
+      <a href="shop_track.php?s=<?= e(urlencode($shopSlug)) ?>&code=<?= e(urlencode((string) ($_GET['code'] ?? ''))) ?>" style="color:#15803d;font-weight:700;">📦 Theo dõi đơn hàng này →</a>
     </div>
   <?php elseif (isset($_GET['err'])): ?>
     <div class="alert alert-error"><?= e($_GET['err']) ?></div>

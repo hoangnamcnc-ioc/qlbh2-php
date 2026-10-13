@@ -30,6 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $today = date('Y-m-d');
     $now = date('H:i:s');
 
+    // Chong cham cong ho: neu cua hang bat gioi han theo mang thi chi cham cong khi dung mang (IP) da dang ky.
+    $allowedIps = array_values(array_filter(array_map('trim', explode(',', getSetting('attendance_allowed_ips', '')))));
+    if (getSetting('attendance_ip_lock', '0') === '1' && $allowedIps && !in_array(clientIp(), $allowedIps, true)) {
+        $message = 'Bạn đang ở ngoài mạng Wi-Fi của cửa hàng (địa chỉ ' . clientIp() . ') nên chưa chấm công được. Hãy kết nối Wi-Fi của cửa hàng rồi thử lại.';
+        $action = '';
+    }
+
     if ($action === 'in') {
         // UNIQUE (user_id, work_date): bam 2 lan khong tao 2 dong, va khong ghi de gio vao da co.
         $ins = $pdo->prepare('INSERT IGNORE INTO attendance (tenant_id, user_id, work_date, time_in) VALUES (?,?,?,?)');
@@ -102,7 +109,7 @@ require_once __DIR__ . '/inc_header.php';
 <h1 style="font-size:24px;font-weight:600;margin-bottom:4px;">Chấm công và lương của tôi</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">Bấm vào ca khi bắt đầu làm và ra ca khi kết thúc. Lương tạm tính = giờ công × lương/giờ + hoa hồng; số chính thức do Quản lý chốt ở Bảng lương.</p>
 
-<?php if ($message): ?><div class="alert alert-success"><?= e($message) ?></div><?php endif; ?>
+<?php if ($message): ?><div class="alert <?= str_contains($message, 'ngoài mạng') ? 'alert-error' : 'alert-success' ?>"><?= e($message) ?></div><?php endif; ?>
 
 <div class="card" style="max-width:560px;margin-bottom:16px;">
   <div style="font-size:14px;margin-bottom:12px;">

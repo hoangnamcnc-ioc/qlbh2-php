@@ -41,6 +41,51 @@ $retToday = $pdo->prepare("SELECT COALESCE(SUM(r.refund_amount),0) FROM order_re
 $retToday->execute([$today, ...$branchParam]);
 $revenueToday -= (float) $retToday->fetchColumn();
 
+// ---- Chi so cho chu quan / quan ly: lai gop hom nay, so voi cung ngay tuan truoc, tien trong so quy ----
+$showFinance = isManagerTier();
+$profitToday = 0.0;
+$revenueLastWeek = 0.0;
+$cashOnHand = 0.0;
+$otherMoney = 0.0;
+if ($showFinance) {
+    $startToday = $today;
+    $dayLastWeek = date('Y-m-d', strtotime('-7 days'));
+    $startLW = $dayLastWeek . ' 00:00:00';
+    $endLW = $dayLastWeek . ' 23:59:59';
+    $cogs = static function (string $from, ?string $to) use ($pdo, $branchWhere, $branchParam): float {
+        $sql = "SELECT COALESCE(SUM(oi.quantity * COALESCE(oi.cost_price, p.cost_price)),0)
+                FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id
+                WHERE o.created_at >= ?" . ($to ? ' AND o.created_at <= ?' : '') . " AND o.status NOT IN ('CANCELLED','DRAFT')$branchWhere";
+        $st = $pdo->prepare($sql);
+        $st->execute($to ? [$from, $to, ...$branchParam] : [$from, ...$branchParam]);
+        return (float) $st->fetchColumn();
+    };
+    $retCogs = static function (string $from, ?string $to) use ($pdo, $branchWhere, $branchParam): float {
+        $sql = "SELECT COALESCE(SUM(ri.quantity * COALESCE(oi.cost_price, p.cost_price)),0)
+                FROM order_return_items ri JOIN order_returns r ON r.id = ri.return_id JOIN order_items oi ON oi.id = ri.order_item_id
+                JOIN orders o ON o.id = r.order_id JOIN products p ON p.id = oi.product_id
+                WHERE r.created_at >= ?" . ($to ? ' AND r.created_at <= ?' : '') . $branchWhere;
+        $st = $pdo->prepare($sql);
+        $st->execute($to ? [$from, $to, ...$branchParam] : [$from, ...$branchParam]);
+        return (float) $st->fetchColumn();
+    };
+    $profitToday = $revenueToday - ($cogs($startToday, null) - $retCogs($startToday, null));
+
+    $lw = $pdo->prepare("SELECT COALESCE(SUM(total_amount),0) FROM orders o WHERE created_at BETWEEN ? AND ? AND status NOT IN ('CANCELLED','DRAFT')$branchWhere");
+    $lw->execute([$startLW, $endLW, ...$branchParam]);
+    $revenueLastWeek = (float) $lw->fetchColumn();
+    $lwRet = $pdo->prepare("SELECT COALESCE(SUM(r.refund_amount),0) FROM order_returns r JOIN orders o ON o.id = r.order_id WHERE r.created_at BETWEEN ? AND ?$branchWhere");
+    $lwRet->execute([$startLW, $endLW, ...$branchParam]);
+    $revenueLastWeek -= (float) $lwRet->fetchColumn();
+
+    $cbWhere = str_replace('o.branch_id', 'ce.branch_id', $branchWhere);
+    $money = $pdo->prepare("SELECT ce.payment_method, COALESCE(SUM(CASE WHEN ce.type='RECEIPT' THEN ce.amount ELSE -ce.amount END),0) AS n FROM cashbook_entries ce WHERE 1=1$cbWhere GROUP BY ce.payment_method");
+    $money->execute($branchParam);
+    foreach ($money->fetchAll() as $r) {
+        if ($r['payment_method'] === 'CASH') { $cashOnHand += (float) $r['n']; } else { $otherMoney += (float) $r['n']; }
+    }
+}
+
 $newOrdersToday = $pdo->prepare("SELECT COUNT(*) AS c FROM orders o WHERE created_at >= ?$branchWhere");
 $newOrdersToday->execute([$today, ...$branchParam]);
 $newOrdersToday = (int) $newOrdersToday->fetch()['c'];
@@ -229,7 +274,28 @@ if (hasRole('ADMIN', 'MANAGER')) {
   <div class="card">
     <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Doanh thu hôm nay</div>
     <div style="font-size:24px;font-weight:700;color:#2563eb;"><?= money($revenueToday) ?></div>
+    <?php if ($showFinance): ?>
+      <?php if ($revenueLastWeek > 0): $pct = ($revenueToday - $revenueLastWeek) / $revenueLastWeek * 100; ?>
+        <div style="font-size:12px;color:<?= $pct >= 0 ? '#059669' : '#dc2626' ?>;"><?= $pct >= 0 ? '▲' : '▼' ?> <?= number_format(abs($pct), 1, ',', '.') ?>% so với cùng ngày tuần trước (<?= money($revenueLastWeek) ?>)</div>
+      <?php else: ?>
+        <div class="muted" style="font-size:12px;">Cùng ngày tuần trước: <?= money($revenueLastWeek) ?></div>
+      <?php endif; ?>
+    <?php endif; ?>
   </div>
+  <?php if ($showFinance): ?>
+    <div class="card">
+      <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Tiền trong sổ quỹ</div>
+      <div style="font-size:20px;font-weight:700;">💵 <?= money($cashOnHand) ?></div>
+      <div class="muted" style="font-size:12.5px;">🏦 Chuyển khoản/thẻ/QR: <?= money($otherMoney) ?></div>
+    </div>
+  <?php endif; ?>
+  <?php if ($showFinance): ?>
+    <div class="card">
+      <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Lãi gộp hôm nay</div>
+      <div style="font-size:24px;font-weight:700;color:<?= $profitToday >= 0 ? '#059669' : '#dc2626' ?>;"><?= money($profitToday) ?></div>
+      <?php if ($revenueToday > 0): ?><div class="muted" style="font-size:12px;">Biên lãi gộp <?= number_format($profitToday / $revenueToday * 100, 1, ',', '.') ?>%</div><?php endif; ?>
+    </div>
+  <?php endif; ?>
   <div class="card">
     <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Đơn hàng mới</div>
     <div style="font-size:24px;font-weight:700;color:#059669;"><?= $newOrdersToday ?></div>

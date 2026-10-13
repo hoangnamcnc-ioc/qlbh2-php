@@ -2,6 +2,7 @@
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 requireRole('ADMIN', 'MANAGER');
+require_once __DIR__ . '/inc_xlsx.php';
 
 $pdo = db();
 
@@ -116,6 +117,46 @@ $traRows->execute([$tuNgay, $denNgay, $tenantId]);
 $traHang = $traRows->fetchAll();
 $tongTra = array_sum(array_map(static fn($r) => (float) $r['refund_amount'], $traHang));
 
+// Xuat Excel: doanh thu theo thang (doanh thu thuan), uoc tinh thue, so doanh thu chi tiet va hang tra lai trong ky.
+if (isset($_GET['export'])) {
+    $storeName = getSetting('store_name', 'Cửa hàng');
+    $rowsX = [
+        ['SỔ DOANH THU VÀ ƯỚC TÍNH THUẾ HỘ KINH DOANH', '', '', '', ''],
+        ['Cửa hàng', $storeName, '', '', ''],
+        ['Mẫu sổ', $mauSo . ' (Thông tư 152/2025/TT-BTC)', '', '', ''],
+        ['Kỳ sổ chi tiết', date('d/m/Y', strtotime($tuNgay)) . ' - ' . date('d/m/Y', strtotime($denNgay)), '', '', ''],
+        ['Doanh thu thuần năm ' . $nam . ' (đã trừ chiết khấu và hàng trả lại)', (string) round($tongDoanhThuNam), '', '', ''],
+        ['Ngưỡng miễn thuế', (string) NGUONG_MIEN_THUE_NAM, '', '', ''],
+        ['Trạng thái', $vuotNguong ? 'Vượt ngưỡng miễn thuế' : 'Dưới ngưỡng - miễn thuế', '', '', ''],
+    ];
+    if ($ucTinh && !empty($ucTinh['ap_dung'])) {
+        $rowsX[] = ['Thuế GTGT ước tính', (string) $ucTinh['gtgt'], '', '', ''];
+        $rowsX[] = ['Thuế TNCN ước tính', (string) $ucTinh['tncn'], '', '', ''];
+        $rowsX[] = ['Tổng thuế ước tính', (string) $ucTinh['tong'], '', '', ''];
+    }
+    $rowsX[] = ['', '', '', '', ''];
+    $rowsX[] = ['DOANH THU THEO THÁNG', 'Doanh thu thuần', '', '', ''];
+    foreach ($byMonth as $m => $v) {
+        $rowsX[] = ['Tháng ' . $m . '/' . $nam, (string) round($v), '', '', ''];
+    }
+    $rowsX[] = ['', '', '', '', ''];
+    $rowsX[] = ['SỔ DOANH THU CHI TIẾT (sau chiết khấu)', '', '', '', ''];
+    $rowsX[] = ['Số hiệu', 'Ngày', 'Nhóm hàng', 'Diễn giải', 'Số tiền'];
+    foreach ($nhomMap as $tenNhom => $dong) {
+        foreach ($dong as $d) {
+            $rowsX[] = [$d['code'], date('d/m/Y', strtotime($d['ngay'])), $tenNhom,
+                'Bán hàng hóa, dịch vụ' . ($d['khach_hang'] ? ' - ' . $d['khach_hang'] : ' - Khách lẻ'), (string) round((float) $d['line_total'])];
+        }
+    }
+    foreach ($traHang as $t) {
+        $rowsX[] = [$t['code'], date('d/m/Y', strtotime($t['ngay'])), '', 'Khách trả lại hàng (ghi giảm doanh thu)', (string) -round((float) $t['refund_amount'])];
+    }
+    $rowsX[] = ['', '', '', 'TỔNG DOANH THU THUẦN TRONG KỲ', (string) round(max(0, $tongTatCa - $tongTra))];
+    logActivity('EXPORT_ACCOUNTING', "nam=$nam tu=$tuNgay den=$denNgay");
+    downloadXlsx($rowsX, 'so_doanh_thu_' . $nam . '.xlsx');
+    exit;
+}
+
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -213,6 +254,7 @@ require_once __DIR__ . '/inc_header.php';
     <div><label style="display:block;font-size:12px;margin-bottom:2px;">Từ ngày</label><input type="date" name="tu" value="<?= e($tuNgay) ?>" class="input"></div>
     <div><label style="display:block;font-size:12px;margin-bottom:2px;">Đến ngày</label><input type="date" name="den" value="<?= e($denNgay) ?>" class="input"></div>
     <button type="submit" class="btn btn-secondary">Xem sổ</button>
+      <a class="btn btn-secondary" href="?export=1&nam=<?= e($nam) ?>&tu=<?= e($tuNgay) ?>&den=<?= e($denNgay) ?>">⬇ Xuất Excel</a>
   </form>
 
   <?php if (!$nhomMap): ?>

@@ -251,6 +251,52 @@ TC=$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'class="sdcn-tile"')
 eq "thu ngan khong thay o Cau hinh/Bao cao trong so do" "0" "$(curl -s -b $W/cj_cash $A/so_do_chuc_nang.php | grep -c 'href="settings.php"\|href="reports.php"')"
 eq "menu co muc Goc y / Bao loi" "1" "$([ "$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'Góp ý / Báo lỗi')" -ge 1 ] && echo 1 || echo 0)"
 
+echo "== 6m. Chia nhieu hinh thuc thanh toan"
+RS=$(checkout "{\"csrf\":\"$PT\",\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}],\"payment_method\":\"CASH\",\"payments\":{\"CASH\":80000,\"BANK_TRANSFER\":50000}}")
+OS=$(echo "$RS" | jv "['order_id']")
+S=$(probe "a=state&c=0&o=$OS")
+eq "chia TT: don du tien (tong 100000 - tien khach dua 130000, thoi 30000)" "PAID" "$(echo "$S" | jv "['order']['payment_status']")"
+eq "chia TT: chuyen khoan ghi dung 50000" "50000" "$(python -c "print(int(float($(echo "$S" | jv "['by_method']['BANK_TRANSFER']"))))")"
+eq "chia TT: tien mat ghi 50000 (da tru tien thoi 30000)" "50000" "$(python -c "print(int(float($(echo "$S" | jv "['by_method']['CASH']"))))")"
+eq "chia TT: tong so quy cua don = 100000" "100000" "$(python -c "print(int(float($(echo "$S" | jv "['cash_net']"))))")"
+RS2=$(checkout "{$BASEB,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}],\"payments\":{\"CASH\":30000,\"QR_CODE\":20000}}")
+OS2=$(echo "$RS2" | jv "['order_id']"); S2=$(probe "a=state&c=$CIDC&o=$OS2")
+eq "chia TT thieu tien + co khach: don PARTIAL" "PARTIAL" "$(echo "$S2" | jv "['order']['payment_status']")"
+eq "chia TT thieu tien: tien da thu 50000 (30000 mat + 20000 QR)" "50000" "$(python -c "print(int(float($(echo "$S2" | jv "['cash_net']"))))")"
+
+echo "== 6n. Khach theo doi don (QR) + diem"
+TRK_CODE=$(curl -s -b $CJ "$A/orders.php?status=DRAFT" | grep -o 'DH[A-Z0-9]\{6,\}' | head -1)
+curl -s -c $W/cj_trk -o /dev/null "$A/shop_track.php?s=$SLUG&code=$TRK_CODE"
+TTK=$(tk "$A/shop_track.php?s=$SLUG&code=$TRK_CODE" $W/cj_trk)
+BAD=$(curl -s -b $W/cj_trk -c $W/cj_trk --data-urlencode csrf="$TTK" --data-urlencode s="$SLUG" -d "code=$TRK_CODE&phone=0000000000" $A/shop_track.php | grep -c 'Không tìm thấy đơn hàng khớp')
+eq "theo doi don: sai so dien thoai thi khong xem duoc" "1" "$BAD"
+OK1=$(curl -s -b $W/cj_trk -c $W/cj_trk --data-urlencode csrf="$TTK" --data-urlencode s="$SLUG" -d "code=$TRK_CODE&phone=0955000111" $A/shop_track.php | grep -c 'Đã nhận đơn')
+OK2=$(curl -s -b $W/cj_trk -c $W/cj_trk --data-urlencode csrf="$TTK" --data-urlencode s="$SLUG" -d "code=$TRK_CODE&phone=0966000333" $A/shop_track.php | grep -c 'Đã nhận đơn')
+eq "theo doi don: dung ma + so dien thoai thi thay trang thai" "1" "$([ $((OK1+OK2)) -ge 1 ] && echo 1 || echo 0)"
+eq "theo doi don: ma don cua cua hang khac/khong ton tai khong xem duoc" "1" "$(curl -s -b $W/cj_trk -c $W/cj_trk --data-urlencode csrf="$TTK" --data-urlencode s="$SLUG" -d "code=DHKHONGCO&phone=0955000111" $A/shop_track.php | grep -c 'Không tìm thấy đơn hàng khớp')"
+
+echo "== 6o. Xuat Excel ke toan, cong no, tong quan chu quan"
+HDR=$(curl -s -b $CJ -D - -o $W/acc.xlsx "$A/accounting.php?export=1&nam=$(date +%Y)" | tr -d '' | grep -i '^content-type' | head -1)
+eq "ke toan: xuat Excel tra ve file .xlsx" "1" "$(echo "$HDR" | grep -ci 'spreadsheetml')"
+ge "ke toan: file Excel co noi dung" 2000 "$(stat -c %s $W/acc.xlsx 2>/dev/null || wc -c < $W/acc.xlsx)"
+eq "cong no phai thu/phai tra mo duoc" "1" "$([ "$(curl -s -b $CJ $A/cong_no.php | grep -c 'Phải thu từ khách')" -ge 1 ] && echo 1 || echo 0)"
+eq "cong no: xuat Excel" "1" "$(curl -s -b $CJ -D - -o /dev/null "$A/cong_no.php?export=1" | grep -ci 'spreadsheetml')"
+eq "thu ngan khong vao duoc cong no (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/cong_no.php)"
+eq "tong quan chu quan co Lai gop hom nay + Tien trong so quy" "1" "$([ "$(curl -s -b $CJ $A/index.php | grep -c 'Lãi gộp hôm nay')" -ge 1 ] && [ "$(curl -s -b $CJ $A/index.php | grep -c 'Tiền trong sổ quỹ')" -ge 1 ] && echo 1 || echo 0)"
+eq "tong quan thu ngan KHONG thay lai gop/so quy" "0" "$(curl -s -b $W/cj_cash $A/index.php | grep -c 'Lãi gộp hôm nay\|Tiền trong sổ quỹ')"
+
+echo "== 6p. Khoa cham cong theo mang cua hang"
+TCC=$(tk $A/cham_cong_cua_toi.php $W/cj_cash)
+probe "a=setting&k=attendance_ip_lock&v=1" >/dev/null; probe "a=setting&k=attendance_allowed_ips&v=203.0.113.9" >/dev/null
+BLK=$(curl -s -b $W/cj_cash -c $W/cj_cash --data-urlencode csrf="$TCC" -d "action=out" $A/cham_cong_cua_toi.php | grep -c 'ngoài mạng Wi-Fi')
+eq "khoa mang: ngoai mang cua hang bi chan" "1" "$BLK"
+probe "a=setting&k=attendance_allowed_ips&v=" >/dev/null
+eq "khoa mang: chua dang ky mang nao thi khong chan (tranh tu khoa)" "0" "$(curl -s -b $W/cj_cash -c $W/cj_cash --data-urlencode csrf="$TCC" -d "action=out" $A/cham_cong_cua_toi.php | grep -c 'ngoài mạng Wi-Fi')"
+TIP=$(tk $A/attendance.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TIP" -d "action=ip_add" $A/attendance.php
+eq "khoa mang: Quan tri them mang hien tai -> nhan vien trong mang van cham cong duoc" "0" "$(curl -s -b $W/cj_cash -c $W/cj_cash --data-urlencode csrf="$TCC" -d "action=out" $A/cham_cong_cua_toi.php | grep -c 'ngoài mạng Wi-Fi')"
+probe "a=setting&k=attendance_ip_lock&v=0" >/dev/null
+
 echo "== 6l. Tim don hang"
 eq "tim don theo ten khach 'Khach COD'" "1" "$([ "$(curl -s -b $CJ --get --data-urlencode 'q=Khach COD' $A/orders.php | grep -c 'Khach COD')" -ge 1 ] && echo 1 || echo 0)"
 eq "tim don theo SDT khach 0922000111" "1" "$([ "$(curl -s -b $CJ "$A/orders.php?q=0922000111" | grep -c 'order_view.php?id=')" -ge 1 ] && echo 1 || echo 0)"

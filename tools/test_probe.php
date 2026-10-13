@@ -25,8 +25,26 @@ if (($_GET['a'] ?? '') === 'state') {
         'customer' => $one('SELECT debt, loyalty_points FROM customers WHERE id = ?', [$c]),
         'order' => $one('SELECT status, payment_status, paid_amount, total_amount FROM orders WHERE id = ?', [$o]),
         'cash_net' => (float) ($one("SELECT COALESCE(SUM(CASE WHEN type='RECEIPT' THEN amount ELSE -amount END),0) AS n FROM cashbook_entries WHERE order_id = ?", [$o])['n'] ?? 0),
+        'by_method' => (static function () use ($pdo, $o) {
+            $st = $pdo->prepare("SELECT payment_method, SUM(CASE WHEN type='RECEIPT' THEN amount ELSE -amount END) AS n FROM cashbook_entries WHERE order_id = ? GROUP BY payment_method");
+            $st->execute([$o]);
+            $out = [];
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $out[$r['payment_method']] = (float) $r['n']; }
+            return $out;
+        })(),
         'debt_entries' => (float) ($one('SELECT COALESCE(SUM(amount),0) AS n FROM customer_debt_entries WHERE customer_id = ?', [$c])['n'] ?? 0),
     ]);
+    exit;
+}
+
+if (($_GET['a'] ?? '') === 'setting') {
+    // Dat 1 cau hinh cho cac cua hang thu 'ZZTEST Reg' (de gia lap IP khac...).
+    $ids = $pdo->query("SELECT id FROM tenants WHERE name = 'ZZTEST Reg'")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $tid) {
+        $pdo->prepare('INSERT INTO store_settings (tenant_id, setting_key, setting_value) VALUES (?,?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
+            ->execute([(int) $tid, (string) $_GET['k'], (string) $_GET['v']]);
+    }
+    echo json_encode(['set' => count($ids)]);
     exit;
 }
 

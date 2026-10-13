@@ -239,6 +239,19 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
         <option value="CARD">Quẹt thẻ</option>
         <option value="QR_CODE">Quét mã QR</option>
       </select>
+      <label style="font-weight:400;font-size:13px;margin-top:6px;display:flex;gap:6px;align-items:center;">
+        <input type="checkbox" id="split-toggle"> Chia nhiều hình thức (vd: một phần tiền mặt, một phần chuyển khoản)
+      </label>
+      <div id="split-fields" style="display:none;margin-top:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><span class="muted" style="font-size:11px;">Tiền mặt</span><input type="number" min="0" class="input split-in" data-method="CASH" placeholder="0"></div>
+          <div><span class="muted" style="font-size:11px;">Chuyển khoản</span><input type="number" min="0" class="input split-in" data-method="BANK_TRANSFER" placeholder="0"></div>
+          <div><span class="muted" style="font-size:11px;">Quẹt thẻ</span><input type="number" min="0" class="input split-in" data-method="CARD" placeholder="0"></div>
+          <div><span class="muted" style="font-size:11px;">Quét mã QR</span><input type="number" min="0" class="input split-in" data-method="QR_CODE" placeholder="0"></div>
+        </div>
+        <div id="split-info" class="muted" style="font-size:12px;margin-top:6px;"></div>
+        <button type="button" id="split-fill" class="btn btn-secondary" style="padding:3px 10px;font-size:12px;margin-top:4px;">Điền phần còn lại vào ô đang chọn ở trên</button>
+      </div>
     </div>
 
     <details id="pos-more-options" open>
@@ -430,7 +443,7 @@ function makeEmptyOrder() {
     cart: [], customerPhone: '', priceListId: null, customerId: null, customerPoints: 0, loyaltyDiscountPercent: 0, paymentMethod: 'CASH',
     manualDiscountType: defaultDiscountUnit, manualDiscountValue: '', appliedCoupon: null, couponInput: '',
     isDelivery: false, deliveryAddress: '', shippingFee: '', note: '', tags: '', cashGiven: '',
-    partialPayment: false, paidAmount: '', sourceId: '',
+    partialPayment: false, paidAmount: '', sourceId: '', split: false, splitVals: {},
   };
 }
 
@@ -459,6 +472,9 @@ function saveCurrentOrderState() {
   o.cashGiven = document.getElementById('cash-given').value;
   o.partialPayment = document.getElementById('partial-payment-toggle').checked;
   o.paidAmount = document.getElementById('paid-amount').value;
+  o.split = document.getElementById('split-toggle').checked;
+  o.splitVals = {};
+  document.querySelectorAll('.split-in').forEach(i => { o.splitVals[i.dataset.method] = i.value; });
 }
 
 function loadOrderState(idx) {
@@ -488,6 +504,9 @@ function loadOrderState(idx) {
   document.getElementById('partial-payment-toggle').checked = o.partialPayment;
   document.getElementById('paid-amount').value = o.paidAmount;
   document.getElementById('partial-payment-fields').style.display = o.partialPayment ? 'block' : 'none';
+  document.getElementById('split-toggle').checked = !!o.split;
+  document.getElementById('split-fields').style.display = o.split ? 'block' : 'none';
+  document.querySelectorAll('.split-in').forEach(i => { i.value = (o.splitVals || {})[i.dataset.method] || ''; });
   document.getElementById('pos-message').innerHTML = '';
   renderCart();
   renderTabs();
@@ -824,7 +843,27 @@ document.getElementById('delivery-toggle').addEventListener('change', (e) => {
   updateTotals();
 });
 
+function currentOrderTotal() {
+  const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
+  const discount = Math.min(subTotal * 0.5, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0) + loyaltyDiscount);
+  return Math.max(0, subTotal - discount) + getShippingFee();
+}
+function splitSum() {
+  let sum = 0;
+  document.querySelectorAll('.split-in').forEach(i => { sum += Math.max(0, parseFloat(i.value) || 0); });
+  return sum;
+}
+function updateSplitInfo() {
+  const el = document.getElementById('split-info');
+  if (!document.getElementById('split-toggle').checked) { el.textContent = ''; return; }
+  const total = currentOrderTotal(), sum = splitSum();
+  if (sum <= 0) { el.textContent = 'Nhập số tiền khách trả theo từng hình thức. Tổng cần thu: ' + formatMoney(total); return; }
+  if (sum >= total) el.textContent = 'Đã nhập ' + formatMoney(sum) + (sum > total ? ' — thối lại ' + formatMoney(sum - total) + ' (trừ vào tiền mặt)' : ' — đủ tiền');
+  else el.textContent = 'Đã nhập ' + formatMoney(sum) + ' — còn thiếu ' + formatMoney(total - sum) + ' (ghi vào công nợ khách, cần nhập SĐT khách)';
+}
 function updateChange() {
+  updateSplitInfo();
   const subTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const loyaltyDiscount = subTotal * currentLoyaltyDiscountPercent / 100;
   const discount = Math.min(subTotal * 0.5, getManualDiscount(subTotal) + (appliedCoupon ? appliedCoupon.discount : 0) + loyaltyDiscount);
@@ -878,12 +917,29 @@ function buildCheckoutPayload() {
     // O chon nhan vien chi hien voi ADMIN/MANAGER; thu ngan khong co o nay nen gui null va may
     // chu se ghi chinh nguoi dang dang nhap.
     sold_by_id: document.getElementById('sold-by') ? (parseInt(document.getElementById('sold-by').value, 10) || null) : null,
-    paid_amount: document.getElementById('partial-payment-toggle').checked
-      ? (parseFloat(document.getElementById('paid-amount').value) || 0)
-      : null,
+    paid_amount: document.getElementById('split-toggle').checked
+      ? splitSum()
+      : (document.getElementById('partial-payment-toggle').checked ? (parseFloat(document.getElementById('paid-amount').value) || 0) : null),
+    payments: document.getElementById('split-toggle').checked ? (() => {
+      const m = {};
+      document.querySelectorAll('.split-in').forEach(i => { const v = parseFloat(i.value) || 0; if (v > 0) m[i.dataset.method] = v; });
+      return m;
+    })() : null,
   };
 }
 
+document.getElementById('split-toggle').addEventListener('change', (e) => {
+  document.getElementById('split-fields').style.display = e.target.checked ? 'block' : 'none';
+  updateSplitInfo();
+});
+document.querySelectorAll('.split-in').forEach(i => i.addEventListener('input', updateSplitInfo));
+document.getElementById('split-fill').addEventListener('click', () => {
+  const sel = document.getElementById('payment-method').value;
+  const others = Array.from(document.querySelectorAll('.split-in')).filter(i => i.dataset.method !== sel)
+    .reduce((s, i) => s + Math.max(0, parseFloat(i.value) || 0), 0);
+  const target = document.querySelector('.split-in[data-method="' + sel + '"]');
+  if (target) { target.value = Math.max(0, Math.round(currentOrderTotal() - others)) || ''; updateSplitInfo(); }
+});
 document.getElementById('partial-payment-toggle').addEventListener('change', (e) => {
   document.getElementById('partial-payment-fields').style.display = e.target.checked ? 'block' : 'none';
 });
@@ -907,6 +963,17 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
   if (requireCustomerPhone && !document.getElementById('customer-phone').value.trim()) {
     msgBox.innerHTML = '<div class="alert alert-error">Vui lòng nhập SĐT khách hàng trước khi thanh toán (bắt buộc theo cấu hình bán hàng).</div>';
     return;
+  }
+  if (document.getElementById('split-toggle').checked) {
+    const sum = splitSum(), total = currentOrderTotal();
+    if (sum <= 0) {
+      msgBox.innerHTML = '<div class="alert alert-error">Chọn "Chia nhiều hình thức" thì cần nhập số tiền ở ít nhất một ô.</div>';
+      return;
+    }
+    if (sum < total - 0.5 && !document.getElementById('customer-phone').value.trim()) {
+      msgBox.innerHTML = '<div class="alert alert-error">Số tiền khách trả còn thiếu nên cần nhập SĐT khách hàng để ghi công nợ.</div>';
+      return;
+    }
   }
   if (document.getElementById('partial-payment-toggle').checked && !document.getElementById('customer-phone').value.trim()) {
     msgBox.innerHTML = '<div class="alert alert-error">Cho khách nợ một phần cần nhập SĐT khách hàng để ghi công nợ đúng người.</div>';

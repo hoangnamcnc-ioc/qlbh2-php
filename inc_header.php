@@ -74,6 +74,7 @@ if ($canGroup('finance')) {
         'cashbook.php' => 'Sổ quỹ',
         'reports.php' => 'Báo cáo',
         'accounting.php' => 'Kế toán và Thuế',
+        'cong_no.php' => 'Công nợ phải thu / phải trả',
         'doi_chieu.php' => 'Đối chiếu số liệu',
     ];
 }

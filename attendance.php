@@ -15,6 +15,28 @@ $employeeIds = array_map('intval', array_column($employees, 'id'));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $action = $_POST['action'] ?? 'save';
+
+    // Cau hinh chong cham cong ho: chi cho cham cong tu mang (dia chi IP) cua cua hang. Chi Quan tri doi duoc.
+    if (in_array($action, ['ip_toggle', 'ip_add', 'ip_remove'], true)) {
+        if (hasRole('ADMIN')) {
+            $ips = array_values(array_filter(array_map('trim', explode(',', getSetting('attendance_allowed_ips', '')))));
+            if ($action === 'ip_toggle') {
+                setSetting('attendance_ip_lock', !empty($_POST['enabled']) ? '1' : '0');
+            } elseif ($action === 'ip_add') {
+                $ip = clientIp();
+                if (filter_var($ip, FILTER_VALIDATE_IP) && !in_array($ip, $ips, true)) {
+                    $ips[] = $ip;
+                }
+                setSetting('attendance_allowed_ips', implode(',', array_slice($ips, 0, 10)));
+            } else {
+                $rm = trim((string) ($_POST['ip'] ?? ''));
+                setSetting('attendance_allowed_ips', implode(',', array_filter($ips, static fn($x) => $x !== $rm)));
+            }
+            logActivity('ATTENDANCE_IP_LOCK_CONFIG', $action);
+        }
+        redirect('attendance.php?ip=1');
+    }
+
     $userId = (int) ($_POST['user_id'] ?? 0);
 
     if (!in_array($userId, $employeeIds, true)) {
@@ -77,6 +99,38 @@ require_once __DIR__ . '/inc_header.php';
 <h1 style="font-size:24px;font-weight:600;margin-bottom:16px;">Bảng chấm công</h1>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+
+<?php if (hasRole('ADMIN')):
+    $ipLock = getSetting('attendance_ip_lock', '0') === '1';
+    $allowedIps = array_values(array_filter(array_map('trim', explode(',', getSetting('attendance_allowed_ips', '')))));
+?>
+<div class="card" style="max-width:640px;margin-bottom:24px;">
+  <h2 style="font-size:14px;font-weight:600;margin:0 0 6px;">Chống chấm công hộ</h2>
+  <p class="muted" style="font-size:12.5px;margin:0 0 10px;">
+    Khi bật, nhân viên chỉ tự chấm công (mục "Chấm công &amp; lương của tôi") được khi đang dùng <b>mạng Wi-Fi của cửa hàng</b>.
+    Bạn đang ở mạng có địa chỉ <b><?= e(clientIp()) ?></b> — bấm "Thêm mạng hiện tại" khi đang kết nối Wi-Fi cửa hàng.
+    Lưu ý: nếu nhà mạng đổi địa chỉ (IP động) bạn cần thêm lại; điện thoại dùng 4G sẽ không chấm công được.
+  </p>
+  <form method="post" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="action" value="ip_toggle">
+    <label style="font-weight:400;"><input type="checkbox" name="enabled" value="1" <?= $ipLock ? 'checked' : '' ?> onchange="this.form.submit()"> Bật giới hạn theo mạng cửa hàng</label>
+  </form>
+  <div style="margin-top:8px;">
+    <?php foreach ($allowedIps as $ip): ?>
+      <form method="post" style="display:inline-flex;gap:6px;align-items:center;margin:0 8px 4px 0;background:#f1f5f9;border-radius:6px;padding:3px 8px;font-size:13px;">
+        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="ip_remove"><input type="hidden" name="ip" value="<?= e($ip) ?>">
+        <?= e($ip) ?> <button type="submit" style="background:none;border:none;color:#dc2626;cursor:pointer;padding:0 2px;" title="Bỏ mạng này">×</button>
+      </form>
+    <?php endforeach; ?>
+    <form method="post" style="display:inline;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="ip_add">
+      <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12.5px;">+ Thêm mạng hiện tại</button>
+    </form>
+  </div>
+  <?php if ($ipLock && !$allowedIps): ?><p class="alert alert-warning" style="margin:10px 0 0;font-size:12.5px;">Đã bật nhưng chưa có mạng nào được phép nên giới hạn chưa có tác dụng.</p><?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="card" style="max-width:640px;margin-bottom:24px;">
   <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Ghi nhận giờ vào / giờ ra</h2>

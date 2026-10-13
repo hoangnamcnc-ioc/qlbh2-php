@@ -89,10 +89,13 @@ echo "   da quet trang xem/sua/in voi id cua A"
 # 3) API tim kiem + xuat file bang tai khoan B
 for u in "pos_search.php?q=LEAKSKU" "pos_search.php?q=LEAKMARK" "customer_lookup.php?q=LEAKMARK" "customer_lookup.php?phone=0988777666" "coupon_check.php?code=LEAKMARK1&sub_total=100000" \
          "purchase_order_search.php?q=LEAKMARK" "stock_receipt_search.php?q=LEAKMARK" "stock_take_search.php?q=LEAKSKU" "stock_transfer_search.php?q=LEAKSKU" "price_adjustment_search.php?q=LEAKSKU" \
-         "products_export.php" "customers_export.php" "orders_export.php" "cashbook_export.php" "reports.php" "inventory.php?q=LEAKSKU" "orders.php?q=LEAKMARK"; do
+         "products_export.php" "customers_export.php" "orders_export.php" "cashbook_export.php" "reports.php" "inventory.php?q=LEAKSKU"; do
   code=$(curl -s -b $CB -o $W/body -w "%{http_code}" "$A/$u")
   if grep -q "LEAKMARK" $W/body; then leak "$u (HTTP $code)"; fi
 done
+# Tim don bang tu khoa cua A: o tim kiem tu in lai tu khoa nen chi kiem tra KHONG co dong don nao
+ORD_ROWS=$(curl -s -b $CB --get --data-urlencode "q=LEAKMARK" $A/orders.php | grep -c 'order_view.php?id=')
+[ "$ORD_ROWS" -eq 0 ] || leak "orders.php?q=LEAKMARK tra ve $ORD_ROWS don cua cua hang khac"
 echo "   da kiem tra API tim kiem va xuat file"
 
 # 4) Thao tac ghi cheo: B khong duoc sua/huy don cua A

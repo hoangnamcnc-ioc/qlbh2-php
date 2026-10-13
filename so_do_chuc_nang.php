@@ -71,6 +71,7 @@ $stages = [
         ['💵', 'Sổ quỹ', 'Thu chi tiền mặt, chuyển khoản', 'cashbook.php'],
         ['📊', 'Báo cáo', 'Doanh thu, lãi gộp, tồn kho', 'reports.php'],
         ['🧮', 'Kế toán & Thuế', 'Sổ sách, thuế, kết chuyển', 'accounting.php'],
+        ['📒', 'Công nợ phải thu/trả', 'Khách nợ, nợ nhà cung cấp, xuất Excel', 'cong_no.php'],
         ['🔎', 'Đối chiếu số liệu', 'Tự tìm chỗ sổ sách không khớp', 'doi_chieu.php'],
         ['⏱️', 'Chấm công & lương của tôi', 'Vào/ra ca, lương tạm tính', 'cham_cong_cua_toi.php'],
         ['🗓️', 'Chấm công, lịch & bảng lương', 'Quản lý nhân sự, trả lương', 'attendance.php'],

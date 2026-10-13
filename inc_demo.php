@@ -94,6 +94,19 @@ function taoDuLieuMau(PDO $pdo, int $tenantId, int $branchId, int $adminId): voi
                  VALUES (?,?,?,1,?,?,?,?,'PRODUCT',?)"
             )->execute([$sku, $name, $unit, $cost, $price, $catIds[$cat], $brandIds[$brand], $tenantId]);
             $prod[$i] = ['id' => (int) $pdo->lastInsertId(), 'price' => $price, 'cost' => $cost, 'name' => $name, 'w' => $w];
+            // Anh minh hoa (SVG sinh san, chu cai dau + mau theo nhom hang) de trang dat hang va danh sach san pham co hinh.
+            $imgDir = __DIR__ . '/uploads/products';
+            if (!is_dir($imgDir)) { @mkdir($imgDir, 0755, true); }
+            $colors = ['#2563eb', '#db2777', '#d97706', '#059669', '#7c3aed'];
+            $words = preg_split('/\s+/u', $name);
+            $initials = mb_strtoupper(mb_substr($words[0], 0, 1) . (isset($words[1]) ? mb_substr($words[1], 0, 1) : ''));
+            $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="24" fill="'
+                . $colors[$cat % 5] . '"/><text x="80" y="98" font-family="Arial,sans-serif" font-size="56" font-weight="700" fill="#fff" text-anchor="middle">'
+                . htmlspecialchars($initials, ENT_XML1) . '</text></svg>';
+            $imgName = 'demo' . $tenantId . '_' . strtolower($sku) . '.svg';
+            if (@file_put_contents($imgDir . '/' . $imgName, $svg) !== false) {
+                $pdo->prepare('INSERT INTO product_images (product_id, filename, sort_order) VALUES (?,?,1)')->execute([$prod[$i]['id'], $imgName]);
+            }
             $stock[$i] = 0.0;
             $minStock[$i] = $min;
         }
