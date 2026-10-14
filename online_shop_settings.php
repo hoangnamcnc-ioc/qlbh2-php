@@ -45,8 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $enabled = getSetting('online_shop_enabled', '1') === '1';
 $shopSlug = getSetting('shop_slug', '');
-if ($shopSlug === '' && $tenantId !== 1) {
-    // Cua hang chua co duong dan rieng: tao san 1 cai (tenant #1 giu link cu shop.php khong tham so).
+if ($shopSlug === '') {
+    // Cua hang chua co duong dan rieng: tao san 1 cai (ke ca cua hang #1; link cu shop.php khong tham so van chay cho #1).
     do {
         $shopSlug = taoShopSlugMacDinh(getSetting('store_name', 'cua hang'));
     } while (shopSlugDaDung($pdo, $shopSlug, $tenantId));
@@ -63,14 +63,16 @@ require_once __DIR__ . '/inc_header.php';
 
 <?php hopDieuKienTrienKhai(
     'Trang đặt hàng công khai <b>chạy thật ngay, không cần đăng ký gì thêm</b> — bật lên là có
-     đường dẫn để gửi cho khách.',
+     đường dẫn và mã QR để gửi cho khách.',
     [
         'Sản phẩm phải <b>đang bán</b> và <b>còn tồn kho</b> ở chi nhánh bán online thì khách mới thấy.',
-        'Khách <b>chưa thanh toán online được</b> — đơn về ở trạng thái <b>Đặt hàng / Chưa thanh toán</b>,
-         cửa hàng gọi lại xác nhận rồi thu tiền khi giao. Muốn khách trả trước qua thẻ/QR thì cần
-         tài khoản cổng thanh toán và lập trình thêm.',
-        'Phải có người <b>xem đơn mới hằng ngày</b> ở Danh sách đơn hàng — hệ thống không tự gọi
-         điện hay tự giao hàng.',
+        'Khách đặt hàng <b>không cần đăng nhập</b>; đơn về ở trạng thái <b>Đặt hàng / Chưa thanh toán</b>. Nếu bạn đã khai báo tài khoản ngân hàng
+         ở <a href="payment_settings.php">Cấu hình → Thanh toán</a>, khách sẽ thấy <b>mã QR chuyển khoản</b> đúng số tiền ngay sau khi đặt; muốn tiền về
+         <b>tự ghi nhận vào đơn</b> thì kết nối thêm dịch vụ thông báo biến động số dư ở <a href="bank_reconcile.php">Tài chính → Đối soát chuyển khoản</a>
+         (nếu chưa kết nối, nhân viên tự đối chiếu sao kê rồi bấm "Ghi nhận thu").',
+        'Hệ thống <b>chưa thanh toán qua thẻ/ví điện tử</b> (VNPay, MoMo…) — chỉ chuyển khoản QR hoặc tiền mặt khi nhận.',
+        'Hệ thống gửi email báo đơn mới cho chủ cửa hàng và có trang <a href="don_cho_thanh_toan.php">Đơn online chờ thanh toán</a> để nhắc khách,
+         nhưng vẫn cần có người <b>xem đơn mới hằng ngày</b> ở Danh sách đơn hàng — hệ thống không tự gọi điện hay tự giao hàng.',
     ]
 ); ?>
 
