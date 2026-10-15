@@ -425,7 +425,7 @@ if (hasRole('ADMIN', 'MANAGER')) {
 
 <div class="card muted" style="font-size:14px;">
   Xem <a href="pos.php">Bán hàng</a>, <a href="products.php">Sản phẩm</a>,
-  <a href="customers.php">Khách hàng</a>, <a href="reports.php">Báo cáo</a> chi tiết hơn.
+  <a href="customers.php">Khách hàng</a>, <?= (isManagerTier() || userHasPermissionGroup('finance')) ? '<a href="reports.php">Báo cáo</a> ' : '' ?>chi tiết hơn.
 </div>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>
