@@ -25,6 +25,9 @@ $stmt = $pdo->prepare('SELECT s.id, s.name, s.phone, s.debt FROM suppliers s WHE
 $stmt->execute([$tenantId]);
 $phaiTra = $stmt->fetchAll();
 
+// Phieu nhap con no NCC co ghi han tra (xep theo han, qua han len dau)
+$phieuCoHan = layPhieuNhapDenHan($pdo, $tenantId, 0, 3650, 200);
+
 $tongThu = array_sum(array_map(static fn($r) => (float) $r['debt'], $phaiThu));
 $tongTra = array_sum(array_map(static fn($r) => (float) $r['debt'], $phaiTra));
 $tuoi = static fn(?string $ts): string => $ts ? (string) max(0, (int) floor((time() - strtotime($ts)) / 86400)) : '';
@@ -106,6 +109,28 @@ require_once __DIR__ . '/inc_header.php';
           <td><a href="supplier_view.php?id=<?= (int) $r['id'] ?>"><?= e($r['name']) ?></a></td>
           <td><?= e((string) $r['phone']) ?></td>
           <td class="text-right"><b><?= money($r['debt']) ?></b></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+<h2 style="font-size:16px;margin:24px 0 8px;">Hạn trả tiền nhà cung cấp</h2>
+<div class="card" style="padding:0;overflow-x:auto;">
+  <table>
+    <thead><tr><th>Nhà cung cấp</th><th>Phiếu nhập</th><th>Hạn trả</th><th class="text-right">Còn nợ</th><th>Tình trạng</th></tr></thead>
+    <tbody>
+      <?php if (!$phieuCoHan): ?><tr><td colspan="5" class="text-center muted" style="padding:20px;">Chưa có phiếu nhập nào còn nợ kèm hạn trả. Khi lập phiếu nhập có nợ, nhập "Hạn trả tiền NCC" để được nhắc.</td></tr><?php endif; ?>
+      <?php foreach ($phieuCoHan as $r):
+        $conNgay = (int) floor((strtotime($r['due_date']) - strtotime('today')) / 86400); ?>
+        <tr>
+          <td><?= $r['supplier_id'] ? '<a href="supplier_view.php?id=' . (int) $r['supplier_id'] . '">' . e($r['supplier_name']) . '</a>' : '—' ?></td>
+          <td><a href="stock_receipt_view.php?id=<?= (int) $r['id'] ?>" style="font-family:monospace;"><?= e($r['code']) ?></a></td>
+          <td><?= e(date('d/m/Y', strtotime($r['due_date']))) ?></td>
+          <td class="text-right"><b><?= money($r['con_no']) ?></b></td>
+          <td><?php if ($conNgay < 0): ?><span class="badge badge-red">Quá hạn <?= -$conNgay ?> ngày</span>
+              <?php elseif ($conNgay <= 7): ?><span class="badge badge-red">Còn <?= $conNgay ?> ngày</span>
+              <?php else: ?><span class="muted">Còn <?= $conNgay ?> ngày</span><?php endif; ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

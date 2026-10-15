@@ -303,7 +303,7 @@ require_once __DIR__ . '/inc_header.php';
     $chiPhiRows = $pdo->prepare(
         "SELECT ce.code, DATE(ce.created_at) AS ngay, ce.reason, ce.amount
          FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
-         WHERE ce.type = 'PAYMENT' AND ce.auto_generated = 0
+         WHERE ce.type = 'PAYMENT' AND ce.auto_generated = 0 AND ce.category IS NULL
            AND DATE(ce.created_at) BETWEEN ? AND ? AND b.tenant_id = ?
          ORDER BY ce.created_at"
     );

@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $discountUnit = ($_POST['default_discount_unit'] ?? '') === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
     setSetting('default_discount_unit', $discountUnit);
     setSetting('cashier_return_limit', (string) max(0, (int) round((float) ($_POST['cashier_return_limit'] ?? 0))));
+    setSetting('cashier_discount_limit', (string) max(0, min(100, round((float) ($_POST['cashier_discount_limit'] ?? 0), 1))));
     logActivity('SALES_SETTINGS_UPDATE');
     redirect('sales_settings.php?saved=1');
 }
@@ -24,6 +25,7 @@ foreach ($checkboxFields as $key) {
 }
 $values['default_discount_unit'] = getSetting('default_discount_unit', 'AMOUNT');
 $values['cashier_return_limit'] = getSetting('cashier_return_limit', '500000');
+$values['cashier_discount_limit'] = getSetting('cashier_discount_limit', '0');
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -59,6 +61,11 @@ require_once __DIR__ . '/inc_header.php';
       <label>Hạn mức trả hàng của thu ngân (VNĐ mỗi phiếu)</label>
       <input class="input" type="number" min="0" step="1000" name="cashier_return_limit" value="<?= e($values['cashier_return_limit']) ?>" style="max-width:200px;">
       <div class="muted" style="font-size:12px;margin-top:4px;">Phiếu trả hàng có số tiền hoàn lớn hơn mức này phải do Quản lý/Quản trị tạo. Nhập 0 để không giới hạn.</div>
+    </div>
+    <div class="field">
+      <label>Hạn mức chiết khấu nhập tay của thu ngân (% giá trị đơn)</label>
+      <input class="input" type="number" min="0" max="100" step="0.5" name="cashier_discount_limit" value="<?= e($values['cashier_discount_limit']) ?>" style="max-width:200px;">
+      <div class="muted" style="font-size:12px;margin-top:4px;">Thu ngân nhập chiết khấu tay vượt mức này sẽ bị chặn, phải nhờ Quản lý/Quản trị bán. Nhập 0 để không giới hạn. Chiết khấu tự động (khuyến mại, mã giảm giá, hạng khách) không bị ảnh hưởng.</div>
     </div>
     <button type="submit" class="btn">Lưu cấu hình</button>
   </form>

@@ -17,6 +17,20 @@ $branchesStmt->execute([$tenantId]);
 $branches = $branchesStmt->fetchAll();
 
 $error = null;
+$reviewKinds = ['LATE' => 'Giao chậm', 'DEFECT' => 'Hàng lỗi / móp méo', 'PRICE_UP' => 'Tăng giá bất thường', 'GOOD' => 'Tốt (đúng hẹn, đúng hàng)', 'OTHER' => 'Khác'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'review') {
+    checkCsrf();
+    $kind = array_key_exists($_POST['kind'] ?? '', $reviewKinds) ? $_POST['kind'] : 'OTHER';
+    $pdo->prepare('INSERT INTO supplier_reviews (tenant_id, supplier_id, kind, note, created_by_id) VALUES (?,?,?,?,?)')
+        ->execute([$tenantId, $id, $kind, mb_substr(post('note'), 0, 255) ?: null, $currentUser['id']]);
+    redirect('supplier_view.php?id=' . $id . '#danh-gia');
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'category') {
+    checkCsrf();
+    $pdo->prepare('UPDATE suppliers SET category = ? WHERE id = ? AND tenant_id = ?')
+        ->execute([mb_substr(post('category'), 0, 100) ?: null, $id, $tenantId]);
+    redirect('supplier_view.php?id=' . $id);
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $amount = postFloat('amount');
@@ -55,6 +69,13 @@ $receipts = $pdo->prepare(
 );
 $receipts->execute([$id]);
 $receipts = $receipts->fetchAll();
+$reviews = $pdo->prepare(
+    'SELECT r.*, u.name AS user_name FROM supplier_reviews r LEFT JOIN users u ON u.id = r.created_by_id
+     WHERE r.supplier_id = ? AND r.tenant_id = ? ORDER BY r.created_at DESC LIMIT 100'
+);
+$reviews->execute([$id, $tenantId]);
+$reviews = $reviews->fetchAll();
+$reviewCount = array_count_values(array_column($reviews, 'kind'));
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -74,6 +95,14 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card">
     <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Địa chỉ</div>
     <div style="font-size:16px;"><?= e($supplier['address'] ?: '—') ?></div>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Nhóm ngành hàng</div>
+    <form method="post" style="display:flex;gap:6px;">
+      <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="category">
+      <input class="input" name="category" maxlength="100" value="<?= e($supplier['category'] ?? '') ?>" placeholder="vd: Bánh kẹo" style="min-width:0;">
+      <button class="btn btn-secondary" type="submit" style="padding:4px 10px;">Lưu</button>
+    </form>
   </div>
 </div>
 
@@ -101,6 +130,31 @@ require_once __DIR__ . '/inc_header.php';
   </form>
 </div>
 <?php endif; ?>
+
+<h2 id="danh-gia" style="font-size:18px;font-weight:600;margin:0 0 12px;">Đánh giá nhà cung cấp</h2>
+<div class="card" style="margin-bottom:24px;max-width:760px;">
+  <p class="muted" style="font-size:13px;margin:0 0 10px;">Ghi lại mỗi lần giao chậm, hàng lỗi/móp méo hoặc tăng giá để có căn cứ khi thương lượng hoặc đổi nhà cung cấp.</p>
+  <?php if ($reviewCount): ?>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <?php foreach ($reviewKinds as $k => $label): if (empty($reviewCount[$k])) continue; ?>
+        <span class="badge <?= $k === 'GOOD' ? 'badge-green' : ($k === 'OTHER' ? 'badge-gray' : 'badge-red') ?>"><?= e($label) ?>: <?= (int) $reviewCount[$k] ?></span>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+  <form method="post" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="review">
+    <div><label style="font-size:12px;display:block;">Loại</label>
+      <select name="kind" class="input" style="width:auto;"><?php foreach ($reviewKinds as $k => $label): ?><option value="<?= e($k) ?>"><?= e($label) ?></option><?php endforeach; ?></select></div>
+    <div style="flex:1;min-width:200px;"><label style="font-size:12px;display:block;">Ghi chú</label><input class="input" name="note" maxlength="255" placeholder="vd: giao trễ 2 ngày, phiếu PN12345"></div>
+    <button class="btn" type="submit">Ghi nhận</button>
+  </form>
+  <?php foreach ($reviews as $rv): ?>
+    <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-top:1px solid #f1f5f9;">
+      <span><b><?= e($reviewKinds[$rv['kind']] ?? $rv['kind']) ?></b><?= $rv['note'] ? ' — ' . e($rv['note']) : '' ?></span>
+      <span class="muted" style="white-space:nowrap;font-size:12px;"><?= date('d/m/Y', strtotime($rv['created_at'])) ?> · <?= e($rv['user_name'] ?? '') ?></span>
+    </div>
+  <?php endforeach; ?>
+</div>
 
 <h2 style="font-size:18px;font-weight:600;margin:0 0 12px;">Lịch sử nhập hàng</h2>
 <div class="card" style="padding:0;overflow-x:auto;">

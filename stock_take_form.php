@@ -9,6 +9,9 @@ $branchesStmt = $pdo->prepare('SELECT * FROM branches WHERE is_active = 1 AND te
 $branchesStmt->execute([$tenantId]);
 $branches = $branchesStmt->fetchAll();
 $error = null;
+$catStmt = $pdo->prepare('SELECT id, name FROM categories WHERE tenant_id = ? ORDER BY name');
+$catStmt->execute([$tenantId]);
+$categoriesList = $catStmt->fetchAll();
 
 // MANAGER chỉ được tạo phiếu kiểm hàng cho chi nhánh mình quản lý — tránh sửa/xem nhầm tồn
 // kho chi nhánh khác (giống các trang Đơn hàng/Tồn kho đã chặn theo chi nhánh).
@@ -124,6 +127,14 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <button type="button" id="scan-btn" class="btn btn-secondary" style="flex-shrink:0;">📷 Quét mã vạch</button>
   </div>
+  <?php if ($categoriesList): ?>
+  <div style="display:flex;gap:8px;max-width:640px;margin-bottom:8px;align-items:center;">
+    <select id="cat-select" class="input" style="flex:1;"><option value="">— Hoặc thêm cả một nhóm hàng để kiểm —</option>
+      <?php foreach ($categoriesList as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?>
+    </select>
+    <button type="button" id="cat-add" class="btn btn-secondary" style="flex-shrink:0;">Thêm cả nhóm</button>
+  </div>
+  <?php endif; ?>
   <div id="scan-msg" style="margin-bottom:8px;font-size:13px;min-height:18px;"></div>
 
   <!-- Modal quet camera: chi tai thu vien khi bam nut, khong lam nang trang cho nguoi khong dung -->
@@ -228,6 +239,24 @@ function scanMessage(text, isError) {
   el.textContent = text;
   el.style.color = isError ? '#dc2626' : '#16a34a';
   setTimeout(() => { el.textContent = ''; }, 2500);
+}
+
+const catAddBtn = document.getElementById('cat-add');
+if (catAddBtn) {
+  catAddBtn.addEventListener('click', () => {
+    const cat = document.getElementById('cat-select').value;
+    const branchId = branchSelect.value;
+    const msg = document.getElementById('scan-msg');
+    if (!branchId) { msg.textContent = 'Hãy chọn chi nhánh trước.'; msg.style.color = '#dc2626'; return; }
+    if (!cat) { msg.textContent = 'Hãy chọn nhóm hàng.'; msg.style.color = '#dc2626'; return; }
+    fetch('stock_take_search.php?category_id=' + encodeURIComponent(cat) + '&branch_id=' + encodeURIComponent(branchId))
+      .then(r => r.json())
+      .then(data => {
+        data.forEach(p => addLine(p.id, p.variant_id, p.name, parseFloat(p.qty) || 0));
+        msg.textContent = data.length ? 'Đã thêm ' + data.length + ' mặt hàng của nhóm vào phiếu kiểm.' : 'Nhóm này chưa có mặt hàng nào.';
+        msg.style.color = data.length ? '#059669' : '#dc2626';
+      });
+  });
 }
 
 function addLine(id, variantId, name, systemQty) {

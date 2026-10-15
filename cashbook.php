@@ -10,7 +10,10 @@ $paymentLabels = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
-    $type = ($_POST['type'] ?? '') === 'PAYMENT' ? 'PAYMENT' : 'RECEIPT';
+    $rawType = (string) ($_POST['type'] ?? '');
+    // Chu rut tien / chu gop von: van la phieu chi / thu nhung danh dau rieng de KHONG tinh vao chi phi kinh doanh
+    $category = $rawType === 'OWNER_DRAW' ? 'OWNER_DRAW' : ($rawType === 'OWNER_DEPOSIT' ? 'OWNER_DEPOSIT' : null);
+    $type = in_array($rawType, ['PAYMENT', 'OWNER_DRAW'], true) ? 'PAYMENT' : 'RECEIPT';
     $amount = postFloat('amount');
     $reason = post('reason');
     $paymentMethod = in_array($_POST['payment_method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true)
@@ -27,8 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $prefix = $type === 'RECEIPT' ? 'PT' : 'PC';
         $code = $prefix . substr((string) (int) round(microtime(true) * 1000), -8);
         $pdo->prepare(
-            'INSERT INTO cashbook_entries (code, branch_id, type, amount, reason, payment_method, created_by_id) VALUES (?,?,?,?,?,?,?)'
-        )->execute([$code, $branchId, $type, $amount, $reason, $paymentMethod, $currentUser['id']]);
+            'INSERT INTO cashbook_entries (code, branch_id, type, amount, reason, payment_method, created_by_id, category) VALUES (?,?,?,?,?,?,?,?)'
+        )->execute([$code, $branchId, $type, $amount, $reason, $paymentMethod, $currentUser['id'], $category]);
         redirect('cashbook.php');
     }
 }
@@ -81,7 +84,9 @@ $whereSql = implode(' AND ', $where);
 
 $totals = $pdo->prepare(
     "SELECT COALESCE(SUM(CASE WHEN ce.type = 'RECEIPT' THEN ce.amount ELSE 0 END), 0) AS total_receipt,
-            COALESCE(SUM(CASE WHEN ce.type = 'PAYMENT' THEN ce.amount ELSE 0 END), 0) AS total_payment
+            COALESCE(SUM(CASE WHEN ce.type = 'PAYMENT' THEN ce.amount ELSE 0 END), 0) AS total_payment,
+            COALESCE(SUM(CASE WHEN ce.category = 'OWNER_DRAW' THEN ce.amount ELSE 0 END), 0) AS owner_draw,
+            COALESCE(SUM(CASE WHEN ce.category = 'OWNER_DEPOSIT' THEN ce.amount ELSE 0 END), 0) AS owner_deposit
      FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id WHERE $whereSql"
 );
 $totals->execute($params);
@@ -153,6 +158,7 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card">
     <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Tổng chi</div>
     <div style="font-size:18px;font-weight:700;color:#dc2626;">-<?= money($totals['total_payment']) ?></div>
+    <?php if ((float) $totals['owner_draw'] > 0): ?><div class="muted" style="font-size:12px;margin-top:2px;">trong đó chủ rút: <?= money($totals['owner_draw']) ?></div><?php endif; ?>
   </div>
   <div class="card">
     <div class="muted" style="font-size:12px;text-transform:uppercase;margin-bottom:4px;">Tồn cuối kỳ</div>
@@ -172,7 +178,10 @@ require_once __DIR__ . '/inc_header.php';
         <select class="input" name="type">
           <option value="RECEIPT">Phiếu thu</option>
           <option value="PAYMENT">Phiếu chi</option>
+          <option value="OWNER_DRAW">Chủ rút tiền / chi tiêu cá nhân</option>
+          <option value="OWNER_DEPOSIT">Chủ góp thêm vốn</option>
         </select>
+        <div class="muted" style="font-size:11px;margin-top:2px;">Hai loại cuối tách riêng, không tính vào chi phí/lãi lỗ kinh doanh.</div>
       </div>
       <div class="field">
         <label>Hình thức thanh toán</label>
@@ -216,6 +225,8 @@ require_once __DIR__ . '/inc_header.php';
             <?php else: ?>
               <span class="badge badge-red">Phiếu chi</span>
             <?php endif; ?>
+            <?php if (($en['category'] ?? '') === 'OWNER_DRAW'): ?><span class="badge badge-gray">Chủ rút</span>
+            <?php elseif (($en['category'] ?? '') === 'OWNER_DEPOSIT'): ?><span class="badge badge-gray">Chủ góp vốn</span><?php endif; ?>
           </td>
           <td>
             <?php if ($en['order_code']): ?>

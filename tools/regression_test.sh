@@ -448,6 +448,60 @@ eq "tim don theo ten khach 'Khach COD'" "1" "$([ "$(curl -s -b $CJ --get --data-
 eq "tim don theo SDT khach 0922000111" "1" "$([ "$(curl -s -b $CJ "$A/orders.php?q=0922000111" | grep -c 'order_view.php?id=')" -ge 1 ] && echo 1 || echo 0)"
 eq "tim khong ra: khong co don nao" "0" "$(curl -s -b $CJ "$A/orders.php?q=khongcoketqua999" | grep -c 'order_view.php?id=')"
 
+echo "== 6z. Quy trinh tap hoa: lo/han tu phieu nhap, xuat huy, han tra NCC, chu rut tien, han muc chiet khau"
+T=$(tk $A/suppliers.php $CJ)
+D5=$(python -c "import datetime;print((datetime.date.today()+datetime.timedelta(days=5)).isoformat())")
+DYEST=$(python -c "import datetime;print((datetime.date.today()-datetime.timedelta(days=2)).isoformat())")
+ST2=$(stock)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "supplier_id=$SIDR&product_id[]=$PID&variant_id[]=&quantity[]=5&cost_price[]=60000&lot_number[]=LOTREG&expiry_date[]=$D5&paid_amount=0&due_date=$DYEST&reference_no=REGHD2" $A/stock_receipt_form.php
+eq "nhap hang kem lo: ton kho tang 5" "$((ST2+5))" "$(stock)"
+BP=$(curl -s -b $CJ $A/batches.php)
+eq "lo LOTREG hien o trang Lo hang" "1" "$([ "$(echo "$BP" | grep -c 'LOTREG')" -ge 1 ] && echo 1 || echo 0)"
+eq "lo han 5 ngay nam trong canh bao (Sap het han)" "1" "$([ "$(echo "$BP" | grep -c 'Sắp hết hạn')" -ge 1 ] && echo 1 || echo 0)"
+DASH=$(curl -s -b $CJ $A/index.php)
+eq "trang chu canh bao hang sap het han" "1" "$([ "$(echo "$DASH" | grep -c 'Hàng hết hạn / sắp hết hạn')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang chu canh bao no NCC den han" "1" "$([ "$(echo "$DASH" | grep -c 'Nợ nhà cung cấp đến hạn trả')" -ge 1 ] && echo 1 || echo 0)"
+eq "cong no hien phieu NCC qua han" "1" "$([ "$(curl -s -b $CJ $A/cong_no.php | grep -c 'Quá hạn')" -ge 1 ] && echo 1 || echo 0)"
+BATCH_ID=$(echo "$BP" | grep -o 'xuat_huy.php?batch_id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+[ -n "$BATCH_ID" ] && ok "trang Lo hang co nut xuat huy cho lo can han" || fail "nut xuat huy cho lo can han" "co" "khong"
+ST3=$(stock)
+TX=$(tk $A/xuat_huy.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TX" -d "branch_id=$BRR&item=$PID:0&batch_id=$BATCH_ID&quantity=2&reason=EXPIRED&note=reg" $A/xuat_huy.php
+eq "xuat huy 2: ton kho giam 2" "$((ST3-2))" "$(stock)"
+XP=$(curl -s -b $CJ $A/xuat_huy.php)
+eq "lich su xuat huy co ly do Het han su dung" "1" "$([ "$(echo "$XP" | grep -c 'Hết hạn sử dụng')" -ge 1 ] && echo 1 || echo 0)"
+BIG=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$TX" -d "branch_id=$BRR&item=$PID:0&quantity=99999&reason=LOST" $A/xuat_huy.php | grep -c 'vượt tồn kho')
+eq "xuat huy vuot ton kho bi tu choi" "1" "$BIG"
+eq "ton kho khong doi sau lan bi tu choi" "$((ST3-2))" "$(stock)"
+eq "thu ngan khong vao duoc Xuat huy (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/xuat_huy.php)"
+eq "thu ngan khong vao duoc Hang ton lau (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/ton_cham.php)"
+eq "trang Hang ton lau / ban cham mo duoc" "1" "$([ "$(curl -s -b $CJ "$A/ton_cham.php?days=365" | grep -c 'Hàng tồn lâu')" -ge 1 ] && echo 1 || echo 0)"
+eq "so do chuc nang co Xuat huy hang" "1" "$([ "$(curl -s -b $CJ $A/so_do_chuc_nang.php | grep -c 'xuat_huy.php')" -ge 1 ] && echo 1 || echo 0)"
+
+# Danh gia NCC + nhom nganh
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "action=review&kind=LATE&note=giao+tre+reg" "$A/supplier_view.php?id=$SIDR"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "action=category&category=Banh+keo" "$A/supplier_view.php?id=$SIDR"
+SV=$(curl -s -b $CJ "$A/supplier_view.php?id=$SIDR")
+eq "danh gia NCC ghi nhan 'Giao chậm'" "1" "$([ "$(echo "$SV" | grep -c 'giao tre reg')" -ge 1 ] && echo 1 || echo 0)"
+SL=$(curl -s -b $CJ $A/suppliers.php)
+eq "danh sach NCC hien nhom nganh + canh bao" "1" "$([ "$(echo "$SL" | grep -c 'Banh keo')" -ge 1 ] && [ "$(echo "$SL" | grep -c '⚠')" -ge 1 ] && echo 1 || echo 0)"
+
+# Chu rut tien: tach rieng khoi chi phi
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/cashbook.php $CJ)" -d "type=OWNER_DRAW&amount=50000&payment_method=CASH&reason=chu+rut+reg" $A/cashbook.php
+CBK=$(curl -s -b $CJ $A/cashbook.php)
+eq "so quy ghi 'Chu rut' tach rieng" "1" "$([ "$(echo "$CBK" | grep -c 'Chủ rút')" -ge 1 ] && echo 1 || echo 0)"
+
+# Han muc chiet khau nhap tay cua thu ngan
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/sales_settings.php $CJ)" -d "default_discount_unit=AMOUNT&cashier_return_limit=500000&cashier_discount_limit=10" $A/sales_settings.php
+DL=$(curl -s -b $W/cj_cash -H 'Content-Type: application/json' -d "{\"csrf\":\"$PTC\",\"payment_method\":\"CASH\",\"manual_discount_type\":\"PERCENT\",\"manual_discount_value\":25,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}]}" $A/pos_checkout.php | jv "['error']")
+eq "thu ngan giam 25% bi chan khi han muc 10%" "1" "$([ "$(echo "$DL" | grep -c 'hạn mức')" -ge 1 ] && echo 1 || echo 0)"
+DL2=$(curl -s -b $W/cj_cash -H 'Content-Type: application/json' -d "{\"csrf\":\"$PTC\",\"payment_method\":\"CASH\",\"manual_discount_type\":\"PERCENT\",\"manual_discount_value\":5,\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":1,\"unit_price\":100000}]}" $A/pos_checkout.php | jv "['order_id']")
+[ -n "$DL2" ] && ok "thu ngan giam 5% (trong han muc) ban duoc" || fail "giam 5% trong han muc" "co don" "khong"
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/sales_settings.php $CJ)" -d "default_discount_unit=AMOUNT&cashier_return_limit=500000&cashier_discount_limit=0" $A/sales_settings.php
+
+# Kiem kho theo nhom hang (nhom khong co hang: tra mang rong; nhom cua tenant khac khong lo)
+eq "kiem kho theo nhom: nhom la tra rong" "[]" "$(curl -s -b $CJ "$A/stock_take_search.php?category_id=999999&branch_id=$BRR")"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

@@ -17,7 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $action = $_POST['action'] ?? 'create';
 
-    if ($action === 'delete') {
+    if ($action === 'warn_days') {
+        setSetting('expiry_warn_days', (string) max(1, min(365, (int) ($_POST['expiry_warn_days'] ?? 30))));
+        logActivity('EXPIRY_WARN_DAYS_UPDATE');
+        redirect('batches.php?saved=1');
+    } elseif ($action === 'delete') {
         $id = (int) ($_POST['id'] ?? 0);
         // Xoa lo hang qua JOIN kiem tra chi nhanh thuoc dung tenant - tranh xoa nham lo
         // hang cua tenant khac neu doan duoc id.
@@ -55,16 +59,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$warnDays = expiryWarnDays();
+$filter = $_GET['f'] ?? '';
 $batchesStmt = $pdo->prepare(
     "SELECT b.*, p.name AS product_name, p.sku, br.name AS branch_name
      FROM product_batches b
      JOIN products p ON p.id = b.product_id
      JOIN branches br ON br.id = b.branch_id
-     WHERE b.quantity > 0 AND br.tenant_id = ?
-     ORDER BY (b.expiry_date IS NULL), b.expiry_date"
+     WHERE b.quantity > 0 AND br.tenant_id = ?" .
+    ($filter === 'het' ? ' AND b.expiry_date < CURDATE()' : '') .
+    ($filter === 'can' ? ' AND b.expiry_date >= CURDATE() AND b.expiry_date <= DATE_ADD(CURDATE(), INTERVAL ' . (int) $warnDays . ' DAY)' : '') .
+    " ORDER BY (b.expiry_date IS NULL), b.expiry_date"
 );
 $batchesStmt->execute([$tenantId]);
 $batches = $batchesStmt->fetchAll();
+$cntHet = (int) $pdo->query("SELECT COUNT(*) FROM product_batches b JOIN branches br ON br.id = b.branch_id WHERE b.quantity > 0 AND b.expiry_date < CURDATE() AND br.tenant_id = " . (int) $tenantId)->fetchColumn();
+$cntCan = (int) $pdo->query("SELECT COUNT(*) FROM product_batches b JOIN branches br ON br.id = b.branch_id WHERE b.quantity > 0 AND b.expiry_date >= CURDATE() AND b.expiry_date <= DATE_ADD(CURDATE(), INTERVAL " . (int) $warnDays . " DAY) AND br.tenant_id = " . (int) $tenantId)->fetchColumn();
 
 require_once __DIR__ . '/inc_header.php';
 ?>
@@ -77,6 +87,22 @@ require_once __DIR__ . '/inc_header.php';
   (FEFO — First Expired, First Out) nếu sản phẩm có khai báo lô; sản phẩm không khai báo lô vẫn bán
   bình thường theo tồn kho như cũ.
 </p>
+
+<?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Đã lưu</div><?php endif; ?>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+  <a class="btn <?= $filter === '' ? '' : 'btn-secondary' ?>" href="batches.php">Tất cả</a>
+  <a class="btn <?= $filter === 'can' ? '' : 'btn-secondary' ?>" href="batches.php?f=can">Sắp hết hạn (<?= $cntCan ?>)</a>
+  <a class="btn <?= $filter === 'het' ? '' : 'btn-secondary' ?>" href="batches.php?f=het" style="<?= $cntHet ? 'border-color:#dc2626;' : '' ?>">Đã hết hạn (<?= $cntHet ?>)</a>
+  <a class="btn btn-secondary" href="xuat_huy.php">🗑️ Xuất hủy hàng</a>
+  <form method="post" style="display:flex;gap:6px;align-items:center;margin-left:auto;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="action" value="warn_days">
+    <label style="font-size:13px;">Cảnh báo trước</label>
+    <input class="input" type="number" min="1" max="365" name="expiry_warn_days" value="<?= (int) $warnDays ?>" style="width:80px;">
+    <span style="font-size:13px;">ngày</span>
+    <button class="btn btn-secondary" type="submit">Lưu</button>
+  </form>
+</div>
 
 <div class="card" style="max-width:640px;margin-bottom:24px;">
   <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
@@ -118,7 +144,7 @@ require_once __DIR__ . '/inc_header.php';
       <?php if (!$batches): ?><tr><td colspan="6" class="text-center muted" style="padding:24px;">Chưa có lô hàng nào.</td></tr><?php endif; ?>
       <?php foreach ($batches as $b): ?>
         <?php
-          $expiringSoon = $b['expiry_date'] && strtotime($b['expiry_date']) <= strtotime('+30 days');
+          $expiringSoon = $b['expiry_date'] && strtotime($b['expiry_date']) <= strtotime('+' . $warnDays . ' days');
           $expired = $b['expiry_date'] && strtotime($b['expiry_date']) < strtotime('today');
         ?>
         <tr>
@@ -133,8 +159,12 @@ require_once __DIR__ . '/inc_header.php';
             <?php else: ?><span class="muted">—</span><?php endif; ?>
           </td>
           <td class="text-right"><?= fmtQty($b['quantity']) ?></td>
-          <td class="text-right">
-            <form method="post" onsubmit="return confirm('Xóa lô hàng này?');">
+          <td class="text-right" style="white-space:nowrap;">
+            <?php if ($expired || $expiringSoon): ?>
+              <a class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" href="xuat_huy.php?batch_id=<?= (int) $b['id'] ?>"><?= $expired ? 'Xuất hủy' : 'Xả/hủy' ?></a>
+              <?php if (!$expired): ?><a class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" href="product_form.php?id=<?= (int) $b['product_id'] ?>" title="Mở sản phẩm để giảm giá bán xả hàng (gợi ý giảm 30%)">Giảm giá</a><?php endif; ?>
+            <?php endif; ?>
+            <form method="post" style="display:inline;" onsubmit="return confirm('Xóa lô hàng này?');">
               <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="<?= (int) $b['id'] ?>">

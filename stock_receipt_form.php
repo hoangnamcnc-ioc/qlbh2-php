@@ -23,6 +23,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $discountAmount = postFloat('discount_amount');
     $extraCost = postFloat('extra_cost');
     $paidAmount = postFloat('paid_amount');
+    $dueDate = post('due_date') ?: null;
+    if ($dueDate !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+        $dueDate = null;
+    }
+    $lotNumbers = $_POST['lot_number'] ?? [];
+    $expiryDates = $_POST['expiry_date'] ?? [];
     $productIds = $_POST['product_id'] ?? [];
     $variantIds = $_POST['variant_id'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
@@ -52,7 +58,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         continue;
                     }
                 }
-                $lines[] = [$pid, $vid, $qty, $cost];
+                // Lo + han su dung (khong bat buoc): co 1 trong 2 thi tao lo hang moi gan voi phieu nhap
+                $lot = mb_substr(trim((string) ($lotNumbers[$i] ?? '')), 0, 100);
+                $exp = trim((string) ($expiryDates[$i] ?? ''));
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $exp)) {
+                    $exp = '';
+                }
+                $lines[] = [$pid, $vid, $qty, $cost, $lot, $exp];
             }
         }
 
@@ -71,15 +83,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $code = 'PN' . substr((string) (int) round(microtime(true) * 1000), -8);
                 $pdo->prepare(
-                    'INSERT INTO stock_receipts (code, branch_id, supplier_id, created_by_id, invoice_date, reference_no, discount_amount, extra_cost, paid_amount, total_amount, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$code, $branchId, $supplierId, $currentUser['id'], $invoiceDate, $referenceNo, $discountAmount, $extraCost, $paidAmount, $total, $note]);
+                    'INSERT INTO stock_receipts (code, branch_id, supplier_id, created_by_id, invoice_date, reference_no, discount_amount, extra_cost, paid_amount, total_amount, note, due_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$code, $branchId, $supplierId, $currentUser['id'], $invoiceDate, $referenceNo, $discountAmount, $extraCost, $paidAmount, $total, $note, ($total - $paidAmount) > 0 ? $dueDate : null]);
                 $receiptId = (int) $pdo->lastInsertId();
 
                 $itemStmt = $pdo->prepare(
                     'INSERT INTO stock_receipt_items (receipt_id, product_id, variant_id, quantity, cost_price) VALUES (?,?,?,?,?)'
                 );
-                foreach ($lines as [$pid, $vid, $qty, $cost]) {
+                $lineNo = 0;
+                foreach ($lines as [$pid, $vid, $qty, $cost, $lot, $exp]) {
+                    $lineNo++;
                     $itemStmt->execute([$receiptId, $pid, $vid, $qty, $cost]);
+                    if ($lot !== '' || $exp !== '') {
+                        $pdo->prepare('INSERT INTO product_batches (product_id, branch_id, lot_number, expiry_date, quantity, receipt_id) VALUES (?,?,?,?,?,?)')
+                            ->execute([$pid, $branchId, $lot !== '' ? $lot : ($code . '-' . $lineNo), $exp !== '' ? $exp : null, $qty, $receiptId]);
+                    }
 
                     if ($vid) {
                         $inv = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND variant_id = ?');
@@ -148,6 +166,11 @@ require_once __DIR__ . '/inc_header.php';
       <label>Ghi chú</label>
       <input class="input" name="note">
     </div>
+    <div class="field">
+      <label>Hạn trả tiền NCC (nếu còn nợ)</label>
+      <input class="input" type="date" name="due_date">
+      <div class="muted" style="font-size:12px;margin-top:2px;">Có nhập hạn thì phiếu nợ sẽ được nhắc ở Trang chủ và Công nợ khi sắp đến hạn / quá hạn.</div>
+    </div>
   </div>
 
   <div style="position:relative;margin-bottom:12px;max-width:640px;display:flex;gap:8px;">
@@ -192,7 +215,7 @@ require_once __DIR__ . '/inc_header.php';
 
   <div class="card" style="padding:0;overflow-x:auto;max-width:800px;margin-bottom:16px;">
     <table>
-      <thead><tr><th>Sản phẩm</th><th class="text-right">SL</th><th class="text-right">Giá vốn</th><th class="text-right">Thành tiền</th><th></th></tr></thead>
+      <thead><tr><th>Sản phẩm (lô / hạn dùng nếu có)</th><th class="text-right">SL</th><th class="text-right">Giá vốn</th><th class="text-right">Thành tiền</th><th></th></tr></thead>
       <tbody id="lines-body">
         <tr id="empty-row"><td colspan="5" class="text-center muted" style="padding:24px;">Chưa có sản phẩm nào</td></tr>
       </tbody>
@@ -291,7 +314,7 @@ function addLine(id, variantId, name, cost, packUnit, packSize) {
     lines.push({
       key, id, variantId, name,
       packUnit: packUnit || null, packSize: packSize > 1 ? packSize : 1,
-      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost,
+      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '',
     });
   }
   recalc();
@@ -320,6 +343,10 @@ function render() {
       <tr>
         <td>${esc(l.name)}<input type="hidden" name="product_id[]" value="${l.id}"><input type="hidden" name="variant_id[]" value="${l.variantId ?? ''}">
           <input type="hidden" name="quantity[]" value="${l.qty}"><input type="hidden" name="cost_price[]" value="${l.cost}">
+          <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
+            <input type="text" name="lot_number[]" value="${esc(l.lot)}" data-i="${i}" data-f="lot" placeholder="Số lô" maxlength="100" style="width:100px;font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px;">
+            <input type="date" name="expiry_date[]" value="${esc(l.exp)}" data-i="${i}" data-f="exp" title="Hạn sử dụng" style="font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px;">
+          </div>
           ${l.packUnit ? `
             <div style="margin-top:4px;">
               <select data-i="${i}" data-f="mode" style="font-size:11px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;">
@@ -350,7 +377,11 @@ function render() {
         render();
       });
     });
-    body.querySelectorAll('input[data-f]').forEach(inp => {
+    body.querySelectorAll('input[data-f="lot"],input[data-f="exp"]').forEach(inp => {
+      // Khong render lai khi go lo/han de khong mat con tro; chi luu vao trang thai dong
+      inp.addEventListener('input', () => { lines[parseInt(inp.dataset.i, 10)][inp.dataset.f] = inp.value; });
+    });
+    body.querySelectorAll('input[data-f="qtyInput"],input[data-f="costInput"]').forEach(inp => {
       inp.addEventListener('input', () => {
         const i = parseInt(inp.dataset.i, 10);
         const f = inp.dataset.f;

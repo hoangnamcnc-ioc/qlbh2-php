@@ -88,6 +88,8 @@ function generateTenantExportSql(int $tid): string
         'warranty_policies' => "tenant_id = $tid",
         'warranty_cards' => "order_item_id IN ($orderItemSub)",
         'warranty_claims' => "warranty_card_id IN (SELECT id FROM warranty_cards WHERE order_item_id IN ($orderItemSub))",
+        'stock_write_offs' => "tenant_id = $tid",
+        'supplier_reviews' => "tenant_id = $tid",
         'activity_logs' => "tenant_id = $tid",
     ];
 
@@ -337,7 +339,7 @@ const PERMISSION_GROUP_FILES = [
         'stock_take_search.php', 'stock_transfers.php', 'stock_transfer_form.php',
         'stock_transfer_view.php', 'stock_transfer_receive.php', 'stock_transfer_search.php',
         'suppliers.php', 'supplier_view.php', 'supplier_returns.php', 'supplier_return_form.php',
-        'product_labels.php',
+        'product_labels.php', 'xuat_huy.php', 'ton_cham.php',
     ],
     'customers' => ['customers_export.php', 'customers_import.php', 'groups.php', 'customer_tiers.php'],
     'marketing' => [
@@ -397,6 +399,58 @@ function isManagerTier(): bool
     $user = currentUser();
     return $user !== null && in_array($user['role'], ['ADMIN', 'MANAGER'], true);
 }
+
+/** So ngay canh bao lo hang sap het han (Cau hinh tai trang Lo hang & Han su dung), mac dinh 30 ngay. */
+function expiryWarnDays(): int
+{
+    return max(1, min(365, (int) getSetting('expiry_warn_days', '30')));
+}
+
+/**
+ * Cac lo hang con hang va da het han / sap het han trong $days ngay, cua ca cua hang ($branchId = 0)
+ * hoac 1 chi nhanh. Dung cho Trang chu va trang Lo hang. Xep theo han gan nhat.
+ */
+function layLoCanHan(PDO $pdo, int $tenantId, int $branchId, int $days, int $limit = 200): array
+{
+    $sql = "SELECT b.id, b.lot_number, b.expiry_date, b.quantity, p.id AS product_id, p.name AS product_name, p.sku,
+                   br.name AS branch_name, br.id AS branch_id, p.cost_price, p.sell_price
+            FROM product_batches b
+            JOIN products p ON p.id = b.product_id
+            JOIN branches br ON br.id = b.branch_id
+            WHERE b.quantity > 0 AND b.expiry_date IS NOT NULL AND br.tenant_id = ?
+              AND b.expiry_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)";
+    $params = [$tenantId, $days];
+    if ($branchId) {
+        $sql .= ' AND b.branch_id = ?';
+        $params[] = $branchId;
+    }
+    $sql .= ' ORDER BY b.expiry_date ASC LIMIT ' . (int) $limit;
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+/** Phieu nhap con no NCC co han tra trong $days ngay toi (hoac da qua han). */
+function layPhieuNhapDenHan(PDO $pdo, int $tenantId, int $branchId, int $days = 7, int $limit = 100): array
+{
+    $sql = "SELECT r.id, r.code, r.due_date, (r.total_amount - r.paid_amount) AS con_no, s.name AS supplier_name, s.id AS supplier_id
+            FROM stock_receipts r
+            JOIN branches br ON br.id = r.branch_id
+            LEFT JOIN suppliers s ON s.id = r.supplier_id
+            WHERE br.tenant_id = ? AND r.due_date IS NOT NULL AND r.total_amount - r.paid_amount > 0
+              AND r.due_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)";
+    $params = [$tenantId, $days];
+    if ($branchId) {
+        $sql .= ' AND r.branch_id = ?';
+        $params[] = $branchId;
+    }
+    $sql .= ' ORDER BY r.due_date ASC LIMIT ' . (int) $limit;
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+const LY_DO_XUAT_HUY = ['EXPIRED' => 'Hết hạn sử dụng', 'DAMAGED' => 'Hư hỏng / vỡ / móp', 'LOST' => 'Mất / thất thoát', 'OTHER' => 'Lý do khác'];
 
 /** Làm tối 1 màu hex đi $percent% (dùng cho trạng thái hover của màu chủ đạo tùy chỉnh). */
 function darkenColor(string $hex, int $percent = 15): string

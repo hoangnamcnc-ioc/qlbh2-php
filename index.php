@@ -191,6 +191,14 @@ $lowStockStmt = $pdo->prepare(
 $lowStockStmt->execute($lowStockParam);
 $lowStock = $lowStockStmt->fetchAll();
 
+// Canh bao hang can date / het han va phieu nhap NCC den han tra (chi quan ly moi thay)
+$canHan = $denHanTra = [];
+$warnDays = expiryWarnDays();
+if (hasRole('ADMIN', 'MANAGER')) {
+    $canHan = layLoCanHan($pdo, $tenantId, (int) $branchId, $warnDays, 8);
+    $denHanTra = layPhieuNhapDenHan($pdo, $tenantId, (int) $branchId, 7, 8);
+}
+
 // Checklist lam quen (onboarding) - chi tinh toan va hien thi khi con thieu buoc nao do, chi
 // ADMIN/MANAGER moi thay (nhan vien thuong khong can quan tam thiet lap ban dau). Tu bien mat
 // vinh vien khi ca 3 buoc da xong - khong can luu trang thai "da an" rieng vi du lieu that da
@@ -365,6 +373,35 @@ if (hasRole('ADMIN', 'MANAGER')) {
     <?php endif; ?>
   </div>
 </div>
+
+<?php if ($canHan || $denHanTra): ?>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:24px;">
+  <?php if ($canHan): ?>
+  <div class="card">
+    <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">⏰ Hàng hết hạn / sắp hết hạn (≤ <?= (int) $warnDays ?> ngày)</h2>
+    <?php foreach ($canHan as $it): $het = strtotime($it['expiry_date']) < strtotime('today'); $conLai = (int) floor((strtotime($it['expiry_date']) - strtotime('today')) / 86400); ?>
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0;border-top:1px solid #f1f5f9;">
+        <span><?= e($it['product_name']) ?> <span class="muted" style="font-size:11px;">· lô <?= e($it['lot_number']) ?> · <?= fmtQty($it['quantity']) ?></span><br><span class="muted" style="font-size:11px;"><?= e($it['branch_name']) ?></span></span>
+        <span style="font-weight:600;white-space:nowrap;color:<?= $het ? '#dc2626' : '#d97706' ?>;"><?= $het ? 'Hết hạn ' . date('d/m', strtotime($it['expiry_date'])) : 'Còn ' . $conLai . ' ngày' ?></span>
+      </div>
+    <?php endforeach; ?>
+    <a href="batches.php?f=can" class="muted" style="font-size:12px;display:block;margin-top:8px;">Xem tất cả / xuất hủy →</a>
+  </div>
+  <?php endif; ?>
+  <?php if ($denHanTra): ?>
+  <div class="card">
+    <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">💳 Nợ nhà cung cấp đến hạn trả (≤ 7 ngày)</h2>
+    <?php foreach ($denHanTra as $it): $qua = strtotime($it['due_date']) < strtotime('today'); ?>
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0;border-top:1px solid #f1f5f9;">
+        <span><a href="stock_receipt_view.php?id=<?= (int) $it['id'] ?>"><?= e($it['supplier_name'] ?? 'Không rõ NCC') ?></a> <span class="muted" style="font-size:11px;">· <?= e($it['code']) ?></span><br><span class="muted" style="font-size:11px;">Hạn <?= date('d/m/Y', strtotime($it['due_date'])) ?></span></span>
+        <span style="font-weight:600;white-space:nowrap;color:<?= $qua ? '#dc2626' : '#d97706' ?>;"><?= money($it['con_no']) ?><?= $qua ? ' · quá hạn' : '' ?></span>
+      </div>
+    <?php endforeach; ?>
+    <a href="cong_no.php" class="muted" style="font-size:12px;display:block;margin-top:8px;">Xem công nợ →</a>
+  </div>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="card" style="margin-bottom:24px;">
   <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">Top sản phẩm bán chạy (7 ngày qua)</h2>

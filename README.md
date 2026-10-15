@@ -2390,3 +2390,33 @@ không rò rỉ tên vai trò của cửa hàng khác.
 
 Di trú CSDL qua `fix_custom_roles.php` (bảng `custom_roles` + cột `users.custom_role_id`, đúng
 mẫu `fix_*.php` đã dùng suốt dự án) — idempotent, đã chạy và xóa khỏi máy chủ.
+
+## Quy trình tiệm tạp hóa / siêu thị mini (15/10/2026) — đối chiếu quy trình thực tế
+
+Đối chiếu quy trình quản lý tạp hóa với code, bổ sung phần còn thiếu:
+
+- **Lô + hạn dùng ngay trong phiếu nhập** (`stock_receipt_form.php`): mỗi dòng có ô *Số lô* và *Hạn sử dụng*;
+  có 1 trong 2 thì tự tạo lô (`product_batches.receipt_id` trỏ về phiếu). Có thêm *Hạn trả tiền NCC*
+  (`stock_receipts.due_date`, chỉ lưu khi phiếu còn nợ).
+- **Cảnh báo cận hạn**: số ngày cảnh báo cấu hình được (Lô hàng & Hạn sử dụng, mặc định 30, key `expiry_warn_days`);
+  trang Lô hàng có lọc *Sắp hết hạn / Đã hết hạn* và nút *Xả/hủy*, *Giảm giá* (mở sản phẩm để hạ giá bán);
+  Trang chủ có thẻ *Hàng hết hạn / sắp hết hạn* và *Nợ NCC đến hạn trả*. Hàm dùng chung `layLoCanHan()`,
+  `layPhieuNhapDenHan()` (inc_functions.php).
+- **Xuất hủy hàng** (`xuat_huy.php`, bảng `stock_write_offs`): trừ tồn kho + lô (chọn lô hoặc tự FEFO), kèm lý do
+  (hết hạn / hư hỏng / mất / khác) và giá vốn; báo cáo tổng giá trị hao hụt theo lý do. MANAGER chỉ xuất hủy ở chi
+  nhánh mình; vượt tồn bị từ chối.
+- **Hàng tồn lâu / bán chậm** (`ton_cham.php`): hàng còn tồn nhưng không bán được trong N ngày (15–365), cộng tổng
+  *vốn đang chôn* (giá vốn × tồn).
+- **Kiểm hàng theo nhóm**: ô *Thêm cả nhóm* ở phiếu kiểm hàng (`stock_take_search.php?category_id=`).
+- **Nhà cung cấp**: *nhóm ngành hàng* (lọc theo nhóm) và *đánh giá* (giao chậm / hàng lỗi / tăng giá / tốt, bảng
+  `supplier_reviews`); danh sách NCC hiện huy hiệu ⚠ khi có ghi nhận xấu. Công nợ có bảng *Hạn trả tiền nhà cung cấp*
+  (quá hạn / còn N ngày).
+- **Chủ rút tiền / góp vốn** (Sổ quỹ, cột `cashbook_entries.category`): vẫn là phiếu chi/thu (đúng tiền mặt ca) nhưng
+  **không tính vào chi phí kinh doanh** ở Kế toán & Thuế (`accounting.php` lọc `category IS NULL`).
+- **Hạn mức chiết khấu nhập tay của thu ngân** (Cấu hình bán hàng, `cashier_discount_limit`, % giá trị đơn, 0 = không
+  giới hạn): vượt mức bị chặn ở `pos_checkout.php`; Quản lý/Quản trị không bị giới hạn.
+- Menu *Sản phẩm* thêm *Lô hàng & hạn dùng*, *Xuất hủy hàng*, *Hàng tồn lâu / bán chậm*; sơ đồ chức năng cập nhật khớp.
+- Di trú CSDL: `schema.sql` cuối file (4 cột + 2 bảng mới, đều có `tenant_id` nên tự được dọn khi xóa dữ liệu mẫu/cửa hàng).
+- Kiểm thử: thêm mục *6z* vào `tools/regression_test.sh`.
+
+Chưa làm (ít liên quan phần mềm bán hàng): biên bản bàn giao ca và danh sách việc đầu/cuối ngày.

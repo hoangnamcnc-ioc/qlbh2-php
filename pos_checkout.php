@@ -316,6 +316,16 @@ try {
         : $manualDiscountValue;
     $discount = min($subTotal, max(0, $manualDiscount));
 
+    // Han muc chiet khau nhap tay cua thu ngan (Cau hinh > Cau hinh ban hang, 0 = khong gioi han):
+    // vuot muc phai do Quan ly/Quan tri ban - tranh thu ngan tu y giam gia / tuon hang cho nguoi quen.
+    $cashierDiscountLimit = (float) getSetting('cashier_discount_limit', '0');
+    if (!isManagerTier() && $cashierDiscountLimit > 0 && $subTotal > 0
+        && $manualDiscount > $subTotal * $cashierDiscountLimit / 100 + 0.5) {
+        throw new RuntimeException('Chiết khấu nhập tay vượt hạn mức của thu ngân ('
+            . rtrim(rtrim(number_format($cashierDiscountLimit, 1, '.', ''), '0'), '.')
+            . '% giá trị đơn). Vui lòng nhờ Quản lý bán đơn này.');
+    }
+
     // Xác thực mã giảm giá lại phía server (không tin số liệu client gửi lên)
     $couponCode = null;
     $couponId = null;

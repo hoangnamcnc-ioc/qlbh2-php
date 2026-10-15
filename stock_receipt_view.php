@@ -52,6 +52,7 @@ require_once __DIR__ . '/inc_header.php';
     <p style="margin:2px 0;">Người tạo: <?= e($receipt['created_by_name']) ?></p>
     <?php if ($receipt['invoice_date']): ?><p style="margin:2px 0;">Ngày hoá đơn: <?= date('d/m/Y', strtotime($receipt['invoice_date'])) ?></p><?php endif; ?>
     <?php if ($receipt['reference_no']): ?><p style="margin:2px 0;">Tham chiếu: <?= e($receipt['reference_no']) ?></p><?php endif; ?>
+    <?php if (!empty($receipt['due_date']) && (float) $receipt['total_amount'] - (float) $receipt['paid_amount'] > 0): ?><p style="margin:2px 0;color:#d97706;">Hạn trả NCC: <b><?= date('d/m/Y', strtotime($receipt['due_date'])) ?></b></p><?php endif; ?>
     <?php if ($receipt['note']): ?><p style="margin:2px 0;">Ghi chú: <?= e($receipt['note']) ?></p><?php endif; ?>
   </div>
 </div>
