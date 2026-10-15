@@ -48,6 +48,14 @@ post $CA purchase_order_form.php -d "supplier_id=$SID&product_id[]=$PID&variant_
 post $CA stock_receipt_form.php -d "supplier_id=$SID&product_id[]=$PID&variant_id[]=&quantity[]=4&cost_price[]=1000&reference_no=LEAKMARK-HD&note=LEAKMARK+PN" >/dev/null
 BR=$(curl -s -b $CA $A/stock_take_form.php | grep -o 'option value="[0-9]*" selected' | grep -o '[0-9]*' | head -1)
 post $CA stock_take_form.php -d "branch_id=$BR&note=LEAKMARK+KIEM&product_id[]=$PID&variant_id[]=&system_qty[]=50&counted_qty[]=49" >/dev/null
+# Du lieu moi cua quy trinh tap hoa (lo/han, xuat huy, danh gia + nhom NCC, nhom hang) danh dau LEAKMARK
+post $CA stock_receipt_form.php -d "supplier_id=$SID&product_id[]=$PID&variant_id[]=&quantity[]=2&cost_price[]=1000&lot_number[]=LEAKMARK-LOT&expiry_date[]=2026-10-20&due_date=2026-10-01&reference_no=LEAKMARK-HD2" >/dev/null
+post $CA xuat_huy.php -d "branch_id=$BR&item=$PID:0&quantity=1&reason=OTHER&note=LEAKMARK+XUATHUY" >/dev/null
+post $CA "supplier_view.php?id=$SID" -d "action=review&kind=LATE&note=LEAKMARK+DANHGIA" >/dev/null
+post $CA "supplier_view.php?id=$SID" -d "action=category&category=LEAKMARK+NHOMNCC" >/dev/null
+CATA=$(curl -s -b $CA $A/stock_take_form.php | grep -o 'value="[0-9]*">LEAKMARK CAT' | head -1 | grep -o '[0-9]*' | head -1)
+BATA=$(curl -s -b $CA $A/batches.php | grep -o 'xuat_huy.php?batch_id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+for pg in xuat_huy.php batches.php suppliers.php "supplier_view.php?id=$SID"; do [ "$(curl -s -b $CA "$A/$pg" | grep -c LEAKMARK)" -gt 0 ] || { echo "  LOI TEST: A khong thay du lieu LEAKMARK o $pg"; exit 1; }; done
 [ -n "$PID" ] && [ -n "$OID" ] || { echo "Khong tao duoc du lieu thu (PID=$PID OID=$OID) - dung"; exit 1; }
 CUSTA=$(curl -s -b $CA "$A/customers.php?q=LEAKMARK" | grep -o 'customer_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
 echo "   A: san pham #$PID, don #$OID, NCC #$SID, khach #$CUSTA"
@@ -107,6 +115,21 @@ T=$(tk $A/pos.php $CB)
 curl -s -b $CB -c $CB -o /dev/null --data-urlencode csrf="$T" -d "order_id=$OID&amount=1000" $A/order_pay.php
 S2=$(probe "a=state&c=$CUSTA&o=$OID")
 [ "$(echo "$S" | python -c "import sys,json;print(json.load(sys.stdin)['order']['paid_amount'])")" != "$(echo "$S2" | python -c "import sys,json;print(json.load(sys.stdin)['order']['paid_amount'])")" ] && leak "B thu no vao don cua A (order_pay.php)"
+# Ghi cheo cua quy trinh tap hoa: B khong duoc xuat huy hang / lo cua A, khong duoc danh gia NCC cua A
+stockA() { curl -s -b $CA "$A/pos_search.php?q=LEAKSKU" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['qty'])))" 2>/dev/null; }
+SA0=$(stockA)
+T=$(tk $A/xuat_huy.php $CB)
+curl -s -b $CB -c $CB -o /dev/null --data-urlencode csrf="$T" -d "branch_id=$BR&item=$PID:0&batch_id=${BATA:-0}&quantity=1&reason=LOST&note=hack" $A/xuat_huy.php
+[ "$(stockA)" = "$SA0" ] || leak "B xuat huy duoc hang cua A (xuat_huy.php) - ton A $SA0 -> $(stockA)"
+T=$(tk $A/xuat_huy.php $CB)
+curl -s -b $CB -c $CB -o /dev/null --data-urlencode csrf="$T" -d "action=review&kind=PRICE_UP&note=LEAKHACKREVIEW" "$A/supplier_view.php?id=$SID"
+[ "$(curl -s -b $CA "$A/supplier_view.php?id=$SID" | grep -c LEAKHACKREVIEW)" -eq 0 ] || leak "B ghi danh gia vao NCC cua A (supplier_view.php)"
+curl -s -b $CB -c $CB -o /dev/null --data-urlencode csrf="$T" -d "action=category&category=LEAKHACKCAT" "$A/supplier_view.php?id=$SID"
+[ "$(curl -s -b $CA $A/suppliers.php | grep -c LEAKHACKCAT)" -eq 0 ] || leak "B doi nhom nganh NCC cua A"
+if [ -n "${CATA:-}" ]; then
+  [ "$(curl -s -b $CB "$A/stock_take_search.php?category_id=$CATA&branch_id=$BR" | grep -c LEAKMARK)" -eq 0 ] || leak "stock_take_search.php?category_id cua A"
+fi
+echo "   da thu ghi cheo quy trinh tap hoa (xuat huy, danh gia NCC, nhom hang)"
 echo "   da thu ghi cheo (huy don, thu no)"
 
 echo
