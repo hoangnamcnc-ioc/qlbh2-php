@@ -192,9 +192,11 @@ $lowStockStmt->execute($lowStockParam);
 $lowStock = $lowStockStmt->fetchAll();
 
 // Canh bao hang can date / het han va phieu nhap NCC den han tra (chi quan ly moi thay)
-$canHan = $denHanTra = [];
+$canHan = $denHanTra = $batThuong = [];
 $warnDays = expiryWarnDays();
 if (hasRole('ADMIN', 'MANAGER')) {
+    require_once __DIR__ . '/inc_thong_minh.php';
+    $batThuong = phatHienBatThuong($pdo, $tenantId, (int) $branchId);
     $canHan = layLoCanHan($pdo, $tenantId, (int) $branchId, $warnDays, 8);
     $denHanTra = layPhieuNhapDenHan($pdo, $tenantId, (int) $branchId, 7, 8);
 }
@@ -374,8 +376,20 @@ if (hasRole('ADMIN', 'MANAGER')) {
   </div>
 </div>
 
-<?php if ($canHan || $denHanTra): ?>
+<?php if ($canHan || $denHanTra || $batThuong): ?>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:24px;">
+  <?php if ($batThuong): $mauMuc = ['cao' => '#dc2626', 'trung' => '#d97706', 'thap' => '#64748b']; ?>
+  <div class="card" style="grid-column:1/-1;">
+    <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">🚨 Cảnh báo bất thường (<?= count($batThuong) ?>)</h2>
+    <?php foreach (array_slice($batThuong, 0, 3) as $al): ?>
+      <a href="<?= e($al['link']) ?>" style="display:flex;gap:10px;align-items:baseline;font-size:13px;padding:5px 0;border-top:1px solid #f1f5f9;color:inherit;text-decoration:none;">
+        <span style="width:8px;height:8px;border-radius:50%;background:<?= $mauMuc[$al['muc']] ?>;flex-shrink:0;"></span>
+        <span><b><?= e($al['tieu_de']) ?></b> — <?= e($al['chi_tiet']) ?></span>
+      </a>
+    <?php endforeach; ?>
+    <a href="canh_bao.php" class="muted" style="font-size:12px;display:block;margin-top:8px;">Xem tất cả cảnh báo →</a>
+  </div>
+  <?php endif; ?>
   <?php if ($canHan): ?>
   <div class="card">
     <h2 style="font-size:14px;font-weight:600;margin:0 0 12px;">⏰ Hàng hết hạn / sắp hết hạn (≤ <?= (int) $warnDays ?> ngày)</h2>

@@ -81,6 +81,8 @@ if ($canGroup('finance')) {
         'cong_no.php' => 'Công nợ phải thu / phải trả',
         'bank_reconcile.php' => 'Đối soát chuyển khoản',
         'doi_chieu.php' => 'Đối chiếu số liệu',
+        'canh_bao.php' => 'Cảnh báo bất thường',
+        'tro_ly.php' => 'Trợ lý hỏi đáp',
     ];
 }
 // "Nhan vien & phan quyen" (users.php) tach rieng, luon can hasRole('ADMIN') that (file do tu

@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
+require_once __DIR__ . '/inc_thong_minh.php';
 $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
@@ -48,6 +49,7 @@ $params[] = $tenantId;                              // products
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll();
+$xaHang = goiYXaHang($pdo, $tenantId, $branchId, expiryWarnDays(), 30);
 $tongVon = 0.0;
 foreach ($rows as $r) {
     $tongVon += (float) $r['qty'] * (float) $r['cost_price'];
@@ -77,6 +79,32 @@ require_once __DIR__ . '/inc_header.php';
   <?php endif; ?>
   <button class="btn" type="submit">Xem</button>
 </form>
+
+<?php if ($xaHang): ?>
+<h2 style="font-size:16px;margin:0 0 8px;">🏷️ Gợi ý xả hàng cận hạn</h2>
+<p class="muted" style="margin:0 0 8px;font-size:13px;max-width:760px;">Hệ thống dự báo số lượng bán được trước hạn theo tốc độ bán hiện tại; phần dư là phần cần xả. Giá gợi ý không thấp hơn giá vốn.</p>
+<div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
+  <table>
+    <thead><tr><th>Sản phẩm / lô</th><th>Hạn</th><th class="text-right">Còn</th><th class="text-right">Dư cần xả</th><th class="text-right">Giá bán → gợi ý</th><th>Bán kèm</th><th></th></tr></thead>
+    <tbody>
+      <?php foreach ($xaHang as $x): ?>
+        <tr>
+          <td><?= e($x['product_name']) ?><div class="muted" style="font-size:12px;">lô <?= e($x['lot_number']) ?> · <?= e($x['branch_name']) ?></div></td>
+          <td><?= date('d/m/Y', strtotime($x['expiry_date'])) ?><div style="font-size:12px;color:<?= $x['ngay_con_lai'] <= 0 ? '#dc2626' : '#d97706' ?>;"><?= $x['ngay_con_lai'] <= 0 ? 'đã hết hạn' : 'còn ' . (int) $x['ngay_con_lai'] . ' ngày' ?></div></td>
+          <td class="text-right"><?= fmtQty($x['quantity']) ?></td>
+          <td class="text-right"><b><?= fmtQty($x['du_can_xa']) ?></b></td>
+          <td class="text-right"><?= $x['ngay_con_lai'] <= 0 ? '<span class="badge badge-red">Xuất hủy</span>' : money($x['sell_price']) . ' → <b>' . money($x['gia_goi_y']) . '</b><div class="muted" style="font-size:12px;">giảm ' . (int) $x['giam_goi_y'] . '%' . ($x['xa_gia_von'] ? ' (bằng giá vốn)' : '') . '</div>' ?></td>
+          <td class="muted" style="font-size:12px;"><?= $x['ban_kem'] ? e(implode(', ', $x['ban_kem'])) : '—' ?></td>
+          <td class="text-right" style="white-space:nowrap;">
+            <?php if ($x['ngay_con_lai'] > 0): ?><a class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" href="product_form.php?id=<?= (int) $x['product_id'] ?>">Giảm giá</a><?php endif; ?>
+            <a class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" href="xuat_huy.php?batch_id=<?= (int) $x['id'] ?>">Xuất hủy</a>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
 
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
   <div class="card" style="min-width:200px;"><div class="muted" style="font-size:12px;">Số mặt hàng ế</div><div style="font-size:22px;font-weight:700;"><?= count($rows) ?></div></div>

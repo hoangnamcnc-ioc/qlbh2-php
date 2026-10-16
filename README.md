@@ -2420,3 +2420,22 @@ mẫu `fix_*.php` đã dùng suốt dự án) — idempotent, đã chạy và x�
 - Kiểm thử: thêm mục *6z* vào `tools/regression_test.sh`.
 
 Chưa làm (ít liên quan phần mềm bán hàng): biên bản bàn giao ca và danh sách việc đầu/cuối ngày.
+
+## Thông minh hơn (16/10/2026) — `inc_thong_minh.php`
+
+Toàn bộ chạy trên dữ liệu của chính cửa hàng, không gửi dữ liệu ra dịch vụ ngoài, quy tắc minh bạch:
+
+- **Gợi ý nhập hàng thông minh** (`reorder_suggestions.php`): tốc độ bán ưu tiên gần đây (60% theo 7 ngày + 40% theo 30 ngày),
+  cột *Xu hướng* (▲/▼ so với trung bình 30 ngày), *ngày hết hàng dự kiến*, và cảnh báo *lô sẽ hết hạn trước khi bán hết* theo
+  tốc độ hiện tại ("xả trước khi nhập").
+- **Gợi ý xả hàng** (`ton_cham.php`, `goiYXaHang()`): với lô cận hạn, dự báo bán được bao nhiêu trước hạn (cộng dồn theo thứ tự lô),
+  phần dư là phần cần xả; gợi ý giảm 10/20/30/40% theo tỉ lệ dư (không thấp hơn giá vốn; đã hết hạn → xuất huỷ) và 2 mặt hàng
+  hay được mua kèm (90 ngày).
+- **Cảnh báo bất thường** (`canh_bao.php`, thẻ ở Trang chủ, `phatHienBatThuong()`): huỷ đơn ≥15% (từ 3 đơn), chiết khấu ≥25% từ
+  3 đơn, chênh lệch tiền mặt ca ≥20.000đ, xuất huỷ tuần này ≥ gấp đôi trung bình 4 tuần, khách nợ >30 ngày, phiếu nhập quá hạn
+  trả, lô đã hết hạn còn tồn, ≥5 phiếu trả hàng/nhân viên. MANAGER chỉ thấy chi nhánh mình.
+- **Trợ lý hỏi đáp** (`tro_ly.php`, `traLoiCauHoi()`): hiểu tiếng Việt (có dấu/không dấu) bằng từ khoá, tính số ngay trên CSDL:
+  doanh thu/số đơn/lãi gộp theo hôm nay-hôm qua-tuần-tháng-N ngày, bán chạy/lãi nhất, tồn kho từng mặt hàng, hàng sắp hết, cận date,
+  tồn lâu, khách nợ, nợ NCC, bất thường. **Chưa nối AI bên ngoài (Gemini)** — cần khoá API; hiện là bộ hiểu cục bộ.
+- Cả hai trang mới thuộc nhóm quyền *finance* (Quản lý/Quản trị hoặc vai trò tuỳ chỉnh được tích), có trong menu và sơ đồ chức năng.
+- Kiểm thử: mục *6zz* trong `tools/regression_test.sh` (184 kịch bản), ma trận vai trò `tools/roles_test.sh`.

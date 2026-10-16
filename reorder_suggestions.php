@@ -12,6 +12,7 @@
  */
 require_once __DIR__ . '/inc_header.php';
 require_once __DIR__ . '/inc_xlsx.php';
+require_once __DIR__ . '/inc_thong_minh.php';
 
 $pdo = db();
 $tenantId = currentTenantId();
@@ -30,52 +31,18 @@ $mucTieuNgay = max(1, (int) ($_GET['target_days'] ?? 14));
 
 $suggestions = [];
 if ($branchId) {
-    $stmt = $pdo->prepare(
-        "SELECT p.id, p.sku, p.name, p.unit,
-                COALESCE(i.quantity, 0) AS ton_hien_co,
-                COALESCE(i.min_stock, 0) AS dinh_muc,
-                COALESCE(sale.qty_30d, 0) AS ban_30_ngay
-         FROM products p
-         JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
-         LEFT JOIN (
-             SELECT oi.product_id, SUM(oi.quantity) AS qty_30d
-             FROM order_items oi JOIN orders o ON o.id = oi.order_id
-             WHERE o.branch_id = ? AND o.status != 'CANCELLED' AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-             GROUP BY oi.product_id
-         ) sale ON sale.product_id = p.id
-         WHERE p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'"
-    );
-    $stmt->execute([$branchId, $branchId, $tenantId]);
-    foreach ($stmt->fetchAll() as $row) {
-        $ton = (float) $row['ton_hien_co'];
-        $dinhMuc = (float) $row['dinh_muc'];
-        $toc_do = (float) $row['ban_30_ngay'] / 30;
-        $soNgayConDu = $toc_do > 0 ? $ton / $toc_do : null;
-
-        $goiY = 0.0;
-        if ($toc_do > 0 && ($soNgayConDu === null || $soNgayConDu <= $mucTieuNgay)) {
-            $goiY = max($goiY, ceil($toc_do * $mucTieuNgay - $ton));
-        }
-        if ($dinhMuc > 0 && $ton <= $dinhMuc) {
-            $goiY = max($goiY, $dinhMuc - $ton);
-        }
-        if ($goiY > 0) {
-            $suggestions[] = $row + ['ton' => $ton, 'dinh_muc' => $dinhMuc, 'toc_do' => $toc_do,
-                'so_ngay_con_du' => $soNgayConDu, 'goi_y' => $goiY];
-        }
-    }
-    // Uu tien hang sap het truoc (it ngay con du nhat len dau) - hang chua tung ban (so_ngay_con_du
-    // = null) xep sau cung vi khong khan cap bang hang dang ban chay ma sap het.
-    usort($suggestions, static function (array $a, array $b): int {
-        $da = $a['so_ngay_con_du'] ?? PHP_INT_MAX;
-        $db = $b['so_ngay_con_du'] ?? PHP_INT_MAX;
-        return $da <=> $db;
-    });
+    // Du bao thong minh: toc do ban uu tien 7 ngay gan day, xu huong, ngay het hang, canh bao hang se het han truoc khi ban het
+    $suggestions = array_map(static function (array $r): array {
+        return $r + ['ban_30_ngay' => $r['ban_30'], 'so_ngay_con_du' => $r['so_ngay']];
+    }, duBaoNhapHang($pdo, $tenantId, $branchId, $mucTieuNgay));
 }
 
 if (isset($_GET['export']) && $suggestions) {
     $rows = [['sku', 'ten_san_pham', 'don_vi', 'ton_hien_co', 'dinh_muc_toi_thieu', 'ban_30_ngay_qua', 'so_luong_de_nghi_nhap']];
     foreach ($suggestions as $s) {
+        if ($s['goi_y'] <= 0) {
+            continue;   // dong chi co canh bao het han, khong phai de nghi nhap
+        }
         $rows[] = [$s['sku'], $s['name'], $s['unit'], fmtQty($s['ton']), fmtQty($s['dinh_muc']), fmtQty($s['ban_30_ngay']), fmtQty($s['goi_y'])];
     }
     logActivity('EXPORT_REORDER_SUGGESTIONS', 'branch_id=' . $branchId . ' so_dong=' . count($suggestions));
@@ -89,7 +56,7 @@ if (isset($_GET['export']) && $suggestions) {
   <a href="purchase_order_form.php" class="btn btn-secondary">+ Tạo đặt hàng nhập</a>
 </div>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:680px;">
-  Dựa trên tốc độ bán 30 ngày qua, tồn hiện có và định mức tối thiểu. Không tự tạo đơn đặt hàng —
+  Dựa trên tốc độ bán (ưu tiên 7 ngày gần nhất), xu hướng tăng/giảm, tồn hiện có và định mức tối thiểu; cảnh báo hàng sẽ hết hạn trước khi bán hết. Không tự tạo đơn đặt hàng —
   xuất ra Excel để gửi thẳng nhà cung cấp, hoặc tự chọn hàng cần nhập ở
   <a href="purchase_order_form.php">Tạo đặt hàng nhập</a>.
 </p>
@@ -118,15 +85,15 @@ if (isset($_GET['export']) && $suggestions) {
     <thead>
       <tr>
         <th>SKU</th><th>Sản phẩm</th><th class="text-right">Tồn hiện có</th>
-        <th class="text-right">Bán 30 ngày</th><th>Còn đủ bán</th>
+        <th class="text-right">Bán 30 ngày</th><th>Xu hướng</th><th>Còn đủ bán</th>
         <th class="text-right">Đề nghị nhập</th>
       </tr>
     </thead>
     <tbody>
       <?php if (!$branchId): ?>
-        <tr><td colspan="6" class="text-center muted" style="padding:32px;">Vui lòng chọn chi nhánh.</td></tr>
+        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Vui lòng chọn chi nhánh.</td></tr>
       <?php elseif (!$suggestions): ?>
-        <tr><td colspan="6" class="text-center muted" style="padding:32px;">Chưa có mặt hàng nào cần nhập thêm — tồn kho đang đủ dùng.</td></tr>
+        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Chưa có mặt hàng nào cần nhập thêm — tồn kho đang đủ dùng.</td></tr>
       <?php endif; ?>
       <?php foreach ($suggestions as $s): ?>
         <tr>
@@ -135,6 +102,12 @@ if (isset($_GET['export']) && $suggestions) {
           <td class="text-right"><?= fmtQty($s['ton']) ?> <?= e($s['unit']) ?></td>
           <td class="text-right muted"><?= fmtQty($s['ban_30_ngay']) ?></td>
           <td>
+            <?php if ($s['xu_huong'] === null): ?><span class="muted">—</span>
+            <?php elseif ($s['xu_huong'] >= 25): ?><span style="color:#059669;font-weight:600;" title="7 ngày gần nhất bán nhanh hơn trung bình 30 ngày">▲ +<?= (int) round($s['xu_huong']) ?>%</span>
+            <?php elseif ($s['xu_huong'] <= -25): ?><span style="color:#d97706;font-weight:600;" title="7 ngày gần nhất bán chậm hơn trung bình 30 ngày">▼ <?= (int) round($s['xu_huong']) ?>%</span>
+            <?php else: ?><span class="muted">→ ổn định</span><?php endif; ?>
+          </td>
+          <td>
             <?php if ($s['so_ngay_con_du'] === null): ?>
               <span class="badge badge-gray">Chưa bán trong 30 ngày</span>
             <?php elseif ($s['so_ngay_con_du'] <= 3): ?>
@@ -142,8 +115,10 @@ if (isset($_GET['export']) && $suggestions) {
             <?php else: ?>
               <span class="badge badge-gray"><?= (int) $s['so_ngay_con_du'] ?> ngày</span>
             <?php endif; ?>
+            <?php if (!empty($s['het_hang_du_kien'])): ?><div class="muted" style="font-size:11px;">hết ~<?= date('d/m', strtotime($s['het_hang_du_kien'])) ?></div><?php endif; ?>
+            <?php if (!empty($s['canh_bao_han'])): ?><div style="font-size:11px;color:#dc2626;" title="Theo tốc độ bán hiện tại, lô này sẽ hết hạn trước khi bán hết">⚠ ~<?= fmtQty($s['canh_bao_han']['du']) ?> sẽ hết hạn <?= date('d/m', strtotime($s['canh_bao_han']['han'])) ?> — xả trước khi nhập</div><?php endif; ?>
           </td>
-          <td class="text-right" style="font-weight:700;color:#2563eb;"><?= fmtQty($s['goi_y']) ?> <?= e($s['unit']) ?></td>
+          <td class="text-right" style="font-weight:700;color:#2563eb;"><?= $s['goi_y'] > 0 ? fmtQty($s['goi_y']) . ' ' . e($s['unit']) : '—' ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

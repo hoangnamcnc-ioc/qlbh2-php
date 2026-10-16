@@ -502,6 +502,32 @@ curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$(tk $A/sales_settings
 # Kiem kho theo nhom hang (nhom khong co hang: tra mang rong; nhom cua tenant khac khong lo)
 eq "kiem kho theo nhom: nhom la tra rong" "[]" "$(curl -s -b $CJ "$A/stock_take_search.php?category_id=999999&branch_id=$BRR")"
 
+echo "== 6zz. Thong minh: du bao nhap hang, goi y xa hang, canh bao bat thuong, tro ly hoi dap"
+RS=$(curl -s -b $CJ "$A/reorder_suggestions.php?branch_id=$BRR&target_days=14")
+eq "goi y nhap hang co cot Xu huong" "1" "$([ "$(echo "$RS" | grep -c 'Xu hướng')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang Hang ton lau mo duoc voi goi y xa hang" "200" "$(curl -s -b $CJ -o /dev/null -w '%{http_code}' "$A/ton_cham.php?days=30")"
+CB=$(curl -s -b $CJ $A/canh_bao.php)
+eq "trang Canh bao bat thuong mo duoc" "1" "$([ "$(echo "$CB" | grep -c 'Cảnh báo bất thường')" -ge 1 ] && echo 1 || echo 0)"
+eq "canh bao: phieu nhap qua han tra NCC" "1" "$([ "$(echo "$CB" | grep -c 'Quá hạn trả nhà cung cấp')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang chu hien khung canh bao bat thuong" "1" "$([ "$(curl -s -b $CJ $A/index.php | grep -c 'Cảnh báo bất thường')" -ge 1 ] && echo 1 || echo 0)"
+eq "thu ngan khong vao duoc Canh bao (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/canh_bao.php)"
+eq "thu ngan khong vao duoc Tro ly (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/tro_ly.php)"
+CSRFT=$(curl -s -b $CJ -c $CJ $A/tro_ly.php | grep -o 'const CSRF = "[^"]*"' | sed 's/.*= "//;s/"//')
+ask() { python -c "import json,sys;sys.stdout.buffer.write(json.dumps({'csrf':sys.argv[1],'question':sys.argv[2]}).encode())" "$CSRFT" "$1" > "$W/ask.json"; curl -s -b $CJ -c $CJ -H 'Content-Type: application/json' --data-binary @"$W/ask.json" $A/tro_ly.php; }
+eq "tro ly: 'Hom nay ban duoc bao nhieu' -> doanh thu" "doanh_thu" "$(ask 'Hôm nay bán được bao nhiêu?' | jv "['intent']")"
+eq "tro ly: 'Doanh thu thang nay' -> doanh thu" "doanh_thu" "$(ask 'Doanh thu tháng này' | jv "['intent']")"
+eq "tro ly: 'Mat hang nao ban chay' -> ban chay" "ban_chay" "$(ask 'Mặt hàng nào bán chạy tháng này?' | jv "['intent']")"
+eq "tro ly: ban chay liet ke SP Reg" "1" "$([ "$(ask 'Mặt hàng nào bán chạy tháng này?' | grep -c 'SP Reg')" -ge 1 ] && echo 1 || echo 0)"
+eq "tro ly: 'Ton kho SP Reg' tra dung san pham" "1" "$([ "$(ask 'Tồn kho SP Reg còn bao nhiêu?' | grep -c 'SP Reg')" -ge 1 ] && echo 1 || echo 0)"
+eq "tro ly: 'Hang nao can date' -> can han" "can_han" "$(ask 'Hàng nào cận date?' | jv "['intent']")"
+eq "tro ly: 'Khach nao dang no' -> khach no" "khach_no" "$(ask 'Khách nào đang nợ?' | jv "['intent']")"
+eq "tro ly: 'No nha cung cap' -> no ncc" "no_ncc" "$(ask 'Nợ nhà cung cấp?' | jv "['intent']")"
+eq "tro ly: 'Co gi bat thuong khong' -> bat thuong" "bat_thuong" "$(ask 'Có gì bất thường không?' | jv "['intent']")"
+eq "tro ly: 'Hang nao ton lau' -> ton lau" "ton_lau" "$(ask 'Hàng nào tồn lâu?' | jv "['intent']")"
+eq "tro ly: 'Lai gop thang nay' -> lai gop" "lai_gop" "$(ask 'Lãi gộp tháng này' | jv "['intent']")"
+eq "tro ly: cau la -> khong hieu, co huong dan" "khong_hieu" "$(ask 'asdf qwer zxcv' | jv "['intent']")"
+eq "tro ly: thieu CSRF bi tu choi (403)" "403" "$(curl -s -b $CJ -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"question":"hi"}' $A/tro_ly.php)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"
