@@ -92,6 +92,7 @@ $stages = [
         ['🔎', 'Đối chiếu số liệu', 'Tự tìm chỗ sổ sách không khớp', 'doi_chieu.php'],
         ['🚨', 'Cảnh báo bất thường', 'Huỷ đơn nhiều, chênh lệch ca, hao hụt, nợ quá hạn', 'canh_bao.php'],
         ['💬', 'Trợ lý hỏi đáp', 'Hỏi bằng tiếng Việt: hôm nay bán bao nhiêu...', 'tro_ly.php'],
+        ['📈', 'Phân tích kinh doanh', 'Dòng tiền 14 ngày, ABC, khách sắp bỏ đi, combo', 'phan_tich.php'],
         ['⏱️', 'Chấm công & lương của tôi', 'Vào/ra ca, lương tạm tính', 'cham_cong_cua_toi.php'],
         ['🗓️', 'Lịch làm việc', 'Phân ca cho nhân viên', 'work_schedules.php'],
         ['💰', 'Bảng lương', 'Tính lương theo giờ công và hoa hồng', 'payroll.php'],

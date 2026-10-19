@@ -83,6 +83,7 @@ if ($canGroup('finance')) {
         'doi_chieu.php' => 'Đối chiếu số liệu',
         'canh_bao.php' => 'Cảnh báo bất thường',
         'tro_ly.php' => 'Trợ lý hỏi đáp',
+        'phan_tich.php' => 'Phân tích kinh doanh',
     ];
 }
 // "Nhan vien & phan quyen" (users.php) tach rieng, luon can hasRole('ADMIN') that (file do tu

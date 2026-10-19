@@ -192,11 +192,12 @@ $lowStockStmt->execute($lowStockParam);
 $lowStock = $lowStockStmt->fetchAll();
 
 // Canh bao hang can date / het han va phieu nhap NCC den han tra (chi quan ly moi thay)
-$canHan = $denHanTra = $batThuong = [];
+$canHan = $denHanTra = $batThuong = $banTin = [];
 $warnDays = expiryWarnDays();
 if (hasRole('ADMIN', 'MANAGER')) {
     require_once __DIR__ . '/inc_thong_minh.php';
     $batThuong = phatHienBatThuong($pdo, $tenantId, (int) $branchId);
+    $banTin = banTinSang($pdo, $tenantId, (int) $branchId);
     $canHan = layLoCanHan($pdo, $tenantId, (int) $branchId, $warnDays, 8);
     $denHanTra = layPhieuNhapDenHan($pdo, $tenantId, (int) $branchId, 7, 8);
 }
@@ -375,6 +376,21 @@ if (hasRole('ADMIN', 'MANAGER')) {
     <?php endif; ?>
   </div>
 </div>
+
+<?php if ($banTin): $bq = $banTin['hom_qua']; $bt = $banTin['tuan_truoc'];
+  $chenh = $bt['doanh_thu'] > 0 ? round(($bq['doanh_thu'] / $bt['doanh_thu'] - 1) * 100) : null; ?>
+<div class="card" style="margin-bottom:16px;border-left:4px solid #2563eb;">
+  <h2 style="font-size:14px;font-weight:600;margin:0 0 8px;">☀️ Bản tin hôm nay</h2>
+  <div style="font-size:14px;margin-bottom:8px;">Hôm qua: doanh thu <b><?= money($bq['doanh_thu']) ?></b> (<?= (int) $bq['so_don'] ?> đơn), lãi gộp ước tính <b><?= money($bq['lai']) ?></b><?= $chenh !== null ? ' — <span style="color:' . ($chenh >= 0 ? '#059669' : '#dc2626') . ';">' . ($chenh >= 0 ? '+' : '') . $chenh . '% so với cùng thứ tuần trước</span>' : '' ?>.</div>
+  <?php if ($banTin['viec']): ?>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Việc nên làm hôm nay:</div>
+    <?php foreach ($banTin['viec'] as $v): ?>
+      <a href="<?= e($v[2]) ?>" style="display:block;font-size:13px;padding:3px 0;color:inherit;text-decoration:none;">☐ <b><?= e($v[0]) ?></b> <span class="muted">— <?= e($v[1]) ?></span></a>
+    <?php endforeach; ?>
+  <?php else: ?><div class="muted" style="font-size:13px;">Hôm nay chưa có việc gấp nào. 👍</div><?php endif; ?>
+  <a href="phan_tich.php" class="muted" style="font-size:12px;display:block;margin-top:6px;">Phân tích kinh doanh (dòng tiền, ABC, khách sắp bỏ đi, combo) →</a>
+</div>
+<?php endif; ?>
 
 <?php if ($canHan || $denHanTra || $batThuong): ?>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:24px;">

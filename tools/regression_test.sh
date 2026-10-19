@@ -528,6 +528,22 @@ eq "tro ly: 'Lai gop thang nay' -> lai gop" "lai_gop" "$(ask 'Lãi gộp tháng 
 eq "tro ly: cau la -> khong hieu, co huong dan" "khong_hieu" "$(ask 'asdf qwer zxcv' | jv "['intent']")"
 eq "tro ly: thieu CSRF bi tu choi (403)" "403" "$(curl -s -b $CJ -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"question":"hi"}' $A/tro_ly.php)"
 
+echo "== 6zzz. Phan tich: ABC, dong tien 14 ngay, khach sap bo, combo, ban tin sang"
+PT=$(curl -s -b $CJ "$A/phan_tich.php?days=90")
+eq "trang Phan tich kinh doanh mo duoc" "1" "$([ "$(echo "$PT" | grep -c 'Phân tích kinh doanh')" -ge 1 ] && echo 1 || echo 0)"
+eq "co muc Du bao dong tien 14 ngay" "1" "$([ "$(echo "$PT" | grep -c 'Dự báo dòng tiền 14 ngày')" -ge 1 ] && echo 1 || echo 0)"
+eq "dong tien: phieu nhap qua han tinh vao khoan tra NCC" "1" "$([ "$(echo "$PT" | grep -c 'Phải trả NCC trong 14 ngày')" -ge 1 ] && echo 1 || echo 0)"
+eq "co 14 dong du bao theo ngay" "14" "$(echo "$PT" | grep -c 'Quỹ cuối ngày\|<td class="text-right" style="font-weight:600;' | python -c "import sys;print(14 if int(sys.stdin.read())>=14 else 0)")"
+eq "ABC: co SP Reg thuoc nhom A (hang duy nhat tao lai)" "1" "$([ "$(echo "$PT" | grep -c 'SP Reg')" -ge 1 ] && echo 1 || echo 0)"
+eq "phan tich: muc Khach sap bo va Combo goi y mo duoc" "2" "$(echo "$PT" | grep -c 'Khách quen sắp\|Combo gợi ý' | python -c "import sys;print(2 if int(sys.stdin.read())>=2 else 0)")"
+eq "trang chu co Ban tin hom nay" "1" "$([ "$(curl -s -b $CJ $A/index.php | grep -c 'Bản tin hôm nay')" -ge 1 ] && echo 1 || echo 0)"
+eq "thu ngan khong vao duoc Phan tich (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/phan_tich.php)"
+eq "tro ly: 'Ban tin hom nay' -> ban tin" "ban_tin" "$(ask 'Hôm nay tôi cần làm gì?' | jv "['intent']")"
+eq "tro ly: 'Dong tien sap toi co thieu tien khong' -> dong tien" "dong_tien" "$(ask 'Dòng tiền sắp tới có thiếu tiền không?' | jv "['intent']")"
+eq "tro ly: 'Khach quen nao lau khong ghe' -> khach bo" "khach_bo" "$(ask 'Khách quen nào lâu không ghé?' | jv "['intent']")"
+eq "tro ly: 'Phan tich ABC nhom A' -> abc" "abc" "$(ask 'Phân tích ABC nhóm A' | jv "['intent']")"
+eq "tro ly: 'Combo goi y' -> combo" "combo" "$(ask 'Có combo nào nên bán kèm không?' | jv "['intent']")"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"
