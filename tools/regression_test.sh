@@ -556,6 +556,18 @@ eq "mo phong gia: san pham cua tenant khac khong xem duoc" "1" "$([ "$(curl -s -
 eq "tro ly: 'Suc khoe cua hang' -> suc khoe" "suc_khoe" "$(ask 'Sức khỏe cửa hàng thế nào?' | jv "['intent']")"
 eq "tro ly: 'Gio cao diem' -> gio cao diem" "gio_cao_diem" "$(ask 'Mấy giờ đông khách nhất?' | jv "['intent']")"
 
+echo "== 6zzzzz. Man hinh ban hang thong minh: khach quen, canh bao nhap nham, goi y theo gio, nhac viec"
+GY=$(curl -s -b $CJ $A/pos_goi_y.php)
+eq "pos_goi_y tra JSON co hay_ban va nhac_viec" "1" "$(echo "$GY" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if 'hay_ban' in d and 'nhac_viec' in d else 0)" 2>/dev/null)"
+eq "thu ngan cung dung duoc goi y man hinh ban" "1" "$(curl -s -b $W/cj_cash $A/pos_goi_y.php | python -c "import sys,json;d=json.load(sys.stdin);print(1 if 'hay_ban' in d else 0)" 2>/dev/null)"
+eq "thong ke so luong moi dong cua san pham co du lieu" "1" "$(curl -s -b $CJ "$A/pos_goi_y.php?ids=$PID" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if str($PID) in d and d[str($PID)]['n']>=1 else 0)" 2>/dev/null)"
+CL=$(curl -s -b $CJ "$A/customer_lookup.php?phone=0911000111")
+eq "khach quen: tra so don, mon hay mua, mon lan truoc" "1" "$(echo "$CL" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d.get('found') and d.get('so_don',0)>=1 and 'hay_mua' in d and 'lan_truoc' in d and 'no' in d else 0)" 2>/dev/null)"
+PG2=$(curl -s -b $CJ $A/pos.php)
+eq "POS co khung goi y theo gio + nhac viec" "1" "$([ "$(echo "$PG2" | grep -c 'pos-hayban')" -ge 1 ] && echo 1 || echo 0)"
+eq "POS co canh bao so luong/gia bat thuong" "1" "$([ "$(echo "$PG2" | grep -c 'function warnQty')" -ge 1 ] && [ "$(echo "$PG2" | grep -c 'function warnPrice')" -ge 1 ] && echo 1 || echo 0)"
+eq "POS co nut Them cac mon lan truoc" "1" "$([ "$(echo "$PG2" | grep -c 'add-last-order')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

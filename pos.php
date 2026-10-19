@@ -150,6 +150,10 @@ $qa = fn(string $key) => getSetting($key, '1') === '1';
       </div>
       <button type="button" id="scan-btn" class="btn btn-secondary" style="flex-shrink:0;">📷 Quét mã vạch</button>
     </div>
+    <div id="pos-hints" style="display:none;margin:-8px 0 12px;">
+      <div id="pos-nhac" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;font-size:12px;margin-bottom:6px;"></div>
+      <div id="pos-hayban" style="display:none;font-size:12px;"></div>
+    </div>
     <div id="scan-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:1000;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:12px;padding:16px;max-width:420px;width:92%;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -583,9 +587,12 @@ customerPhoneInput.addEventListener('input', () => {
           currentCustomerId = data.id;
           currentCustomerPoints = data.loyalty_points;
           currentLoyaltyDiscountPercent = data.loyalty_discount_percent || 0;
-          infoEl.textContent = data.name + (data.group_name ? ' · Nhóm: ' + data.group_name : '') + ' · Điểm: ' + data.loyalty_points
-            + (currentLoyaltyDiscountPercent > 0 ? ' · Chiết khấu thân thiết: ' + currentLoyaltyDiscountPercent + '%' : '')
-            + (data.price_list_id ? ' · Áp dụng bảng giá riêng' : '');
+          infoEl.innerHTML = renderCustomerInfo(data);
+          const addLast = document.getElementById('add-last-order');
+          if (addLast) addLast.addEventListener('click', () => {
+            (data.lan_truoc || []).forEach(it => { addToCart(it.id, null, it.name, it.price, it.sku); const c = cart.find(x => x.key === it.id + ':'); if (c) c.qty = it.qty; });
+            renderCart();
+          });
         } else {
           infoEl.textContent = 'Khách hàng mới';
         }
@@ -698,10 +705,46 @@ function doSearch(q) {
     });
 }
 
+// Khach quen: tom tat nhanh cho thu ngan (ten, no, diem, lan mua cuoi, mon hay mua, nut them mon lan truoc)
+function renderCustomerInfo(data) {
+  let h = '<b>' + escapeHtml(data.name) + '</b>' + (data.group_name ? ' · Nhóm: ' + escapeHtml(data.group_name) : '') + ' · Điểm: ' + data.loyalty_points
+    + (currentLoyaltyDiscountPercent > 0 ? ' · CK thân thiết: ' + currentLoyaltyDiscountPercent + '%' : '')
+    + (data.price_list_id ? ' · Bảng giá riêng' : '');
+  if (data.no > 0) h += '<div style="color:#dc2626;font-weight:600;">Đang nợ ' + formatMoney(data.no) + '</div>';
+  if (data.so_don > 0) h += '<div>Đã mua ' + data.so_don + ' đơn, gần nhất ' + escapeHtml(data.lan_cuoi || '') + '</div>';
+  if ((data.hay_mua || []).length) h += '<div>Hay mua: ' + data.hay_mua.map(escapeHtml).join(', ') + '</div>';
+  if ((data.lan_truoc || []).length) h += '<button type="button" id="add-last-order" class="btn btn-secondary" style="padding:2px 10px;font-size:12px;margin-top:4px;">＋ Thêm các món lần trước (' + data.lan_truoc.length + ')</button>';
+  return h;
+}
+
+// Thong ke so luong moi dong cua tung san pham (de canh bao go nham 100 thay vi 10)
+const prodStats = {};
+function loadProdStats(id) {
+  if (id in prodStats) return;
+  prodStats[id] = null;
+  fetch('pos_goi_y.php?ids=' + id).then(r => r.json()).then(j => { prodStats[id] = j[String(id)] || false; }).catch(() => { delete prodStats[id]; });
+}
+function warnQty(c, v) {
+  const st = prodStats[c.id];
+  const limit = st && st.n >= 3 ? Math.max(3 * st.mx, 10 * st.tb, 20) : 100;
+  if (v > limit) {
+    return 'Số lượng ' + fmtQty(v) + ' của "' + c.name + '" lớn hơn nhiều so với bình thường'
+      + (st && st.n >= 3 ? ' (thường ~' + fmtQty(st.tb) + ', nhiều nhất ' + fmtQty(st.mx) + ' mỗi lần)' : '') + '.\nBạn có gõ nhầm không? Bấm OK để giữ nguyên số này.';
+  }
+  return '';
+}
+function warnPrice(c, p) {
+  const b = c.basePrice;
+  if (b > 0 && (p < b * 0.5 || p > b * 2)) {
+    return 'Giá ' + formatMoney(p) + ' của "' + c.name + '" lệch hẳn so với giá thường ' + formatMoney(b) + '.\nBạn có gõ nhầm không? Bấm OK để giữ nguyên giá này.';
+  }
+  return '';
+}
+
 function addToCart(id, variantId, name, price, sku) {
   const key = id + ':' + (variantId ?? '');
   const existing = cart.find(c => c.key === key);
-  if (existing) { existing.qty += 1; } else { cart.push({ key, id, variantId, name, price, sku: sku || '', qty: 1 }); }
+  if (existing) { existing.qty += 1; } else { cart.push({ key, id, variantId, name, price, basePrice: price, sku: sku || '', qty: 1 }); loadProdStats(id); }
   renderCart();
 }
 
@@ -724,14 +767,20 @@ function renderCart() {
     body.querySelectorAll('.qty-input').forEach(inp => {
       inp.addEventListener('change', () => {
         const idx = parseInt(inp.dataset.idx, 10);
-        cart[idx].qty = Math.round(Math.max(0.001, parseFloat(inp.value) || 1) * 1000) / 1000;
+        const nq = Math.round(Math.max(0.001, parseFloat(inp.value) || 1) * 1000) / 1000;
+        const wq = warnQty(cart[idx], nq);
+        if (wq && !confirm(wq)) { renderCart(); return; }
+        cart[idx].qty = nq;
         renderCart();
       });
     });
     body.querySelectorAll('.price-input').forEach(inp => {
       inp.addEventListener('change', () => {
         const idx = parseInt(inp.dataset.idx, 10);
-        cart[idx].price = Math.max(0, parseFloat(inp.value) || 0);
+        const np = Math.max(0, parseFloat(inp.value) || 0);
+        const wp = warnPrice(cart[idx], np);
+        if (wp && !confirm(wp)) { renderCart(); return; }
+        cart[idx].price = np;
         renderCart();
       });
     });
@@ -1457,6 +1506,27 @@ function closeScanner() {
   }
 }
 window.addEventListener('pagehide', closeScanner);
+
+// Goi y theo gio + nhac viec ca (lam moi moi 15 phut). Loi mang thi bo qua, POS van chay binh thuong.
+function loadHints() {
+  fetch('pos_goi_y.php').then(r => r.json()).then(d => {
+    const box = document.getElementById('pos-hints');
+    const nhac = document.getElementById('pos-nhac');
+    const hb = document.getElementById('pos-hayban');
+    nhac.style.display = (d.nhac_viec || []).length ? 'block' : 'none';
+    nhac.innerHTML = (d.nhac_viec || []).map(t => '📌 ' + escapeHtml(t)).join('<br>');
+    hb.style.display = (d.hay_ban || []).length ? 'block' : 'none';
+    hb.innerHTML = '<span class="muted">🕒 Hay bán lúc này (' + d.gio + 'h):</span> ' + (d.hay_ban || []).map((p, i) =>
+      '<button type="button" class="btn btn-secondary hint-chip" data-i="' + i + '" style="padding:2px 9px;font-size:12px;margin:2px 4px 2px 0;">' + escapeHtml(p.name) + '</button>').join('');
+    hb.querySelectorAll('.hint-chip').forEach(b => b.addEventListener('click', () => {
+      const p = d.hay_ban[parseInt(b.dataset.i, 10)];
+      addToCart(p.id, null, p.name, p.price, p.sku);
+    }));
+    box.style.display = ((d.nhac_viec || []).length || (d.hay_ban || []).length) ? 'block' : 'none';
+  }).catch(() => {});
+}
+loadHints();
+setInterval(loadHints, 15 * 60 * 1000);
 
 document.getElementById('scan-btn').addEventListener('click', openScanner);
 document.getElementById('scan-close').addEventListener('click', closeScanner);

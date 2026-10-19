@@ -129,6 +129,10 @@ curl -s -b $CB -c $CB -o /dev/null --data-urlencode csrf="$T" -d "action=categor
 if [ -n "${CATA:-}" ]; then
   [ "$(curl -s -b $CB "$A/stock_take_search.php?category_id=$CATA&branch_id=$BR" | grep -c LEAKMARK)" -eq 0 ] || leak "stock_take_search.php?category_id cua A"
 fi
+ST=$(curl -s -b $CB "$A/pos_goi_y.php?ids=$PID")
+[ "$ST" = "{}" ] || leak "pos_goi_y.php?ids= tra thong ke san pham cua cua hang khac: $ST"
+GYB=$(curl -s -b $CB $A/pos_goi_y.php)
+[ "$(echo "$GYB" | grep -c LEAKMARK)" -eq 0 ] || leak "pos_goi_y.php (goi y/nhac viec) lo du lieu cua hang khac"
 echo "   da thu ghi cheo quy trinh tap hoa (xuat huy, danh gia NCC, nhom hang)"
 echo "   da thu ghi cheo (huy don, thu no)"
 
