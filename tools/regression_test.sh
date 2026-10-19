@@ -544,6 +544,18 @@ eq "tro ly: 'Khach quen nao lau khong ghe' -> khach bo" "khach_bo" "$(ask 'Khác
 eq "tro ly: 'Phan tich ABC nhom A' -> abc" "abc" "$(ask 'Phân tích ABC nhóm A' | jv "['intent']")"
 eq "tro ly: 'Combo goi y' -> combo" "combo" "$(ask 'Có combo nào nên bán kèm không?' | jv "['intent']")"
 
+echo "== 6zzzz. Diem suc khoe, nhac no thong minh, gio cao diem, mo phong doi gia"
+PT2=$(curl -s -b $CJ "$A/phan_tich.php?sim=$PID&ns=10")
+eq "co Diem suc khoe cua hang" "1" "$([ "$(echo "$PT2" | grep -c 'Điểm sức khỏe cửa hàng')" -ge 1 ] && echo 1 || echo 0)"
+SCORE=$(echo "$PT2" | grep -o 'font-size:52px;font-weight:800;line-height:1;color:#[0-9a-f]*;">[0-9]*' | grep -o '[0-9]*$' | head -1)
+eq "diem suc khoe nam trong 0..100" "1" "$([ -n "$SCORE" ] && [ "$SCORE" -ge 0 ] && [ "$SCORE" -le 100 ] && echo 1 || echo 0)"
+eq "co muc Nhac no thong minh" "1" "$([ "$(echo "$PT2" | grep -c 'Nhắc nợ thông minh')" -ge 1 ] && echo 1 || echo 0)"
+eq "co muc Gio cao diem va goi y so nhan vien" "1" "$([ "$(echo "$PT2" | grep -c 'Giờ cao điểm và gợi ý số nhân viên')" -ge 1 ] && echo 1 || echo 0)"
+eq "mo phong gia: co bang kich ban va do nhay gia" "1" "$([ "$(echo "$PT2" | grep -c 'Độ nhạy giá')" -ge 1 ] && [ "$(echo "$PT2" | grep -c 'Lượng bán/30 ngày')" -ge 1 ] && echo 1 || echo 0)"
+eq "mo phong gia: san pham cua tenant khac khong xem duoc" "1" "$([ "$(curl -s -b $CJ "$A/phan_tich.php?sim=1" | grep -c 'Độ nhạy giá')" -eq 0 ] && echo 1 || echo 0)"
+eq "tro ly: 'Suc khoe cua hang' -> suc khoe" "suc_khoe" "$(ask 'Sức khỏe cửa hàng thế nào?' | jv "['intent']")"
+eq "tro ly: 'Gio cao diem' -> gio cao diem" "gio_cao_diem" "$(ask 'Mấy giờ đông khách nhất?' | jv "['intent']")"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

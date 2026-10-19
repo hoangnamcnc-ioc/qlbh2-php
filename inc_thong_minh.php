@@ -441,6 +441,30 @@ function traLoiCauHoi(PDO $pdo, int $tenantId, int $branchId, string $question):
         }
         return $res('bat_thuong', $lines, [['Xem tất cả cảnh báo', 'canh_bao.php']]);
     }
+    // Suc khoe cua hang
+    if (preg_match('/suc khoe|diem cua hang|cua hang the nao|tinh hinh chung|danh gia cua hang/', $a)) {
+        $sk = diemSucKhoe($pdo, $tenantId, $branchId);
+        $lines = ['Điểm sức khỏe cửa hàng: ' . $sk['diem'] . '/100 — ' . $sk['xep_loai'] . '.'];
+        foreach ($sk['muc'] as [$ten, $d, $max, $ct, $tip]) {
+            if ($d < $max * 0.6) {
+                $lines[] = '• ' . $ten . ' (' . round($d) . '/' . $max . '): ' . $ct . ($tip !== '' ? ' — ' . $tip : '');
+            }
+        }
+        return $res('suc_khoe', $lines, [['Chi tiết điểm sức khỏe', 'phan_tich.php#suc-khoe']]);
+    }
+    // Gio cao diem
+    if (preg_match('/gio cao diem|dong khach|gio dong|may gio dong|xep ca|can may nguoi|can bao nhieu nhan vien/', $a)) {
+        $c = gioCaoDiem($pdo, $tenantId, $branchId, 12);
+        if (!$c['top']) {
+            return $res('gio_cao_diem', ['Chưa có dữ liệu đơn hàng 8 tuần để xác định giờ cao điểm.']);
+        }
+        $tt = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        $lines = ['Khung giờ đông khách nhất (trung bình 8 tuần):'];
+        foreach (array_slice($c['top'], 0, 4) as $t) {
+            $lines[] = '• ' . $tt[$t['thu']] . ' ' . $t['gio'] . 'h — khoảng ' . number_format($t['don'], 1) . ' đơn, cần ~' . ($c['nv'][$t['thu']][$t['gio']] ?? 1) . ' nhân viên';
+        }
+        return $res('gio_cao_diem', $lines, [['Biểu đồ giờ cao điểm', 'phan_tich.php#gio-cao-diem']]);
+    }
     // Ban tin / viec can lam
     if (preg_match('/ban tin|tom tat|lam gi hom nay|viec can lam|(can|phai|nen) lam gi|viec hom nay/', $a)) {
         $bt = banTinSang($pdo, $tenantId, $branchId);
@@ -914,4 +938,253 @@ function banTinSang(PDO $pdo, int $tenantId, int $branchId): array
         $viec[] = ['Thu nợ khách: ' . (int) $k['n'] . ' khách đang nợ', 'Tổng ' . money($k['t']), 'customer_debt_reminders.php'];
     }
     return ['hom_qua' => $homQua, 'tuan_truoc' => $tuanTruoc, 'viec' => array_slice($viec, 0, 4)];
+}
+
+// ======================================================================================================
+// Dot 3: diem suc khoe cua hang, nhac no thong minh, gio cao diem, mo phong doi gia
+// ======================================================================================================
+
+/**
+ * Diem suc khoe cua hang 0-100 tu 6 chi tieu (tong trong so 100): bien lai gop (25), tang truong doanh thu so voi 30 ngay truoc (15),
+ * von chon vao hang e (15), hang het han (15), no xau >30 ngay (15), that thoat = xuat huy + chenh lech ca am (15).
+ * Tra ['diem' => int, 'xep_loai' => text, 'muc' => [[ten, diem, toi_da, chi_tiet, loi_khuyen]...]].
+ */
+function diemSucKhoe(PDO $pdo, int $tenantId, int $branchId): array
+{
+    $clamp = static fn(float $v, float $lo, float $hi): float => max($lo, min($hi, $v));
+    $now = date('Y-m-d H:i:s');
+    $d30 = date('Y-m-d H:i:s', strtotime('-30 days'));
+    $d60 = date('Y-m-d H:i:s', strtotime('-60 days'));
+    $cur = doanhThuLai($pdo, $tenantId, $branchId, $d30, $now);
+    $prev = doanhThuLai($pdo, $tenantId, $branchId, $d60, $d30);
+    $dt = $cur['doanh_thu'];
+
+    // 1. Bien lai gop
+    $margin = $dt > 0 ? $cur['lai'] / $dt : null;
+    $s1 = $margin === null ? 12.5 : $clamp($margin / 0.25, 0, 1) * 25;
+    $c1 = $margin === null ? 'Chưa có doanh thu 30 ngày' : 'Biên lãi gộp ' . number_format($margin * 100, 1) . '% (mục tiêu ≥25%)';
+    $t1 = ($margin !== null && $margin < 0.15) ? 'Biên lãi thấp: rà lại giá bán và giá vốn, giảm chiết khấu.' : '';
+
+    // 2. Tang truong doanh thu
+    $growth = $prev['doanh_thu'] > 0 ? ($dt / $prev['doanh_thu'] - 1) * 100 : null;
+    $s2 = $growth === null ? 7.5 : $clamp(10 + $growth * 0.5, 0, 15);
+    $c2 = $growth === null ? 'Chưa đủ dữ liệu 30 ngày trước để so sánh' : ($growth >= 0 ? '+' : '') . round($growth) . '% so với 30 ngày trước';
+    $t2 = ($growth !== null && $growth < -10) ? 'Doanh thu giảm: xem khách quen sắp bỏ đi và chương trình khuyến mại.' : '';
+
+    // Gia tri ton kho
+    $sp = [$tenantId];
+    $sw = phamViChiNhanh($branchId, $sp, 'i.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(i.quantity * p.cost_price), 0) FROM inventory i JOIN products p ON p.id = i.product_id JOIN branches b ON b.id = i.branch_id
+         WHERE b.tenant_id = ? AND i.quantity > 0$sw"
+    );
+    $stmt->execute($sp);
+    $tonKho = (float) $stmt->fetchColumn();
+
+    // 3. Von chon (hang khong ban duoc 30 ngay)
+    $e = layHangTonLau($pdo, $tenantId, $branchId, 30, 500);
+    $vonChon = array_sum(array_column($e, 'von_chon'));
+    $r3 = $tonKho > 0 ? $vonChon / $tonKho : 0.0;
+    $s3 = 15 * (1 - $clamp($r3 / 0.3, 0, 1));
+    $c3 = $tonKho > 0 ? number_format($r3 * 100, 0) . '% giá trị tồn là hàng ế 30 ngày (' . money($vonChon) . ')' : 'Chưa có tồn kho';
+    $t3 = $r3 > 0.2 ? 'Nhiều vốn chôn trong hàng ế: xả hàng, ngừng nhập các mặt hàng nhóm C.' : '';
+
+    // 4. Hang het han con ton
+    $ep = [$tenantId];
+    $ew = phamViChiNhanh($branchId, $ep, 'b2.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(b2.quantity * p.cost_price), 0) FROM product_batches b2 JOIN products p ON p.id = b2.product_id JOIN branches br ON br.id = b2.branch_id
+         WHERE br.tenant_id = ? AND b2.quantity > 0 AND b2.expiry_date < CURDATE()$ew"
+    );
+    $stmt->execute($ep);
+    $hetHan = (float) $stmt->fetchColumn();
+    $r4 = $tonKho > 0 ? $hetHan / $tonKho : 0.0;
+    $s4 = 15 * (1 - $clamp($r4 / 0.05, 0, 1));
+    $c4 = $hetHan > 0 ? 'Hàng đã hết hạn còn tồn: ' . money($hetHan) : 'Không có hàng hết hạn còn tồn';
+    $t4 = $hetHan > 0 ? 'Xuất hủy hàng hết hạn và đặt cảnh báo cận hạn sớm hơn.' : '';
+
+    // 5. No xau >30 ngay
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(c.debt), 0) FROM customers c
+         WHERE c.tenant_id = ? AND c.debt > 0
+           AND (SELECT MIN(e.created_at) FROM customer_debt_entries e WHERE e.customer_id = c.id AND e.amount > 0) < DATE_SUB(NOW(), INTERVAL 30 DAY)"
+    );
+    $stmt->execute([$tenantId]);
+    $noXau = (float) $stmt->fetchColumn();
+    $r5 = $dt > 0 ? $noXau / $dt : ($noXau > 0 ? 1.0 : 0.0);
+    $s5 = 15 * (1 - $clamp($r5 / 0.3, 0, 1));
+    $c5 = $noXau > 0 ? 'Khách nợ quá 30 ngày: ' . money($noXau) : 'Không có nợ quá 30 ngày';
+    $t5 = $noXau > 0 ? 'Nhắc nợ theo thứ tự "dễ đòi trước" ở mục Nhắc nợ thông minh.' : '';
+
+    // 6. That thoat: xuat huy 30 ngay + chenh lech ca am
+    $wp = [$tenantId, $d30];
+    $ww = '';
+    if ($branchId) { $ww = ' AND branch_id = ?'; $wp[] = $branchId; }
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(quantity * cost_price), 0) FROM stock_write_offs WHERE tenant_id = ? AND created_at >= ?$ww");
+    $stmt->execute($wp);
+    $huy = (float) $stmt->fetchColumn();
+    $sp2 = [$tenantId, $d30];
+    $sw2 = phamViChiNhanh($branchId, $sp2, 's.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(CASE WHEN s.difference < 0 THEN -s.difference ELSE 0 END), 0) FROM pos_shifts s JOIN branches br ON br.id = s.branch_id
+         WHERE br.tenant_id = ? AND s.status = 'CLOSED' AND s.closed_at >= ?$sw2"
+    );
+    $stmt->execute($sp2);
+    $thieuCa = (float) $stmt->fetchColumn();
+    $mat = $huy + $thieuCa;
+    $r6 = $dt > 0 ? $mat / $dt : ($mat > 0 ? 1.0 : 0.0);
+    $s6 = 15 * (1 - $clamp($r6 / 0.03, 0, 1));
+    $c6 = 'Xuất hủy ' . money($huy) . ' + thiếu tiền ca ' . money($thieuCa) . ' trong 30 ngày';
+    $t6 = $r6 > 0.015 ? 'Thất thoát cao: xem Cảnh báo bất thường và đối soát kho.' : '';
+
+    $muc = [
+        ['Biên lãi gộp', $s1, 25, $c1, $t1], ['Tăng trưởng doanh thu', $s2, 15, $c2, $t2], ['Vốn chôn vào hàng ế', $s3, 15, $c3, $t3],
+        ['Hàng hết hạn', $s4, 15, $c4, $t4], ['Nợ khó đòi', $s5, 15, $c5, $t5], ['Thất thoát', $s6, 15, $c6, $t6],
+    ];
+    $diem = (int) round(array_sum(array_column($muc, 1)));
+    $xep = $diem >= 80 ? 'Tốt' : ($diem >= 60 ? 'Khá' : ($diem >= 40 ? 'Cần chú ý' : 'Báo động'));
+    return ['diem' => $diem, 'xep_loai' => $xep, 'muc' => $muc];
+}
+
+/**
+ * Xep hang no khach theo kha nang doi duoc (cao truoc): +20 neu mua lai trong 30 ngay, +5/lan tra no truoc day (toi da +20),
+ * -1 diem moi 3 ngay no ton (toi da -50), -20 neu no lon hon 3 thang mua trung binh. Moi khach co muc do + noi dung nhan goi y.
+ */
+function xepHangDoiNo(PDO $pdo, int $tenantId, string $storeName = ''): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT c.id, c.name, c.phone, c.debt,
+                (SELECT MIN(e.created_at) FROM customer_debt_entries e WHERE e.customer_id = c.id AND e.amount > 0) AS no_dau,
+                (SELECT COUNT(*) FROM customer_debt_entries e WHERE e.customer_id = c.id AND e.amount < 0) AS so_lan_tra,
+                (SELECT MAX(o.created_at) FROM orders o WHERE o.customer_id = c.id AND o.status NOT IN ('CANCELLED','DRAFT')) AS mua_cuoi,
+                (SELECT COALESCE(SUM(o.total_amount), 0) / 3 FROM orders o WHERE o.customer_id = c.id AND o.status NOT IN ('CANCELLED','DRAFT')
+                    AND o.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)) AS mua_thang
+         FROM customers c WHERE c.tenant_id = ? AND c.debt > 0"
+    );
+    $stmt->execute([$tenantId]);
+    $out = [];
+    foreach ($stmt->fetchAll() as $r) {
+        $tuoi = $r['no_dau'] ? max(0, (int) floor((time() - strtotime($r['no_dau'])) / 86400)) : 0;
+        $score = 60.0;
+        if ($r['mua_cuoi'] && strtotime($r['mua_cuoi']) >= strtotime('-30 days')) {
+            $score += 20;
+        }
+        $score += min(20, 5 * (int) $r['so_lan_tra']);
+        $score -= min(50, $tuoi / 3);
+        if ((float) $r['mua_thang'] > 0 && (float) $r['debt'] > 3 * (float) $r['mua_thang']) {
+            $score -= 20;
+        }
+        $score = max(0, min(100, (int) round($score)));
+        $muc = $score >= 65 ? 'De doi' : ($score >= 40 ? 'Trung binh' : 'Kho doi');
+        $shop = $storeName !== '' ? $storeName : 'cửa hàng';
+        $sotien = money($r['debt']);
+        if ($tuoi < 30) {
+            $msg = "Chào {$r['name']}, $shop xin nhắc nhẹ: anh/chị còn khoản $sotien chưa thanh toán. Khi tiện anh/chị ghé hoặc chuyển khoản giúp em nhé, cảm ơn anh/chị!";
+        } elseif ($tuoi < 60) {
+            $msg = "Chào {$r['name']}, khoản $sotien tại $shop đã quá $tuoi ngày. Anh/chị cho em xin lịch thanh toán cụ thể để em tiện sắp xếp sổ sách, cảm ơn anh/chị.";
+        } else {
+            $msg = "Chào {$r['name']}, khoản nợ $sotien tại $shop đã kéo dài $tuoi ngày. $shop rất mong anh/chị thanh toán hoặc thỏa thuận chia nhỏ trong tuần này; em liên hệ để cùng giải quyết.";
+        }
+        $out[] = ['id' => (int) $r['id'], 'name' => $r['name'], 'phone' => $r['phone'], 'debt' => (float) $r['debt'], 'tuoi' => $tuoi,
+            'diem' => $score, 'muc' => $muc, 'so_lan_tra' => (int) $r['so_lan_tra'], 'tin_nhan' => $msg];
+    }
+    usort($out, static fn($a, $b) => [$b['diem'], $b['debt']] <=> [$a['diem'], $a['debt']]);
+    return $out;
+}
+
+/**
+ * Gio cao diem: so don theo gio x thu trong tuan (8 tuan) va goi y so nhan vien moi khung gio.
+ * $nangSuat = so don 1 nhan vien phuc vu duoc moi gio. Tra ['luoi' => [thu 0..6][gio] = don TB moi lan, 'gio' => [min,max], 'top' => [...], 'nv' => [thu][gio]].
+ */
+function gioCaoDiem(PDO $pdo, int $tenantId, int $branchId, int $nangSuat = 12): array
+{
+    $p = [$tenantId];
+    $bw = phamViChiNhanh($branchId, $p, 'o.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT DAYOFWEEK(o.created_at) AS dow, HOUR(o.created_at) AS gio, COUNT(*) AS don
+         FROM orders o JOIN branches b ON b.id = o.branch_id
+         WHERE b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 56 DAY)$bw
+         GROUP BY DAYOFWEEK(o.created_at), HOUR(o.created_at)"
+    );
+    $stmt->execute($p);
+    $luoi = [];
+    $min = 23;
+    $max = 0;
+    $top = [];
+    foreach ($stmt->fetchAll() as $r) {
+        $thu = (int) $r['dow'] - 1;           // 0 = CN
+        $gio = (int) $r['gio'];
+        $tb = (float) $r['don'] / 8;          // don TB moi lan thu do xuat hien trong 8 tuan
+        $luoi[$thu][$gio] = $tb;
+        $min = min($min, $gio);
+        $max = max($max, $gio);
+        $top[] = ['thu' => $thu, 'gio' => $gio, 'don' => $tb];
+    }
+    usort($top, static fn($a, $b) => $b['don'] <=> $a['don']);
+    $nv = [];
+    foreach ($luoi as $thu => $gios) {
+        foreach ($gios as $gio => $don) {
+            $nv[$thu][$gio] = max(1, (int) ceil($don / max(1, $nangSuat)));
+        }
+    }
+    return ['luoi' => $luoi, 'gio' => $luoi ? [$min, $max] : [8, 20], 'top' => array_slice($top, 0, 5), 'nv' => $nv];
+}
+
+/**
+ * Mo phong doi gia: uoc tinh lai thay doi khi tang/giam gia X%. Do nhay gia (co giang) uoc tinh tu lich su 180 ngay neu san pham da
+ * ban o >=2 muc gia khac nhau (moi muc >=5 ngay co ban); khong thi dung mac dinh -1.2 (ghi ro nguon).
+ */
+function moPhongGia(PDO $pdo, int $tenantId, int $productId, int $branchId = 0): ?array
+{
+    $stmt = $pdo->prepare('SELECT id, name, sell_price, cost_price FROM products WHERE id = ? AND tenant_id = ?');
+    $stmt->execute([$productId, $tenantId]);
+    $p = $stmt->fetch();
+    if (!$p) {
+        return null;
+    }
+    $params = [$productId, $tenantId];
+    $bw = phamViChiNhanh($branchId, $params, 'o.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT SUM(oi.quantity) AS sl FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id
+         WHERE oi.product_id = ? AND b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)$bw"
+    );
+    $stmt->execute($params);
+    $q30 = (float) $stmt->fetchColumn();
+
+    $params = [$productId, $tenantId];
+    $bw = phamViChiNhanh($branchId, $params, 'o.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT oi.unit_price AS gia, SUM(oi.quantity) AS sl, COUNT(DISTINCT DATE(o.created_at)) AS ngay
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id
+         WHERE oi.product_id = ? AND b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(NOW(), INTERVAL 180 DAY)$bw
+         GROUP BY oi.unit_price HAVING ngay >= 5 ORDER BY ngay DESC LIMIT 2"
+    );
+    $stmt->execute($params);
+    $lv = $stmt->fetchAll();
+    $e = -1.2;
+    $nguon = 'mặc định (-1,2): hàng này chưa bán ở ≥2 mức giá đủ lâu để đo';
+    if (count($lv) === 2 && (float) $lv[0]['gia'] > 0 && (float) $lv[1]['gia'] > 0 && abs(log((float) $lv[0]['gia'] / (float) $lv[1]['gia'])) >= 0.03) {
+        $q1 = (float) $lv[0]['sl'] / (int) $lv[0]['ngay'];
+        $q2 = (float) $lv[1]['sl'] / (int) $lv[1]['ngay'];
+        if ($q1 > 0 && $q2 > 0) {
+            $e = max(-3.0, min(0.0, log($q2 / $q1) / log((float) $lv[1]['gia'] / (float) $lv[0]['gia'])));
+            $nguon = 'đo từ lịch sử bán ở 2 mức giá (' . number_format((float) $lv[0]['gia'], 0, ',', '.') . 'đ và ' . number_format((float) $lv[1]['gia'], 0, ',', '.') . 'đ)';
+        }
+    }
+    $gia = (float) $p['sell_price'];
+    $von = (float) $p['cost_price'];
+    $base = ($gia - $von) * $q30;
+    $kb = [];
+    $best = null;
+    foreach ([-20, -10, -5, 0, 5, 10, 20] as $x) {
+        $g = $gia * (1 + $x / 100);
+        $q = $q30 * pow(1 + $x / 100, $e);
+        $lai = ($g - $von) * $q;
+        $row = ['pct' => $x, 'gia' => $g, 'sl' => $q, 'lai' => $lai, 'doi' => $lai - $base];
+        $kb[] = $row;
+        if ($best === null || $lai > $best['lai']) {
+            $best = $row;
+        }
+    }
+    return ['ten' => $p['name'], 'gia' => $gia, 'von' => $von, 'q30' => $q30, 'e' => $e, 'nguon' => $nguon, 'kich_ban' => $kb, 'tot_nhat' => $best, 'lai_hien_tai' => $base];
 }
