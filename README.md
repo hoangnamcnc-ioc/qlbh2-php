@@ -2439,3 +2439,13 @@ Toàn bộ chạy trên dữ liệu của chính cửa hàng, không gửi dữ 
   tồn lâu, khách nợ, nợ NCC, bất thường. **Chưa nối AI bên ngoài (Gemini)** — cần khoá API; hiện là bộ hiểu cục bộ.
 - Cả hai trang mới thuộc nhóm quyền *finance* (Quản lý/Quản trị hoặc vai trò tuỳ chỉnh được tích), có trong menu và sơ đồ chức năng.
 - Kiểm thử: mục *6zz* trong `tools/regression_test.sh` (184 kịch bản), ma trận vai trò `tools/roles_test.sh`.
+
+### Đợt tiếp theo (19/10/2026)
+- **Phân tích kinh doanh** (`phan_tich.php`): điểm sức khỏe cửa hàng 0–100 (6 chỉ tiêu, lưu điểm mỗi ngày để so xu hướng), dự báo dòng tiền
+  14 ngày, ABC theo lãi gộp, khách quen sắp bỏ đi, combo gợi ý, nhắc nợ thông minh (xếp khả năng đòi + tin nhắn soạn sẵn), giờ cao điểm +
+  gợi ý số nhân viên, mô phỏng đổi giá (độ nhạy giá đo từ lịch sử, mặc định −1,2); thẻ *Bản tin hôm nay* ở Trang chủ.
+- **POS thông minh**: `customer_lookup.php` trả thêm nợ / số đơn / món hay mua / món lần trước (nút "Thêm các món lần trước", ẩn với khách dùng
+  bảng giá riêng); `pos_goi_y.php` (mọi vai trò, không lộ giá vốn): hàng bán chạy theo giờ, nhắc việc ca (lô sắp hết hạn, hàng dưới định mức),
+  thống kê số lượng mỗi dòng để cảnh báo gõ nhầm; `pos.php` hỏi lại khi số lượng vượt mức bình thường hoặc giá lệch quá ½/gấp đôi giá thường.
+- **Bất thường nâng cao** (`phatHienBatThuong()`): huỷ đơn / giảm ≥25% vào giờ rất ít khách (<3% đơn trong 60 ngày), một người huỷ ≥70% số đơn huỷ,
+  một người đóng ca thiếu tiền từ 3 lần, hàng thiếu qua ≥2 lần kiểm kho.

@@ -380,6 +380,94 @@ function phatHienBatThuong(PDO $pdo, int $tenantId, int $branchId = 0): array
         $add('thap', 'Trả hàng nhiều: ' . $r['name'], (int) $r['so_phieu'] . ' phiếu trả hàng (hoàn ' . money($r['tong_hoan']) . ') trong 30 ngày.', 'order_returns.php');
     }
 
+    // 9. Gio la: huy don / giam gia lon vao khung gio rat it khach (gio chiem <3% tong don trong 60 ngay)
+    $hp = [$tenantId];
+    $hw = phamViChiNhanh($branchId, $hp, 'o.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT HOUR(o.created_at) AS h, COUNT(*) AS c FROM orders o JOIN branches b ON b.id = o.branch_id
+         WHERE b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)$hw
+         GROUP BY HOUR(o.created_at)"
+    );
+    $stmt->execute($hp);
+    $perHour = [];
+    $totalOrders = 0;
+    foreach ($stmt->fetchAll() as $r) {
+        $perHour[(int) $r['h']] = (int) $r['c'];
+        $totalOrders += (int) $r['c'];
+    }
+    if ($totalOrders >= 50) {
+        $normal = array_keys(array_filter($perHour, static fn($c) => $c / $totalOrders >= 0.03));
+        $odd = array_values(array_diff(range(0, 23), $normal));
+        if ($normal && $odd) {
+            $in = implode(',', array_map('intval', $odd));
+            $stmt = $pdo->prepare(
+                "SELECT u.name, COUNT(*) AS n, GROUP_CONCAT(DISTINCT HOUR(h.changed_at) ORDER BY HOUR(h.changed_at)) AS gio
+                 FROM order_status_history h JOIN orders o ON o.id = h.order_id JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = h.changed_by_id
+                 WHERE b.tenant_id = ? AND h.to_status = 'CANCELLED' AND h.changed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                   AND HOUR(h.changed_at) IN ($in)$hw
+                 GROUP BY u.id, u.name HAVING n >= 2"
+            );
+            $stmt->execute($hp);
+            foreach ($stmt->fetchAll() as $r) {
+                $add('trung', 'Huỷ đơn vào giờ lạ: ' . $r['name'], (int) $r['n'] . ' lần huỷ đơn lúc ' . $r['gio'] . 'h (khung giờ rất ít khách) trong 30 ngày.', 'orders.php?status=CANCELLED');
+            }
+            $stmt = $pdo->prepare(
+                "SELECT u.name, COUNT(*) AS n, SUM(o.discount) AS giam
+                 FROM orders o JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = o.sold_by_id
+                 WHERE b.tenant_id = ? AND o.status <> 'CANCELLED' AND o.sub_total > 0 AND o.discount >= 20000 AND o.discount / o.sub_total >= 0.25
+                   AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND HOUR(o.created_at) IN ($in)$hw
+                 GROUP BY u.id, u.name HAVING n >= 2"
+            );
+            $stmt->execute($hp);
+            foreach ($stmt->fetchAll() as $r) {
+                $add('trung', 'Giảm giá lớn vào giờ lạ: ' . $r['name'], (int) $r['n'] . ' đơn giảm từ 25% (tổng giảm ' . money($r['giam']) . ') vào khung giờ rất ít khách.', 'orders.php');
+            }
+        }
+    }
+
+    // 10. Mot nguoi huy phan lon don (>=70% cua tat ca lan huy, tu 6 lan huy, co tu 2 nguoi ban tro len)
+    $stmt = $pdo->prepare(
+        "SELECT u.name, COUNT(*) AS huy
+         FROM order_status_history h JOIN orders o ON o.id = h.order_id JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = h.changed_by_id
+         WHERE b.tenant_id = ? AND h.to_status = 'CANCELLED' AND h.changed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)$hw
+         GROUP BY u.id, u.name ORDER BY huy DESC"
+    );
+    $stmt->execute($hp);
+    $huyRows = $stmt->fetchAll();
+    $tongHuy = array_sum(array_map(static fn($r) => (int) $r['huy'], $huyRows));
+    if ($tongHuy >= 6 && count($huyRows) >= 2 && (int) $huyRows[0]['huy'] / $tongHuy >= 0.7) {
+        $add('trung', 'Một người huỷ phần lớn đơn: ' . $huyRows[0]['name'], (int) $huyRows[0]['huy'] . '/' . $tongHuy . ' lần huỷ đơn trong 30 ngày do cùng 1 người thực hiện.', 'orders.php?status=CANCELLED');
+    }
+
+    // 11. Ket lech lap lai: cung 1 nguoi dong ca >=3 lan thieu tien (>=10.000d moi lan) trong 30 ngay
+    $kp = [$tenantId];
+    $kw = phamViChiNhanh($branchId, $kp, 's.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT u.name, COUNT(*) AS so_ca, SUM(-s.difference) AS tong_thieu
+         FROM pos_shifts s JOIN branches br ON br.id = s.branch_id JOIN users u ON u.id = s.closed_by_id
+         WHERE br.tenant_id = ? AND s.status = 'CLOSED' AND s.closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND s.difference <= -10000$kw
+         GROUP BY u.id, u.name HAVING so_ca >= 3"
+    );
+    $stmt->execute($kp);
+    foreach ($stmt->fetchAll() as $r) {
+        $add('cao', 'Két thiếu tiền lặp lại: ' . $r['name'], (int) $r['so_ca'] . ' ca đóng bị thiếu tiền mặt, tổng thiếu ' . money($r['tong_thieu']) . ' trong 30 ngày.', 'ca_ban_hang.php');
+    }
+
+    // 12. Hang "mat dan": kiem kho nhieu lan deu thieu (>=2 phieu da can bang trong 90 ngay, tong gia tri thieu >=50.000d)
+    $mp = [$tenantId];
+    $mw = phamViChiNhanh($branchId, $mp, 'st.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT p.name, COUNT(DISTINCT st.id) AS lan, SUM(si.system_qty - si.counted_qty) AS thieu, SUM((si.system_qty - si.counted_qty) * p.cost_price) AS gia_tri
+         FROM stock_take_items si JOIN stock_takes st ON st.id = si.take_id AND st.status = 'BALANCED'
+         JOIN products p ON p.id = si.product_id JOIN branches br ON br.id = st.branch_id
+         WHERE br.tenant_id = ? AND st.balanced_at >= DATE_SUB(NOW(), INTERVAL 90 DAY) AND si.counted_qty < si.system_qty$mw
+         GROUP BY p.id, p.name HAVING lan >= 2 AND gia_tri >= 50000 ORDER BY gia_tri DESC LIMIT 3"
+    );
+    $stmt->execute($mp);
+    foreach ($stmt->fetchAll() as $r) {
+        $add('cao', 'Hàng hao hụt lặp lại: ' . $r['name'], 'Thiếu ' . fmtQty($r['thieu']) . ' qua ' . (int) $r['lan'] . ' lần kiểm kho (giá trị vốn ' . money($r['gia_tri']) . ') — nghi mất cắp, hỏng hoặc nhập/bán sai.', 'stock_takes.php');
+    }
+
     $rank = ['cao' => 0, 'trung' => 1, 'thap' => 2];
     usort($alerts, static fn($a, $b) => $rank[$a['muc']] <=> $rank[$b['muc']]);
     return $alerts;

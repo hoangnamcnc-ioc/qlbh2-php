@@ -568,6 +568,16 @@ eq "POS co khung goi y theo gio + nhac viec" "1" "$([ "$(echo "$PG2" | grep -c '
 eq "POS co canh bao so luong/gia bat thuong" "1" "$([ "$(echo "$PG2" | grep -c 'function warnQty')" -ge 1 ] && [ "$(echo "$PG2" | grep -c 'function warnPrice')" -ge 1 ] && echo 1 || echo 0)"
 eq "POS co nut Them cac mon lan truoc" "1" "$([ "$(echo "$PG2" | grep -c 'add-last-order')" -ge 1 ] && echo 1 || echo 0)"
 
+echo "== 6zzzzzz. Bat thuong nang cao: hang hao hut lap lai qua nhieu lan kiem kho"
+STK=$(stock)
+TKX=$(tk $A/stock_take_form.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TKX" -d "branch_id=$BRR&note=reg2&product_id[]=$PID&variant_id[]=&system_qty[]=$STK&counted_qty[]=$((STK-1))" $A/stock_take_form.php
+TK2=$(curl -s -b $CJ $A/stock_takes.php | grep -o 'stock_take_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$TKX" -d "take_id=$TK2" $A/stock_take_balance.php
+CB2=$(curl -s -b $CJ $A/canh_bao.php)
+eq "canh bao: hang hao hut lap lai qua 2 lan kiem kho" "1" "$([ "$(echo "$CB2" | grep -c 'Hàng hao hụt lặp lại')" -ge 1 ] && echo 1 || echo 0)"
+eq "canh bao: trang van mo duoc sau khi them quy tac nang cao (khong loi SQL)" "1" "$([ "$(echo "$CB2" | grep -c 'Cảnh báo bất thường')" -ge 1 ] && [ "$(echo "$CB2" | grep -ciE 'fatal error|warning:')" -eq 0 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

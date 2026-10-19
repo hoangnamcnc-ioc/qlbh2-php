@@ -48,6 +48,6 @@ require_once __DIR__ . '/inc_header.php';
   <?php endforeach; ?>
 </div>
 
-<p class="muted" style="font-size:12px;margin:16px 0 0;max-width:820px;">⚖️ Quy tắc: huỷ ≥15% (từ 3 đơn); giảm ≥25% từ 3 đơn; chênh lệch ca ≥20.000đ; xuất huỷ tuần này ≥ gấp đôi trung bình 4 tuần và ≥100.000đ; khách nợ &gt;30 ngày; phiếu nhập quá hạn trả; lô đã hết hạn còn tồn; ≥5 phiếu trả hàng/nhân viên.</p>
+<p class="muted" style="font-size:12px;margin:16px 0 0;max-width:820px;">⚖️ Quy tắc: huỷ ≥15% (từ 3 đơn); giảm ≥25% từ 3 đơn; chênh lệch ca ≥20.000đ; xuất huỷ tuần này ≥ gấp đôi trung bình 4 tuần và ≥100.000đ; khách nợ &gt;30 ngày; phiếu nhập quá hạn trả; lô đã hết hạn còn tồn; ≥5 phiếu trả hàng/nhân viên; huỷ đơn hoặc giảm ≥25% vào khung giờ rất ít khách (&lt;3% đơn); một người huỷ ≥70% số đơn huỷ; một người đóng ca thiếu tiền từ 3 lần; hàng thiếu qua ≥2 lần kiểm kho (≥50.000đ).</p>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>
