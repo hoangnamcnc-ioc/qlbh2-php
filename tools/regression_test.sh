@@ -604,6 +604,18 @@ eq "trang chu co du bao doanh thu thang" "1" "$([ "$(curl -s -b $CJ $A/index.php
 eq "tro ly: 'Cuoi thang du kien bao nhieu' -> du bao thang" "du_bao_thang" "$(ask 'Doanh thu cuối tháng dự kiến bao nhiêu?' | jv "['intent']")"
 eq "tro ly: 'Kiem tra du lieu' -> du lieu" "du_lieu" "$(ask 'Kiểm tra dữ liệu giúp tôi' | jv "['intent']")"
 
+echo "== 6zzzzzzzz. Tu dat dinh muc ton, goi y gia ban khi nhap gia von"
+KD2=$(curl -s -b $CJ $A/kiem_tra_du_lieu.php)
+eq "kiem tra du lieu: co nut tu dat dinh muc cho hang ban deu" "1" "$([ "$(echo "$KD2" | grep -c 'Tự đặt định mức')" -ge 1 ] && echo 1 || echo 0)"
+KT=$(echo "$KD2" | grep -o 'name="csrf" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//')
+AM=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$KT" -d "action=auto_min_stock" $A/kiem_tra_du_lieu.php)
+eq "tu dat dinh muc thanh cong" "1" "$([ "$(echo "$AM" | grep -c 'Đã đặt định mức')" -ge 1 ] && echo 1 || echo 0)"
+eq "sau khi dat, khong con goi y dinh muc" "0" "$(curl -s -b $CJ $A/kiem_tra_du_lieu.php | grep -c 'Tự đặt định mức')"
+NOAM=$(curl -s -b $W/cj_cash -c $W/cj_cash --data-urlencode csrf="$CRT" -d "action=auto_min_stock" -o /dev/null -w '%{http_code}' $A/kiem_tra_du_lieu.php)
+eq "thu ngan khong tu dat duoc dinh muc (403)" "403" "$NOAM"
+PF=$(curl -s -b $CJ $A/product_form.php)
+eq "form san pham co goi y gia ban theo bien lai trung binh" "1" "$([ "$(echo "$PF" | grep -c 'id="price-hint"')" -ge 1 ] && [ "$(echo "$PF" | grep -c 'Dùng giá này')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

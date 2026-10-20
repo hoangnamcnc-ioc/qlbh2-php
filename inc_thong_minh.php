@@ -1474,3 +1474,47 @@ function nhaCungCapGanNhat(PDO $pdo, int $tenantId, array $productIds): array
     }
     return $out;
 }
+
+
+/**
+ * Goi y dinh muc ton toi thieu: voi moi (chi nhanh, mat hang) dang ban (>=5 trong 30 ngay) ma chua dat dinh muc (=0),
+ * dinh muc = toc do ban/ngay x 7 (du ban 1 tuan), toi thieu 1. Tra danh sach [inventory_id, product_id, name, branch_name, ban_30, dinh_muc].
+ */
+function goiYDinhMuc(PDO $pdo, int $tenantId): array
+{
+    $bs = $pdo->prepare('SELECT id, name FROM branches WHERE tenant_id = ?');
+    $bs->execute([$tenantId]);
+    $out = [];
+    foreach ($bs->fetchAll() as $b) {
+        $sales = layTocDoBanChiNhanh($pdo, (int) $b['id']);
+        if (!$sales) {
+            continue;
+        }
+        $st = $pdo->prepare(
+            "SELECT i.id, i.product_id, p.name FROM inventory i JOIN products p ON p.id = i.product_id
+             WHERE i.branch_id = ? AND i.variant_id IS NULL AND i.min_stock = 0 AND p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'"
+        );
+        $st->execute([(int) $b['id'], $tenantId]);
+        foreach ($st->fetchAll() as $r) {
+            $q30 = $sales[(int) $r['product_id']]['q30'] ?? 0.0;
+            if ($q30 >= 5) {
+                $out[] = ['inventory_id' => (int) $r['id'], 'product_id' => (int) $r['product_id'], 'name' => $r['name'], 'branch_name' => $b['name'],
+                    'ban_30' => $q30, 'dinh_muc' => max(1, (int) ceil($q30 / 30 * 7))];
+            }
+        }
+    }
+    usort($out, static fn($a, $b) => $b['ban_30'] <=> $a['ban_30']);
+    return $out;
+}
+
+/** Ap dung goi y dinh muc (chi cap nhat dong dang = 0 de khong de len gia tri nguoi dung da dat). Tra so dong cap nhat. */
+function apDungDinhMuc(PDO $pdo, int $tenantId): int
+{
+    $n = 0;
+    $up = $pdo->prepare('UPDATE inventory i JOIN branches b ON b.id = i.branch_id SET i.min_stock = ? WHERE i.id = ? AND i.min_stock = 0 AND b.tenant_id = ?');
+    foreach (goiYDinhMuc($pdo, $tenantId) as $g) {
+        $up->execute([$g['dinh_muc'], $g['inventory_id'], $tenantId]);
+        $n += $up->rowCount();
+    }
+    return $n;
+}

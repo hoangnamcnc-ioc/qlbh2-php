@@ -193,6 +193,13 @@ if (isset($_GET['saved'])) {
 }
 $variantError = $_GET['variant_error'] ?? null;
 
+// Bien lai gop trung binh cua cua hang (de goi y gia ban khi nhap gia von)
+$avgMarginStmt = $pdo->prepare("SELECT AVG((sell_price - cost_price) / sell_price) FROM products WHERE tenant_id = ? AND is_active = 1 AND product_type = 'PRODUCT' AND cost_price > 0 AND sell_price > cost_price");
+$avgMarginStmt->execute([currentTenantId()]);
+$avgMargin = (float) $avgMarginStmt->fetchColumn();
+if ($avgMargin < 0.05 || $avgMargin > 0.8) {
+    $avgMargin = 0.25;   // chua du du lieu: mac dinh 25%
+}
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -328,6 +335,7 @@ require_once __DIR__ . '/inc_header.php';
       <div class="field">
         <label for="f-sell-price">Giá bán</label>
         <input id="f-sell-price" class="input" type="number" min="0" name="sell_price" value="<?= e((string) ($product['sell_price'] ?? '0')) ?>">
+        <div id="price-hint" style="font-size:12px;margin-top:3px;"></div>
       </div>
     </div>
 
@@ -560,5 +568,30 @@ require_once __DIR__ . '/inc_header.php';
   </form>
 </div>
 <?php endif; ?>
+
+<script>
+// Goi y gia ban thong minh: dua tren bien lai gop trung binh cua cua hang
+(function () {
+  const AVG = <?= json_encode(round($avgMargin, 4)) ?>;
+  const cost = document.getElementById('f-cost-price'), sell = document.getElementById('f-sell-price'), hint = document.getElementById('price-hint');
+  if (!cost || !sell || !hint) return;
+  const fmt = n => Math.round(n).toLocaleString('vi-VN');
+  function update() {
+    const c = parseFloat(cost.value) || 0, s = parseFloat(sell.value) || 0;
+    hint.innerHTML = '';
+    if (c <= 0) return;
+    const goiY = Math.ceil(c / (1 - AVG) / 500) * 500;
+    if (s > 0 && s < c) {
+      hint.innerHTML = '<span style="color:#dc2626;">⚠ Giá bán thấp hơn giá vốn — bán mỗi cái là lỗ.</span> ';
+    } else if (s > 0 && (s - c) / s < AVG / 2) {
+      hint.innerHTML = '<span style="color:#d97706;">Biên lãi ' + Math.round((s - c) / s * 100) + '% thấp hơn nhiều so với trung bình cửa hàng (' + Math.round(AVG * 100) + '%).</span> ';
+    } else if (s > 0) { return; }
+    hint.innerHTML += '<span class="muted">Gợi ý giá bán ~' + fmt(goiY) + 'đ (biên ' + Math.round(AVG * 100) + '%).</span> <a href="#" id="use-price" style="font-size:12px;">Dùng giá này</a>';
+    const a = document.getElementById('use-price');
+    if (a) a.addEventListener('click', e => { e.preventDefault(); sell.value = goiY; update(); });
+  }
+  cost.addEventListener('input', update); sell.addEventListener('input', update); update();
+})();
+</script>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>
