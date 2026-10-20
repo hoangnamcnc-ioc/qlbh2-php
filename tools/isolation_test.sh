@@ -131,6 +131,8 @@ if [ -n "${CATA:-}" ]; then
 fi
 ST=$(curl -s -b $CB "$A/pos_goi_y.php?ids=$PID")
 [ "$ST" = "{}" ] || leak "pos_goi_y.php?ids= tra thong ke san pham cua cua hang khac: $ST"
+NGB=$(curl -s -b $CB "$A/ncc_gia.php?product_id=$PID")
+[ "$NGB" = "[]" ] || leak "ncc_gia.php tra gia nhap/NCC cua cua hang khac: $NGB"
 GYB=$(curl -s -b $CB $A/pos_goi_y.php)
 [ "$(echo "$GYB" | grep -c LEAKMARK)" -eq 0 ] || leak "pos_goi_y.php (goi y/nhac viec) lo du lieu cua hang khac"
 echo "   da thu ghi cheo quy trinh tap hoa (xuat huy, danh gia NCC, nhom hang)"

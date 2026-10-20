@@ -2458,3 +2458,7 @@ Toàn bộ chạy trên dữ liệu của chính cửa hàng, không gửi dữ 
 - **Phiếu nhập hàng**: cảnh báo khi giá nhập lệch ≥5% so với lần trước kèm gợi ý giá bán để giữ biên lãi (`costHint()`); `stock_receipt_search.php` trả thêm `sell_price`.
 - **Cảnh báo "bán dưới giá vốn"** (≥3 dòng hoặc thiệt ≥50.000đ/30 ngày, theo người bán) và **dự báo doanh thu tháng** (`duBaoThang()`, ở Bản tin hôm nay và trợ lý).
 - Trợ lý hiểu thêm: dự báo cuối tháng, kiểm tra dữ liệu. Kiểm thử: mục *6zzzzzzz* (227 kịch bản).
+- **Tự đặt định mức tồn tối thiểu** (`goiYDinhMuc()` / `apDungDinhMuc()`, nút ở *Kiểm tra dữ liệu*): hàng bán đều (≥5/30 ngày) đang để định mức 0 → đặt = bán TB 7 ngày; chỉ sửa dòng đang 0.
+  **Gợi ý giá bán** ở form sản phẩm theo biên lãi gộp trung bình của cửa hàng.
+- **Giá nhập theo nhà cung cấp** (`ncc_gia.php`, `giaNhapTheoNcc()`): phiếu nhập hàng hiện giá gần đây của từng NCC cho mặt hàng và cảnh báo khi NCC đang chọn đắt hơn NCC khác ≥3%.
+  **Nhịp bán hôm nay** (`nhipBanHomNay()`): so doanh thu đến giờ này với cùng giờ cùng thứ 4 tuần trước (ở Bản tin và trợ lý). Cảnh báo mới: **hàng bị trả nhiều** (≥3 lần hoặc ≥10% lượng bán/60 ngày). Kiểm thử 238 kịch bản.

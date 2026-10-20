@@ -616,6 +616,15 @@ eq "thu ngan khong tu dat duoc dinh muc (403)" "403" "$NOAM"
 PF=$(curl -s -b $CJ $A/product_form.php)
 eq "form san pham co goi y gia ban theo bien lai trung binh" "1" "$([ "$(echo "$PF" | grep -c 'id="price-hint"')" -ge 1 ] && [ "$(echo "$PF" | grep -c 'Dùng giá này')" -ge 1 ] && echo 1 || echo 0)"
 
+echo "== 6zzzzzzzzz. Gia nhap theo NCC, nhip ban hom nay, hang bi tra nhieu"
+NG=$(curl -s -b $CJ "$A/ncc_gia.php?product_id=$PID")
+eq "ncc_gia: tra gia nhap gan nhat theo NCC cho mat hang da nhap" "1" "$(echo "$NG" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d and d[0]['name']=='NCC Reg' and d[0]['cost']>0 else 0)" 2>/dev/null)"
+eq "ncc_gia: san pham cua cua hang khac tra rong" "[]" "$(curl -s -b $CJ "$A/ncc_gia.php?product_id=1")"
+eq "ncc_gia: thu ngan khong vao duoc (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' "$A/ncc_gia.php?product_id=$PID")"
+eq "phieu nhap co goi y NCC re hon" "1" "$([ "$(curl -s -b $CJ $A/stock_receipt_form.php | grep -c 'function nccHint')" -ge 1 ] && echo 1 || echo 0)"
+eq "tro ly: 'Hom nay ban the nao' -> nhip ban" "nhip_ban" "$(ask 'Hôm nay bán thế nào so với mọi khi?' | jv "['intent']")"
+eq "canh bao van mo duoc sau quy tac hang bi tra nhieu" "1" "$([ "$(curl -s -b $CJ $A/canh_bao.php | grep -c 'Cảnh báo bất thường')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

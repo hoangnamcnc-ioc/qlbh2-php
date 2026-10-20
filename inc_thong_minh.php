@@ -483,6 +483,24 @@ function phatHienBatThuong(PDO $pdo, int $tenantId, int $branchId = 0): array
         $add('trung', 'Bán dưới giá vốn: ' . $r['name'], (int) $r['so_dong'] . ' dòng hàng bán thấp hơn giá vốn trong 30 ngày, thiệt khoảng ' . money($r['thiet']) . '. Xem lại giá bán / chiết khấu.', 'orders.php');
     }
 
+    // 14. Hang bi tra nhieu: >=3 lan tra hoac (>=2 lan va >=10% so luong ban) trong 60 ngay
+    $tp = [$tenantId];
+    $tw = phamViChiNhanh($branchId, $tp, 'o.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT p.name, COUNT(*) AS lan, SUM(ri.quantity) AS sl_tra,
+                (SELECT COALESCE(SUM(oi2.quantity), 0) FROM order_items oi2 JOIN orders o2 ON o2.id = oi2.order_id
+                  WHERE oi2.product_id = p.id AND o2.status NOT IN ('CANCELLED','DRAFT') AND o2.created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)) AS sl_ban
+         FROM order_return_items ri JOIN order_returns r ON r.id = ri.return_id JOIN orders o ON o.id = r.order_id
+         JOIN branches b ON b.id = o.branch_id JOIN products p ON p.id = ri.product_id
+         WHERE b.tenant_id = ? AND r.created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)$tw
+         GROUP BY p.id, p.name HAVING lan >= 3 OR (lan >= 2 AND sl_ban > 0 AND sl_tra / sl_ban >= 0.1)
+         ORDER BY sl_tra DESC LIMIT 3"
+    );
+    $stmt->execute($tp);
+    foreach ($stmt->fetchAll() as $r) {
+        $add('thap', 'Hàng bị trả nhiều: ' . $r['name'], (int) $r['lan'] . ' lần trả, ' . fmtQty($r['sl_tra']) . '/' . fmtQty($r['sl_ban']) . ' đã bán trong 60 ngày — kiểm tra chất lượng hoặc nhà cung cấp.', 'order_returns.php');
+    }
+
     $rank = ['cao' => 0, 'trung' => 1, 'thap' => 2];
     usort($alerts, static fn($a, $b) => $rank[$a['muc']] <=> $rank[$b['muc']]);
     return $alerts;
@@ -543,6 +561,17 @@ function traLoiCauHoi(PDO $pdo, int $tenantId, int $branchId, string $question):
             $lines[] = '• ' . $x['tieu_de'] . ' — ' . $x['chi_tiet'];
         }
         return $res('bat_thuong', $lines, [['Xem tất cả cảnh báo', 'canh_bao.php']]);
+    }
+    // Nhip ban hom nay
+    if (preg_match('/hom nay (co )?(on|te|thap|cao)|so voi moi khi|nhip ban|ban cham hon|dang ban the nao|hom nay the nao/', $a)) {
+        $n = nhipBanHomNay($pdo, $tenantId, $branchId);
+        if ($n === null) {
+            return $res('nhip_ban', ['Chưa đủ dữ liệu để so sánh (cần sau 9h và ít nhất 2 tuần có bán cùng khung giờ).']);
+        }
+        $pct = $n['pct'] !== null ? round($n['pct']) : 0;
+        $lines = ['Đến giờ này hôm nay bán ' . money($n['hom_nay']) . '; cùng giờ các ' . $n['so_tuan'] . ' tuần trước (cùng thứ) trung bình ' . money($n['tb']) . ' (' . ($pct >= 0 ? '+' : '') . $pct . '%).'];
+        $lines[] = $pct <= -30 ? 'Hôm nay đang bán chậm hơn thường khá nhiều.' : ($pct >= 30 ? 'Hôm nay đang bán tốt hơn thường.' : 'Nhịp bán đang bình thường.');
+        return $res('nhip_ban', $lines, [['Giờ cao điểm', 'phan_tich.php#gio-cao-diem']]);
     }
     // Du bao doanh thu thang
     if (preg_match('/cuoi thang|du bao doanh thu|thang nay se|du kien thang|thang nay dat/', $a)) {
@@ -1063,7 +1092,7 @@ function banTinSang(PDO $pdo, int $tenantId, int $branchId): array
     if ((int) $k['n'] > 0) {
         $viec[] = ['Thu nợ khách: ' . (int) $k['n'] . ' khách đang nợ', 'Tổng ' . money($k['t']), 'customer_debt_reminders.php'];
     }
-    return ['hom_qua' => $homQua, 'tuan_truoc' => $tuanTruoc, 'viec' => array_slice($viec, 0, 4), 'thang' => duBaoThang($pdo, $tenantId, $branchId)];
+    return ['hom_qua' => $homQua, 'tuan_truoc' => $tuanTruoc, 'viec' => array_slice($viec, 0, 4), 'thang' => duBaoThang($pdo, $tenantId, $branchId), 'nhip' => nhipBanHomNay($pdo, $tenantId, $branchId)];
 }
 
 // ======================================================================================================
@@ -1517,4 +1546,55 @@ function apDungDinhMuc(PDO $pdo, int $tenantId): int
         $n += $up->rowCount();
     }
     return $n;
+}
+
+
+/**
+ * Nhip ban hom nay so voi cung gio cua cung thu trong 4 tuan truoc: [hom_nay, tb, pct, so_tuan] hoac null neu chua du du lieu
+ * (can >=2 tuan co ban cung khung gio va da qua 9h). Dung de bao som "hom nay dang bam hon moi khi".
+ */
+function nhipBanHomNay(PDO $pdo, int $tenantId, int $branchId): ?array
+{
+    if ((int) date('G') < 9) {
+        return null;
+    }
+    $clock = date('H:i:s');
+    $today = doanhThuLai($pdo, $tenantId, $branchId, date('Y-m-d 00:00:00'), date('Y-m-d H:i:s'));
+    $tong = 0.0;
+    $tuan = 0;
+    for ($w = 1; $w <= 4; $w++) {
+        $d = date('Y-m-d', strtotime("-$w week"));
+        $r = doanhThuLai($pdo, $tenantId, $branchId, "$d 00:00:00", "$d $clock");
+        if ($r['so_don'] > 0) {
+            $tong += $r['doanh_thu'];
+            $tuan++;
+        }
+    }
+    if ($tuan < 2) {
+        return null;
+    }
+    $tb = $tong / $tuan;
+    return ['hom_nay' => $today['doanh_thu'], 'tb' => $tb, 'pct' => $tb > 0 ? ($today['doanh_thu'] / $tb - 1) * 100 : null, 'so_tuan' => $tuan];
+}
+
+/** Gia nhap gan nhat theo tung nha cung cap cho 1 mat hang (180 ngay), sap tu re den dat: [[supplier_id, name, cost, date]...]. */
+function giaNhapTheoNcc(PDO $pdo, int $tenantId, int $productId): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT r.supplier_id, s.name, i.cost_price, r.created_at
+         FROM stock_receipt_items i JOIN stock_receipts r ON r.id = i.receipt_id JOIN suppliers s ON s.id = r.supplier_id
+         WHERE i.product_id = ? AND s.tenant_id = ? AND r.created_at >= DATE_SUB(NOW(), INTERVAL 180 DAY) AND i.cost_price > 0
+         ORDER BY r.created_at DESC, r.id DESC"
+    );
+    $stmt->execute([$productId, $tenantId]);
+    $latest = [];
+    foreach ($stmt->fetchAll() as $r) {
+        $sid = (int) $r['supplier_id'];
+        if (!isset($latest[$sid])) {
+            $latest[$sid] = ['supplier_id' => $sid, 'name' => $r['name'], 'cost' => (float) $r['cost_price'], 'date' => date('d/m', strtotime($r['created_at']))];
+        }
+    }
+    $list = array_values($latest);
+    usort($list, static fn($a, $b) => $a['cost'] <=> $b['cost']);
+    return $list;
 }

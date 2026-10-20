@@ -314,11 +314,12 @@ function addLine(id, variantId, name, cost, packUnit, packSize, sellPrice) {
     lines.push({
       key, id, variantId, name,
       packUnit: packUnit || null, packSize: packSize > 1 ? packSize : 1,
-      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '', baseCost: cost, sell: sellPrice || 0,
+      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '', baseCost: cost, sell: sellPrice || 0, ncc: null,
     });
   }
   recalc();
   render();
+  if (!existing) loadNcc(lines[lines.length - 1]);
 }
 
 // Tinh lai qty/cost (don vi le, gui len server) tu qtyInput/costInput/mode cua tung dong.
@@ -335,6 +336,24 @@ function recalc() {
 }
 
 // Canh bao thong minh khi gia nhap lech nhieu so voi lan truoc (>=5%) va goi y gia ban de giu nguyen ti le lai.
+function nccHint(l) {
+  if (!l.ncc || !l.ncc.length) return '';
+  const sel = document.querySelector('select[name="supplier_id"]');
+  const chosen = sel ? parseInt(sel.value, 10) || 0 : 0;
+  const best = l.ncc[0];
+  let s = 'Giá nhập gần đây theo NCC: ' + l.ncc.slice(0, 3).map(x => x.name + ' ' + fmt(x.cost) + ' (' + x.date + ')').join(' · ');
+  let warn = '';
+  const mine = chosen ? l.ncc.find(x => x.supplier_id === chosen) : null;
+  if (mine && best.supplier_id !== chosen && mine.cost > best.cost * 1.03) {
+    warn = ' ⚠ NCC đang chọn đắt hơn ' + best.name + ' khoảng ' + Math.round((mine.cost / best.cost - 1) * 100) + '%.';
+  }
+  return '<div style="font-size:11px;color:' + (warn ? '#b45309' : '#64748b') + ';margin-top:3px;">' + esc(s + warn) + '</div>';
+}
+function loadNcc(l) {
+  if (l.variantId || l.ncc !== null) return;
+  l.ncc = [];
+  fetch('ncc_gia.php?product_id=' + encodeURIComponent(l.id)).then(r => r.json()).then(d => { l.ncc = Array.isArray(d) ? d : []; render(); }).catch(() => {});
+}
 function costHint(l) {
   const base = l.baseCost || 0;
   if (base <= 0 || l.cost <= 0) return '';
@@ -381,7 +400,7 @@ function render() {
         <td class="text-right">
           <input type="number" min="0" value="${l.costInput}" data-i="${i}" data-f="costInput" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
           ${l.mode === 'lon' ? `<div class="muted" style="font-size:11px;">= ${fmt(l.cost)}/lẻ</div>` : ''}
-          ${costHint(l)}
+          ${costHint(l)}${nccHint(l)}
         </td>
         <td class="text-right">${fmt(l.qty * l.cost)}</td>
         <td class="text-right"><a href="#" data-i="${i}" class="remove" style="color:#ef4444;font-size:12px;">Xóa</a></td>
@@ -428,6 +447,8 @@ function updateTotals() {
   document.getElementById('grand-total').textContent = fmt(total);
 }
 document.getElementById('discount-input').addEventListener('input', updateTotals);
+const supSel = document.querySelector('select[name="supplier_id"]');
+if (supSel) supSel.addEventListener('change', render);
 document.getElementById('extra-cost-input').addEventListener('input', updateTotals);
 
 function fmt(n) { return Math.round(n).toLocaleString('vi-VN'); }

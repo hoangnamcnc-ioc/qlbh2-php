@@ -339,7 +339,7 @@ const PERMISSION_GROUP_FILES = [
         'stock_take_search.php', 'stock_transfers.php', 'stock_transfer_form.php',
         'stock_transfer_view.php', 'stock_transfer_receive.php', 'stock_transfer_search.php',
         'suppliers.php', 'supplier_view.php', 'supplier_returns.php', 'supplier_return_form.php',
-        'product_labels.php', 'xuat_huy.php', 'ton_cham.php', 'kiem_tra_du_lieu.php',
+        'product_labels.php', 'xuat_huy.php', 'ton_cham.php', 'kiem_tra_du_lieu.php', 'ncc_gia.php',
     ],
     'customers' => ['customers_export.php', 'customers_import.php', 'groups.php', 'customer_tiers.php'],
     'marketing' => [
