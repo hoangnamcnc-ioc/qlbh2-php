@@ -468,6 +468,21 @@ function phatHienBatThuong(PDO $pdo, int $tenantId, int $branchId = 0): array
         $add('cao', 'Hàng hao hụt lặp lại: ' . $r['name'], 'Thiếu ' . fmtQty($r['thieu']) . ' qua ' . (int) $r['lan'] . ' lần kiểm kho (giá trị vốn ' . money($r['gia_tri']) . ') — nghi mất cắp, hỏng hoặc nhập/bán sai.', 'stock_takes.php');
     }
 
+    // 13. Ban duoi gia von: dong hang co don gia < gia von luc ban (>=3 dong hoac thiet >=50.000d trong 30 ngay), theo nguoi ban
+    $bp2 = [$tenantId];
+    $bw2 = phamViChiNhanh($branchId, $bp2, 'o.branch_id');
+    $stmt = $pdo->prepare(
+        "SELECT u.name, COUNT(*) AS so_dong, SUM((oi.cost_price - oi.unit_price) * oi.quantity) AS thiet
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = o.sold_by_id
+         WHERE b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           AND oi.cost_price IS NOT NULL AND oi.cost_price > 0 AND oi.unit_price < oi.cost_price$bw2
+         GROUP BY u.id, u.name HAVING so_dong >= 3 OR thiet >= 50000 ORDER BY thiet DESC"
+    );
+    $stmt->execute($bp2);
+    foreach ($stmt->fetchAll() as $r) {
+        $add('trung', 'Bán dưới giá vốn: ' . $r['name'], (int) $r['so_dong'] . ' dòng hàng bán thấp hơn giá vốn trong 30 ngày, thiệt khoảng ' . money($r['thiet']) . '. Xem lại giá bán / chiết khấu.', 'orders.php');
+    }
+
     $rank = ['cao' => 0, 'trung' => 1, 'thap' => 2];
     usort($alerts, static fn($a, $b) => $rank[$a['muc']] <=> $rank[$b['muc']]);
     return $alerts;
@@ -528,6 +543,29 @@ function traLoiCauHoi(PDO $pdo, int $tenantId, int $branchId, string $question):
             $lines[] = '• ' . $x['tieu_de'] . ' — ' . $x['chi_tiet'];
         }
         return $res('bat_thuong', $lines, [['Xem tất cả cảnh báo', 'canh_bao.php']]);
+    }
+    // Du bao doanh thu thang
+    if (preg_match('/cuoi thang|du bao doanh thu|thang nay se|du kien thang|thang nay dat/', $a)) {
+        $m = duBaoThang($pdo, $tenantId, $branchId);
+        $lines = ['Tháng này đến nay: ' . money($m['mtd']) . ' (' . $m['so_ngay'] . '/' . $m['ngay_trong_thang'] . ' ngày). Theo tốc độ hiện tại, dự báo cả tháng khoảng ' . money($m['du_bao']) . ', lãi gộp ước tính ' . money($m['du_bao_lai']) . '.'];
+        if ($m['pct'] !== null) {
+            $lines[] = 'So với tháng trước (' . money($m['thang_truoc']) . '): ' . ($m['pct'] >= 0 ? '+' : '') . round($m['pct']) . '%.';
+        }
+        $lines[] = 'Đây là ước tính thô theo trung bình ngày, chưa tính cuối tuần/ngày lễ.';
+        return $res('du_bao_thang', $lines, [['Phân tích kinh doanh', 'phan_tich.php']]);
+    }
+    // Kiem tra du lieu
+    if (preg_match('/kiem tra du lieu|du lieu (loi|sai|thieu)|san pham trung|ban duoi gia von|gia ban thap hon|ton kho am/', $a)) {
+        $secs = kiemTraDuLieu($pdo, $tenantId);
+        $bad = array_filter($secs, static fn($s) => $s['total'] > 0);
+        if (!$bad) {
+            return $res('du_lieu', ['Dữ liệu sạch: không phát hiện vấn đề nào.'], [['Kiểm tra dữ liệu', 'kiem_tra_du_lieu.php']]);
+        }
+        $lines = ['Phát hiện vấn đề dữ liệu:'];
+        foreach ($bad as $s) {
+            $lines[] = '• ' . $s['title'] . ': ' . $s['total'];
+        }
+        return $res('du_lieu', $lines, [['Xem và sửa', 'kiem_tra_du_lieu.php']]);
     }
     // Suc khoe cua hang
     if (preg_match('/suc khoe|diem cua hang|cua hang the nao|tinh hinh chung|danh gia cua hang/', $a)) {
@@ -1025,7 +1063,7 @@ function banTinSang(PDO $pdo, int $tenantId, int $branchId): array
     if ((int) $k['n'] > 0) {
         $viec[] = ['Thu nợ khách: ' . (int) $k['n'] . ' khách đang nợ', 'Tổng ' . money($k['t']), 'customer_debt_reminders.php'];
     }
-    return ['hom_qua' => $homQua, 'tuan_truoc' => $tuanTruoc, 'viec' => array_slice($viec, 0, 4)];
+    return ['hom_qua' => $homQua, 'tuan_truoc' => $tuanTruoc, 'viec' => array_slice($viec, 0, 4), 'thang' => duBaoThang($pdo, $tenantId, $branchId)];
 }
 
 // ======================================================================================================
@@ -1275,4 +1313,164 @@ function moPhongGia(PDO $pdo, int $tenantId, int $productId, int $branchId = 0):
         }
     }
     return ['ten' => $p['name'], 'gia' => $gia, 'von' => $von, 'q30' => $q30, 'e' => $e, 'nguon' => $nguon, 'kich_ban' => $kb, 'tot_nhat' => $best, 'lai_hien_tai' => $base];
+}
+
+// ======================================================================================================
+// Dot 4: kiem tra du lieu, du bao doanh thu thang, nha cung cap gan nhat de dat hang nhap nhap
+// ======================================================================================================
+
+/** Chuan hoa so dien thoai ve dang chi con chu so, bo 0 dau / +84 de so sanh trung. */
+function chuanHoaSdt(?string $phone): string
+{
+    $d = preg_replace('/\D+/', '', (string) $phone);
+    if (str_starts_with($d, '84') && strlen($d) >= 11) {
+        $d = substr($d, 2);
+    }
+    return ltrim($d, '0');
+}
+
+/**
+ * Kiem tra chat luong du lieu cua cua hang (chi doc): gia ban thap hon gia von, thieu gia von/gia ban, ma/ten trung, ton kho am,
+ * khach trung/sai so dien thoai, hang dang ban nhung chua dat dinh muc ton. Tra [[key, tieu_de, huong_dan, [dong...], tong], ...].
+ * Moi dong: ['label' => text, 'link' => url].
+ */
+function kiemTraDuLieu(PDO $pdo, int $tenantId): array
+{
+    $sections = [];
+    $push = static function (string $key, string $title, string $hint, array $rows, int $total) use (&$sections): void {
+        $sections[] = ['key' => $key, 'title' => $title, 'hint' => $hint, 'rows' => $rows, 'total' => $total];
+    };
+    $pLink = static fn(int $id): string => 'product_form.php?id=' . $id;
+
+    $base = "p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'";
+
+    // 1. Gia ban < gia von
+    $stmt = $pdo->prepare("SELECT p.id, p.name, p.sell_price, p.cost_price FROM products p WHERE $base AND p.cost_price > 0 AND p.sell_price > 0 AND p.sell_price < p.cost_price ORDER BY (p.cost_price - p.sell_price) DESC");
+    $stmt->execute([$tenantId]);
+    $all = $stmt->fetchAll();
+    $rows = array_map(static fn($r) => ['label' => $r['name'] . ' — bán ' . money($r['sell_price']) . ' < vốn ' . money($r['cost_price']), 'link' => $pLink((int) $r['id'])], array_slice($all, 0, 20));
+    $push('duoi_von', 'Giá bán thấp hơn giá vốn', 'Bán mỗi cái là lỗ. Kiểm tra lại giá bán hoặc giá vốn nhập nhầm.', $rows, count($all));
+
+    // 2. Thieu gia von
+    $stmt = $pdo->prepare("SELECT p.id, p.name, p.sell_price FROM products p WHERE $base AND p.cost_price <= 0 AND p.sell_price > 0 ORDER BY p.name");
+    $stmt->execute([$tenantId]);
+    $all = $stmt->fetchAll();
+    $rows = array_map(static fn($r) => ['label' => $r['name'] . ' — giá bán ' . money($r['sell_price']), 'link' => $pLink((int) $r['id'])], array_slice($all, 0, 20));
+    $push('thieu_von', 'Chưa có giá vốn', 'Báo cáo lãi gộp sẽ cao ảo. Nhập giá vốn (hoặc nhập hàng qua phiếu nhập để tự cập nhật).', $rows, count($all));
+
+    // 3. Thieu gia ban
+    $stmt = $pdo->prepare("SELECT p.id, p.name FROM products p WHERE $base AND p.sell_price <= 0 ORDER BY p.name");
+    $stmt->execute([$tenantId]);
+    $all = $stmt->fetchAll();
+    $rows = array_map(static fn($r) => ['label' => $r['name'], 'link' => $pLink((int) $r['id'])], array_slice($all, 0, 20));
+    $push('thieu_gia', 'Chưa có giá bán', 'Hàng bán giá 0đ nếu quên nhập giá ở màn hình bán hàng.', $rows, count($all));
+
+    // 4. Trung ten / trung ma vach
+    $stmt = $pdo->prepare(
+        "SELECT p.id, p.name, p.barcode, p.sku FROM products p
+         WHERE $base AND (
+            EXISTS (SELECT 1 FROM products q WHERE q.tenant_id = p.tenant_id AND q.is_active = 1 AND q.id <> p.id AND LOWER(TRIM(q.name)) = LOWER(TRIM(p.name)))
+            OR (p.barcode IS NOT NULL AND p.barcode <> '' AND EXISTS (SELECT 1 FROM products q WHERE q.tenant_id = p.tenant_id AND q.is_active = 1 AND q.id <> p.id AND q.barcode = p.barcode)))
+         ORDER BY p.name LIMIT 100"
+    );
+    $stmt->execute([$tenantId]);
+    $all = $stmt->fetchAll();
+    $rows = array_map(static fn($r) => ['label' => $r['name'] . ' (SKU ' . $r['sku'] . ($r['barcode'] ? ', mã vạch ' . $r['barcode'] : '') . ')', 'link' => $pLink((int) $r['id'])], array_slice($all, 0, 20));
+    $push('trung_sp', 'Sản phẩm trùng tên hoặc mã vạch', 'Dễ bán nhầm / tồn kho tách đôi. Gộp lại hoặc ngừng bán bản trùng.', $rows, count($all));
+
+    // 5. Ton kho am
+    $stmt = $pdo->prepare(
+        "SELECT p.id, p.name, i.quantity, br.name AS cn FROM inventory i JOIN products p ON p.id = i.product_id JOIN branches br ON br.id = i.branch_id
+         WHERE br.tenant_id = ? AND i.quantity < 0 ORDER BY i.quantity ASC LIMIT 100"
+    );
+    $stmt->execute([$tenantId]);
+    $all = $stmt->fetchAll();
+    $rows = array_map(static fn($r) => ['label' => $r['name'] . ' — tồn ' . fmtQty($r['quantity']) . ' (' . $r['cn'] . ')', 'link' => 'inventory.php'], array_slice($all, 0, 20));
+    $push('ton_am', 'Tồn kho âm', 'Thường do bán trước khi nhập hàng. Nhập phiếu nhập còn thiếu hoặc kiểm kho để chỉnh lại.', $rows, count($all));
+
+    // 6. Khach trung / SDT bat thuong
+    $stmt = $pdo->prepare("SELECT id, name, phone FROM customers WHERE tenant_id = ? AND phone IS NOT NULL AND phone <> ''");
+    $stmt->execute([$tenantId]);
+    $byPhone = [];
+    $bad = [];
+    foreach ($stmt->fetchAll() as $c) {
+        $n = chuanHoaSdt($c['phone']);
+        if (strlen($n) < 9 || strlen($n) > 11) {
+            $bad[] = $c;
+        }
+        $byPhone[$n][] = $c;
+    }
+    $dups = [];
+    foreach ($byPhone as $n => $list) {
+        if ($n !== '' && count($list) > 1) {
+            foreach ($list as $c) {
+                $dups[] = $c;
+            }
+        }
+    }
+    $rows = array_map(static fn($c) => ['label' => $c['name'] . ' — ' . $c['phone'], 'link' => 'customer_view.php?id=' . (int) $c['id']], array_slice($dups, 0, 20));
+    $push('trung_khach', 'Khách trùng số điện thoại', 'Cùng một số điện thoại nhưng có nhiều hồ sơ (kể cả viết khác nhau như 0912... và +84912...). Điểm và công nợ bị chia nhỏ.', $rows, count($dups));
+    $rows = array_map(static fn($c) => ['label' => $c['name'] . ' — "' . $c['phone'] . '"', 'link' => 'customer_view.php?id=' . (int) $c['id']], array_slice($bad, 0, 20));
+    $push('sdt_sai', 'Số điện thoại khách bất thường', 'Số có ít hơn 9 hoặc nhiều hơn 11 chữ số — nhắn tin/nhắc nợ sẽ không tới.', $rows, count($bad));
+
+    // 7. Hang dang ban nhung chua dat dinh muc ton toi thieu (de goi y nhap hang hoat dong)
+    $stmt = $pdo->prepare(
+        "SELECT p.id, p.name, SUM(oi.quantity) AS sl FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id JOIN products p ON p.id = oi.product_id
+         WHERE b.tenant_id = ? AND p.product_type = 'PRODUCT' AND p.is_active = 1 AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           AND NOT EXISTS (SELECT 1 FROM inventory i WHERE i.product_id = p.id AND i.min_stock > 0)
+         GROUP BY p.id, p.name HAVING sl >= 5 ORDER BY sl DESC LIMIT 100"
+    );
+    $stmt->execute([$tenantId]);
+    $all = $stmt->fetchAll();
+    $rows = array_map(static fn($r) => ['label' => $r['name'] . ' — bán ' . fmtQty($r['sl']) . ' trong 30 ngày', 'link' => $pLink((int) $r['id'])], array_slice($all, 0, 20));
+    $push('thieu_dinh_muc', 'Hàng bán đều nhưng chưa đặt định mức tồn tối thiểu', 'Đặt định mức để hệ thống cảnh báo và gợi ý nhập hàng chính xác hơn.', $rows, count($all));
+
+    return $sections;
+}
+
+/** Du bao doanh thu thang nay theo toc do hien tai (cac ngay da tron ven) va so voi thang truoc. */
+function duBaoThang(PDO $pdo, int $tenantId, int $branchId): array
+{
+    $firstThis = strtotime('first day of this month midnight');
+    $today = strtotime('today');
+    $daysInMonth = (int) date('t');
+    $done = (int) round(($today - $firstThis) / 86400);          // so ngay da tron ven (khong tinh hom nay)
+    $mtd = doanhThuLai($pdo, $tenantId, $branchId, date('Y-m-d H:i:s', $firstThis), date('Y-m-d H:i:s'));
+    $thangTruoc = doanhThuLai($pdo, $tenantId, $branchId, date('Y-m-d 00:00:00', strtotime('first day of last month')), date('Y-m-d 23:59:59', strtotime('last day of last month')));
+    if ($done >= 1) {
+        $stmt = doanhThuLai($pdo, $tenantId, $branchId, date('Y-m-d H:i:s', $firstThis), date('Y-m-d 23:59:59', $today - 86400));
+        $duBao = $stmt['doanh_thu'] / $done * $daysInMonth;
+        $duBaoLai = $stmt['lai'] / $done * $daysInMonth;
+    } else {
+        $duBao = $mtd['doanh_thu'] * $daysInMonth;
+        $duBaoLai = $mtd['lai'] * $daysInMonth;
+    }
+    return [
+        'mtd' => $mtd['doanh_thu'], 'du_bao' => $duBao, 'du_bao_lai' => $duBaoLai, 'thang_truoc' => $thangTruoc['doanh_thu'],
+        'so_ngay' => $done, 'ngay_trong_thang' => $daysInMonth,
+        'pct' => $thangTruoc['doanh_thu'] > 0 ? ($duBao / $thangTruoc['doanh_thu'] - 1) * 100 : null,
+    ];
+}
+
+/** Nha cung cap gan nhat da nhap tung san pham: [product_id => supplier_id] (chi NCC thuoc tenant). */
+function nhaCungCapGanNhat(PDO $pdo, int $tenantId, array $productIds): array
+{
+    if (!$productIds) {
+        return [];
+    }
+    $in = implode(',', array_fill(0, count($productIds), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT i.product_id, r.supplier_id FROM stock_receipt_items i
+         JOIN stock_receipts r ON r.id = i.receipt_id JOIN suppliers s ON s.id = r.supplier_id
+         WHERE s.tenant_id = ? AND i.product_id IN ($in) ORDER BY r.created_at DESC, r.id DESC"
+    );
+    $stmt->execute(array_merge([$tenantId], array_map('intval', $productIds)));
+    $out = [];
+    foreach ($stmt->fetchAll() as $r) {
+        $pid = (int) $r['product_id'];
+        if (!isset($out[$pid])) {
+            $out[$pid] = (int) $r['supplier_id'];
+        }
+    }
+    return $out;
 }

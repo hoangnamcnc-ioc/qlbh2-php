@@ -260,7 +260,7 @@ searchInput.addEventListener('input', () => {
         searchResults.querySelectorAll('.s-item').forEach(el => {
           el.addEventListener('click', () => {
             const p = data[parseInt(el.dataset.i, 10)];
-            addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0, p.pack_unit, parseFloat(p.pack_size) || 1);
+            addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0, p.pack_unit, parseFloat(p.pack_size) || 1, parseFloat(p.sell_price) || 0);
             searchInput.value = '';
             searchResults.style.display = 'none';
           });
@@ -286,14 +286,14 @@ function scanCode(q) {
     .then(data => {
       if (data.length === 1) {
         const p = data[0];
-        addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0, p.pack_unit, parseFloat(p.pack_size) || 1);
+        addLine(p.id, p.variant_id, p.name, parseFloat(p.cost_price) || 0, p.pack_unit, parseFloat(p.pack_size) || 1, parseFloat(p.sell_price) || 0);
         searchInput.value = '';
         searchResults.style.display = 'none';
         return;
       }
       const exact = data.find(p => p.sku === q || p.barcode === q);
       if (exact) {
-        addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.cost_price) || 0, exact.pack_unit, parseFloat(exact.pack_size) || 1);
+        addLine(exact.id, exact.variant_id, exact.name, parseFloat(exact.cost_price) || 0, exact.pack_unit, parseFloat(exact.pack_size) || 1, parseFloat(exact.sell_price) || 0);
         searchInput.value = '';
         searchResults.style.display = 'none';
       }
@@ -305,7 +305,7 @@ function scanCode(q) {
 // nao o phia xu ly/luu kho. l.qtyInput/costInput la so nguoi dung GO (theo don vi dang chon o
 // l.mode: 'le' hoac 'lon'); l.qty/l.cost la gia tri THAT SU se gui len server (luon quy ve don
 // vi le) - tinh lai moi lan render().
-function addLine(id, variantId, name, cost, packUnit, packSize) {
+function addLine(id, variantId, name, cost, packUnit, packSize, sellPrice) {
   const key = id + ':' + (variantId ?? '');
   const existing = lines.find(l => l.key === key);
   if (existing) {
@@ -314,7 +314,7 @@ function addLine(id, variantId, name, cost, packUnit, packSize) {
     lines.push({
       key, id, variantId, name,
       packUnit: packUnit || null, packSize: packSize > 1 ? packSize : 1,
-      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '',
+      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '', baseCost: cost, sell: sellPrice || 0,
     });
   }
   recalc();
@@ -332,6 +332,25 @@ function recalc() {
       l.cost = l.costInput;
     }
   });
+}
+
+// Canh bao thong minh khi gia nhap lech nhieu so voi lan truoc (>=5%) va goi y gia ban de giu nguyen ti le lai.
+function costHint(l) {
+  const base = l.baseCost || 0;
+  if (base <= 0 || l.cost <= 0) return '';
+  const diff = (l.cost - base) / base * 100;
+  if (Math.abs(diff) < 5) return '';
+  const pct = (diff > 0 ? '+' : '') + Math.round(diff) + '%';
+  if (diff > 0) {
+    let s = '⚠ Giá nhập tăng ' + pct + ' so với lần trước (' + fmt(base) + ' → ' + fmt(l.cost) + ').';
+    if (l.sell > base) {
+      const margin = (l.sell - base) / l.sell;
+      const goiY = Math.ceil(l.cost / (1 - margin) / 500) * 500;
+      s += ' Giá bán hiện ' + fmt(l.sell) + ' thì biên lãi giảm từ ' + Math.round(margin * 100) + '% xuống ' + Math.max(0, Math.round((l.sell - l.cost) / l.sell * 100)) + '%; muốn giữ biên nên bán khoảng ' + fmt(goiY) + '.';
+    }
+    return '<div style="font-size:11px;color:#b45309;margin-top:3px;">' + esc(s) + '</div>';
+  }
+  return '<div style="font-size:11px;color:#059669;margin-top:3px;">' + esc('✓ Giá nhập giảm ' + pct + ' so với lần trước (' + fmt(base) + ' → ' + fmt(l.cost) + ') — có thể tăng biên lãi hoặc giảm giá bán để bán nhanh hơn.') + '</div>';
 }
 
 function render() {
@@ -362,6 +381,7 @@ function render() {
         <td class="text-right">
           <input type="number" min="0" value="${l.costInput}" data-i="${i}" data-f="costInput" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
           ${l.mode === 'lon' ? `<div class="muted" style="font-size:11px;">= ${fmt(l.cost)}/lẻ</div>` : ''}
+          ${costHint(l)}
         </td>
         <td class="text-right">${fmt(l.qty * l.cost)}</td>
         <td class="text-right"><a href="#" data-i="${i}" class="remove" style="color:#ef4444;font-size:12px;">Xóa</a></td>
@@ -453,7 +473,7 @@ document.getElementById('qa-save').addEventListener('click', () => {
     .then(({ ok, d }) => {
       btn.disabled = false;
       if (!ok) { errBox.textContent = d.error || 'Không tạo được hàng mới.'; errBox.style.display = 'block'; return; }
-      addLine(d.id, d.variant_id, d.name, parseFloat(d.cost_price) || 0, d.pack_unit, parseFloat(d.pack_size) || 1);
+      addLine(d.id, d.variant_id, d.name, parseFloat(d.cost_price) || 0, d.pack_unit, parseFloat(d.pack_size) || 1, parseFloat(d.sell_price) || 0);
       searchInput.value = '';
       closeQuickAdd();
     })

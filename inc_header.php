@@ -44,6 +44,7 @@ $navGroups = [
             'batches.php' => 'Lô hàng & hạn dùng',
             'xuat_huy.php' => 'Xuất hủy hàng',
             'ton_cham.php' => 'Hàng tồn lâu / bán chậm',
+            'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu',
             'stock_transfers.php' => 'Chuyển hàng',
             'purchase_orders.php' => 'Đặt hàng nhập',
             'stock_receipts.php' => 'Nhập hàng',

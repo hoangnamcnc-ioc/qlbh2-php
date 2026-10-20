@@ -37,6 +37,60 @@ if ($branchId) {
     }, duBaoNhapHang($pdo, $tenantId, $branchId, $mucTieuNgay));
 }
 
+// Nha cung cap gan nhat da nhap tung mat hang (de gom don dat hang theo NCC)
+$nccMap = $suggestions ? nhaCungCapGanNhat($pdo, $tenantId, array_column($suggestions, 'id')) : [];
+$nccTen = [];
+if ($nccMap) {
+    $st = $pdo->prepare('SELECT id, name FROM suppliers WHERE tenant_id = ?');
+    $st->execute([$tenantId]);
+    foreach ($st->fetchAll() as $r) {
+        $nccTen[(int) $r['id']] = $r['name'];
+    }
+}
+$poMsg = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_po') {
+    checkCsrf();
+    if (!hasRole('ADMIN', 'MANAGER')) {
+        $poMsg = ['error', 'Bạn không có quyền tạo đơn đặt hàng nhập.'];
+    } elseif (!$branchId) {
+        $poMsg = ['error', 'Vui lòng chọn chi nhánh.'];
+    } else {
+        $groups = [];
+        foreach ($suggestions as $sg) {
+            if ($sg['goi_y'] > 0) {
+                $groups[$nccMap[(int) $sg['id']] ?? 0][] = $sg;
+            }
+        }
+        if (!$groups) {
+            $poMsg = ['error', 'Không có mặt hàng nào cần nhập.'];
+        } else {
+            $created = [];
+            $pdo->beginTransaction();
+            try {
+                foreach ($groups as $sid => $items) {
+                    $code = genCode('DHN');
+                    $pdo->prepare('INSERT INTO purchase_orders (code, supplier_id, branch_id, created_by_id, note) VALUES (?,?,?,?,?)')
+                        ->execute([$code, $sid ?: null, $branchId, $currentUser['id'], 'Tạo tự động từ Gợi ý nhập hàng (đủ bán ' . $mucTieuNgay . ' ngày) — kiểm tra số lượng trước khi gửi nhà cung cấp']);
+                    $poId = (int) $pdo->lastInsertId();
+                    $ins = $pdo->prepare('INSERT INTO purchase_order_items (po_id, product_id, variant_id, quantity, cost_price) VALUES (?,?,NULL,?,?)');
+                    $cs = $pdo->prepare('SELECT cost_price FROM products WHERE id = ? AND tenant_id = ?');
+                    foreach ($items as $it) {
+                        $cs->execute([(int) $it['id'], $tenantId]);
+                        $ins->execute([$poId, (int) $it['id'], $it['goi_y'], (float) $cs->fetchColumn()]);
+                    }
+                    $created[] = $poId;
+                }
+                $pdo->commit();
+                logActivity('REORDER_CREATE_PO', 'so_don=' . count($created));
+                $poMsg = ['ok', 'Đã tạo ' . count($created) . ' đơn đặt hàng nhập nháp (gom theo nhà cung cấp gần nhất). Mở từng đơn để kiểm tra rồi gửi nhà cung cấp.'];
+            } catch (Throwable $ex) {
+                $pdo->rollBack();
+                $poMsg = ['error', 'Không tạo được đơn đặt hàng, vui lòng thử lại.'];
+            }
+        }
+    }
+}
+
 if (isset($_GET['export']) && $suggestions) {
     $rows = [['sku', 'ten_san_pham', 'don_vi', 'ton_hien_co', 'dinh_muc_toi_thieu', 'ban_30_ngay_qua', 'so_luong_de_nghi_nhap']];
     foreach ($suggestions as $s) {
@@ -79,26 +133,38 @@ if (isset($_GET['export']) && $suggestions) {
     <a href="?branch_id=<?= $branchId ?>&target_days=<?= $mucTieuNgay ?>&export=1" class="btn btn-secondary">Xuất file</a>
   <?php endif; ?>
 </form>
+<?php if ($poMsg): ?><div class="alert alert-<?= $poMsg[0] === 'ok' ? 'success' : 'error' ?>"><?= e($poMsg[1]) ?><?= $poMsg[0] === 'ok' ? ' <a href="purchase_orders.php">Xem đơn đặt hàng nhập →</a>' : '' ?></div><?php endif; ?>
+<?php if ($suggestions && hasRole('ADMIN', 'MANAGER') && array_filter($suggestions, static fn($x) => $x['goi_y'] > 0)): ?>
+  <form method="post" action="?branch_id=<?= (int) $branchId ?>&target_days=<?= (int) $mucTieuNgay ?>" style="margin-bottom:12px;" onsubmit="return confirm('Tạo đơn đặt hàng nhập nháp cho tất cả mặt hàng cần nhập, gom theo nhà cung cấp gần nhất?');">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="action" value="create_po">
+    <input type="hidden" name="branch_id" value="<?= (int) $branchId ?>">
+    <input type="hidden" name="target_days" value="<?= (int) $mucTieuNgay ?>">
+    <button type="submit" class="btn">📝 Tạo đơn đặt hàng nhập nháp theo nhà cung cấp</button>
+    <span class="muted" style="font-size:12px;">Mỗi nhà cung cấp một đơn, giá nhập = giá vốn hiện tại; bạn kiểm tra lại trước khi gửi.</span>
+  </form>
+<?php endif; ?>
 
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
       <tr>
-        <th>SKU</th><th>Sản phẩm</th><th class="text-right">Tồn hiện có</th>
+        <th>SKU</th><th>Sản phẩm</th><th>NCC gần nhất</th><th class="text-right">Tồn hiện có</th>
         <th class="text-right">Bán 30 ngày</th><th>Xu hướng</th><th>Còn đủ bán</th>
         <th class="text-right">Đề nghị nhập</th>
       </tr>
     </thead>
     <tbody>
       <?php if (!$branchId): ?>
-        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Vui lòng chọn chi nhánh.</td></tr>
+        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Vui lòng chọn chi nhánh.</td></tr>
       <?php elseif (!$suggestions): ?>
-        <tr><td colspan="7" class="text-center muted" style="padding:32px;">Chưa có mặt hàng nào cần nhập thêm — tồn kho đang đủ dùng.</td></tr>
+        <tr><td colspan="8" class="text-center muted" style="padding:32px;">Chưa có mặt hàng nào cần nhập thêm — tồn kho đang đủ dùng.</td></tr>
       <?php endif; ?>
       <?php foreach ($suggestions as $s): ?>
         <tr>
           <td class="muted" style="font-family:monospace;font-size:12px;"><?= e($s['sku']) ?></td>
           <td><a href="product_form.php?id=<?= (int) $s['id'] ?>"><?= e($s['name']) ?></a></td>
+          <td class="muted" style="font-size:12px;"><?= isset($nccMap[(int) $s['id']]) ? e($nccTen[$nccMap[(int) $s['id']]] ?? '—') : '—' ?></td>
           <td class="text-right"><?= fmtQty($s['ton']) ?> <?= e($s['unit']) ?></td>
           <td class="text-right muted"><?= fmtQty($s['ban_30_ngay']) ?></td>
           <td>

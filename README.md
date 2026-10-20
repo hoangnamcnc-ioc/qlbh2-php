@@ -2449,3 +2449,12 @@ Toàn bộ chạy trên dữ liệu của chính cửa hàng, không gửi dữ 
   thống kê số lượng mỗi dòng để cảnh báo gõ nhầm; `pos.php` hỏi lại khi số lượng vượt mức bình thường hoặc giá lệch quá ½/gấp đôi giá thường.
 - **Bất thường nâng cao** (`phatHienBatThuong()`): huỷ đơn / giảm ≥25% vào giờ rất ít khách (<3% đơn trong 60 ngày), một người huỷ ≥70% số đơn huỷ,
   một người đóng ca thiếu tiền từ 3 lần, hàng thiếu qua ≥2 lần kiểm kho.
+
+### Thêm tính năng thông minh (20/10/2026)
+- **Kiểm tra dữ liệu** (`kiem_tra_du_lieu.php`, `kiemTraDuLieu()`): giá bán < giá vốn, thiếu giá vốn/giá bán, sản phẩm trùng tên/mã vạch, tồn kho âm,
+  khách trùng số điện thoại (chuẩn hoá 0912…/+84912…) hoặc số bất thường, hàng bán đều nhưng chưa đặt định mức tồn. Chỉ đọc, mỗi dòng có liên kết đến chỗ cần sửa.
+- **Đơn đặt hàng nhập nháp từ Gợi ý nhập hàng** (`reorder_suggestions.php`): cột *NCC gần nhất* và nút tạo đơn, mỗi nhà cung cấp một đơn (NCC gần nhất đã nhập từng mặt hàng,
+  `nhaCungCapGanNhat()`), giá nhập = giá vốn hiện tại; chỉ Quản lý/Quản trị (hoặc vai trò có nhóm sản phẩm).
+- **Phiếu nhập hàng**: cảnh báo khi giá nhập lệch ≥5% so với lần trước kèm gợi ý giá bán để giữ biên lãi (`costHint()`); `stock_receipt_search.php` trả thêm `sell_price`.
+- **Cảnh báo "bán dưới giá vốn"** (≥3 dòng hoặc thiệt ≥50.000đ/30 ngày, theo người bán) và **dự báo doanh thu tháng** (`duBaoThang()`, ở Bản tin hôm nay và trợ lý).
+- Trợ lý hiểu thêm: dự báo cuối tháng, kiểm tra dữ liệu. Kiểm thử: mục *6zzzzzzz* (227 kịch bản).

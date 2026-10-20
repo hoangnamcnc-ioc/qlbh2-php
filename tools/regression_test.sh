@@ -578,6 +578,32 @@ CB2=$(curl -s -b $CJ $A/canh_bao.php)
 eq "canh bao: hang hao hut lap lai qua 2 lan kiem kho" "1" "$([ "$(echo "$CB2" | grep -c 'Hàng hao hụt lặp lại')" -ge 1 ] && echo 1 || echo 0)"
 eq "canh bao: trang van mo duoc sau khi them quy tac nang cao (khong loi SQL)" "1" "$([ "$(echo "$CB2" | grep -c 'Cảnh báo bất thường')" -ge 1 ] && [ "$(echo "$CB2" | grep -ciE 'fatal error|warning:')" -eq 0 ] && echo 1 || echo 0)"
 
+echo "== 6zzzzzzz. Kiem tra du lieu, dat hang nhap nhap tu goi y, ban duoi gia von, du bao thang"
+T=$(tk $A/product_form.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null --form-string csrf="$T" --form-string name="SP Duoi Gia" --form-string sku=REGLOW --form-string unit=cai --form-string product_type=NORMAL --form-string cost_price=50000 --form-string sell_price=40000 --form-string initial_qty=3 --form-string min_stock=10 $A/product_form.php
+PID2=$(curl -s -b $CJ "$A/pos_search.php?q=REGLOW" | python -c "import sys,json;print(json.load(sys.stdin)[0]['id'])" 2>/dev/null)
+[ -n "$PID2" ] && ok "tao san pham gia ban < gia von de kiem tra" || fail "tao san pham test" "co id" "khong"
+KD=$(curl -s -b $CJ $A/kiem_tra_du_lieu.php)
+eq "kiem tra du lieu: phat hien gia ban thap hon gia von" "1" "$([ "$(echo "$KD" | grep -c 'Giá bán thấp hơn giá vốn')" -ge 1 ] && [ "$(echo "$KD" | grep -c 'SP Duoi Gia')" -ge 1 ] && echo 1 || echo 0)"
+eq "kiem tra du lieu: thu ngan khong vao duoc (403)" "403" "$(curl -s -b $W/cj_cash -o /dev/null -w '%{http_code}' $A/kiem_tra_du_lieu.php)"
+SALE=$(checkout "{$BASE,\"items\":[{\"product_id\":$PID2,\"variant_id\":null,\"quantity\":3,\"unit_price\":30000}],\"paid_amount\":90000}")
+[ -n "$(echo "$SALE" | jv "['order_id']")" ] && ok "ban 3 cai SP Duoi Gia gia 30000 (thap hon von 50000)" || fail "ban duoi gia von" "co don" "$SALE"
+CB3=$(curl -s -b $CJ $A/canh_bao.php)
+eq "canh bao: ban duoi gia von" "1" "$([ "$(echo "$CB3" | grep -c 'Bán dưới giá vốn')" -ge 1 ] && echo 1 || echo 0)"
+RS2=$(curl -s -b $CJ "$A/reorder_suggestions.php?branch_id=$BRR&target_days=14")
+eq "goi y nhap hang co cot NCC gan nhat va nut tao don nhap" "1" "$([ "$(echo "$RS2" | grep -c 'NCC gần nhất')" -ge 1 ] && [ "$(echo "$RS2" | grep -c 'Tạo đơn đặt hàng nhập nháp')" -ge 1 ] && echo 1 || echo 0)"
+RT=$(echo "$RS2" | grep -o 'name="csrf" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//')
+PO=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$RT" -d "action=create_po&branch_id=$BRR&target_days=14" "$A/reorder_suggestions.php?branch_id=$BRR&target_days=14")
+eq "tao don dat hang nhap nhap tu goi y thanh cong" "1" "$([ "$(echo "$PO" | grep -c 'Đã tạo')" -ge 1 ] && echo 1 || echo 0)"
+eq "don dat hang nhap nhap xuat hien trong danh sach (ghi chu tu dong)" "1" "$([ "$(curl -s -b $CJ $A/purchase_orders.php | grep -c 'DHN')" -ge 1 ] && echo 1 || echo 0)"
+CRT=$(curl -s -b $W/cj_cash -c $W/cj_cash $A/pos.php | grep -o 'csrfToken = "[^"]*"' | head -1 | sed 's/.*= "//;s/"//')
+NOPO=$(curl -s -b $W/cj_cash -c $W/cj_cash --data-urlencode csrf="$CRT" -d "action=create_po&branch_id=$BRR" "$A/reorder_suggestions.php?branch_id=$BRR" | grep -c 'không có quyền')
+eq "thu ngan khong tao duoc don dat hang nhap" "1" "$([ "$NOPO" -ge 1 ] && echo 1 || echo 0)"
+eq "phieu nhap co canh bao gia nhap tang + goi y gia ban" "1" "$([ "$(curl -s -b $CJ $A/stock_receipt_form.php | grep -c 'function costHint')" -ge 1 ] && echo 1 || echo 0)"
+eq "trang chu co du bao doanh thu thang" "1" "$([ "$(curl -s -b $CJ $A/index.php | grep -c 'dự báo cả tháng')" -ge 1 ] && echo 1 || echo 0)"
+eq "tro ly: 'Cuoi thang du kien bao nhieu' -> du bao thang" "du_bao_thang" "$(ask 'Doanh thu cuối tháng dự kiến bao nhiêu?' | jv "['intent']")"
+eq "tro ly: 'Kiem tra du lieu' -> du lieu" "du_lieu" "$(ask 'Kiểm tra dữ liệu giúp tôi' | jv "['intent']")"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

@@ -382,6 +382,8 @@ if (hasRole('ADMIN', 'MANAGER')) {
 <div class="card" style="margin-bottom:16px;border-left:4px solid #2563eb;">
   <h2 style="font-size:14px;font-weight:600;margin:0 0 8px;">☀️ Bản tin hôm nay</h2>
   <div style="font-size:14px;margin-bottom:8px;">Hôm qua: doanh thu <b><?= money($bq['doanh_thu']) ?></b> (<?= (int) $bq['so_don'] ?> đơn), lãi gộp ước tính <b><?= money($bq['lai']) ?></b><?= $chenh !== null ? ' — <span style="color:' . ($chenh >= 0 ? '#059669' : '#dc2626') . ';">' . ($chenh >= 0 ? '+' : '') . $chenh . '% so với cùng thứ tuần trước</span>' : '' ?>.</div>
+  <?php $th = $banTin['thang']; ?>
+  <div style="font-size:13px;margin-bottom:8px;">Tháng này: <b><?= money($th['mtd']) ?></b> sau <?= (int) $th['so_ngay'] ?> ngày — dự báo cả tháng khoảng <b><?= money($th['du_bao']) ?></b><?= $th['pct'] !== null ? ' (<span style="color:' . ($th['pct'] >= 0 ? '#059669' : '#dc2626') . ';">' . ($th['pct'] >= 0 ? '+' : '') . round($th['pct']) . '% so với tháng trước</span>)' : '' ?>.</div>
   <?php if ($banTin['viec']): ?>
     <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Việc nên làm hôm nay:</div>
     <?php foreach ($banTin['viec'] as $v): ?>

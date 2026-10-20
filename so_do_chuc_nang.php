@@ -61,6 +61,7 @@ $stages = [
         ['📆', 'Lô hàng & hạn dùng', 'Cảnh báo hàng sắp hết hạn, nhập lô', 'batches.php'],
         ['🗑️', 'Xuất hủy hàng', 'Hết hạn, hư hỏng, mất — có lý do', 'xuat_huy.php'],
         ['🐌', 'Hàng tồn lâu / bán chậm', 'Vốn đang chôn vào hàng ế', 'ton_cham.php'],
+        ['🧹', 'Kiểm tra dữ liệu', 'Giá bán < giá vốn, trùng mã, tồn âm, khách trùng SĐT', 'kiem_tra_du_lieu.php'],
         ['🔁', 'Chuyển hàng', 'Giữa các chi nhánh', 'stock_transfers.php'],
         ['💡', 'Gợi ý nhập hàng', 'Hàng sắp hết, nên nhập', 'reorder_suggestions.php'],
         ['🧾', 'Điều chỉnh giá vốn', 'Sửa giá vốn có lịch sử', 'price_adjustments.php'],
