@@ -20,6 +20,8 @@ const CUSTOMER_IMPORT_SPEC = [
         'labels' => ['Mã khách hàng', 'Mã khách', 'Mã KH', 'Mã', 'code']],
     'address' => ['display' => 'Địa chỉ', 'required' => false,
         'labels' => ['Địa chỉ', 'address']],
+    'group' => ['display' => 'Nhóm khách hàng', 'required' => false,
+        'labels' => ['Nhóm khách hàng', 'Nhóm khách', 'Nhóm', 'group']],
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -42,6 +44,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $phone = trim((string) ($row['phone'] ?? '')) ?: null;
                 $address = trim((string) ($row['address'] ?? '')) ?: null;
                 $code = trim((string) ($row['code'] ?? ''));
+                $groupName = trim((string) ($row['group'] ?? ''));
+                $groupId = null;
+                if ($groupName !== '') {
+                    $gs = $pdo->prepare('SELECT id FROM customer_groups WHERE tenant_id = ? AND LOWER(name) = LOWER(?) LIMIT 1');
+                    $gs->execute([$tenantId, $groupName]);
+                    $groupId = (int) $gs->fetchColumn();
+                    if (!$groupId) {
+                        $pdo->prepare('INSERT INTO customer_groups (name, tenant_id) VALUES (?,?)')->execute([mb_substr($groupName, 0, 255), $tenantId]);
+                        $groupId = (int) $pdo->lastInsertId();
+                    }
+                }
 
                 $existing = null;
                 if ($phone) {
@@ -51,13 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($existing) {
-                    $pdo->prepare('UPDATE customers SET name=?, address=? WHERE id=?')
-                        ->execute([$name, $address, $existing['id']]);
+                    $pdo->prepare('UPDATE customers SET name=?, address=?, group_id = COALESCE(?, group_id) WHERE id=? AND tenant_id = ?')
+                        ->execute([$name, $address, $groupId, $existing['id'], $tenantId]);
                     $updated++;
                 } else {
                     $newCode = $code ?: genCode('KH');
-                    $pdo->prepare('INSERT INTO customers (code, name, phone, address, tenant_id) VALUES (?,?,?,?,?)')
-                        ->execute([$newCode, $name, $phone, $address, $tenantId]);
+                    $pdo->prepare('INSERT INTO customers (code, name, phone, address, tenant_id, group_id) VALUES (?,?,?,?,?,?)')
+                        ->execute([$newCode, $name, $phone, $address, $tenantId, $groupId]);
                     $created++;
                 }
             }

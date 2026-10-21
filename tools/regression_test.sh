@@ -627,6 +627,43 @@ eq "phieu nhap co goi y NCC re hon" "1" "$([ "$(curl -s -b $CJ $A/stock_receipt_
 eq "tro ly: 'Hom nay ban the nao' -> nhip ban" "nhip_ban" "$(ask 'Hôm nay bán thế nào so với mọi khi?' | jv "['intent']")"
 eq "canh bao van mo duoc sau quy tac hang bi tra nhieu" "1" "$([ "$(curl -s -b $CJ $A/canh_bao.php | grep -c 'Cảnh báo bất thường')" -ge 1 ] && echo 1 || echo 0)"
 
+echo "== 6zzzzzzzzzz. Chuyen du lieu tu KiotViet/Sapo: nhap san pham (nhom 3 cap, thuong hieu, ton kho, so kieu VN) va khach (nhom)"
+python - "$W/kv.xlsx" "$W/kh.xlsx" <<'PYX'
+import sys
+from openpyxl import Workbook
+wb = Workbook(); ws = wb.active
+ws.append(['Loại hàng','Nhóm hàng(3 Cấp)','Mã hàng','Mã vạch','Tên hàng','Thương hiệu','Giá bán','Giá vốn','Tồn kho','Tồn nhỏ nhất','ĐVT','Đang kinh doanh'])
+ws.append(['Hàng hóa','Đồ uống>>Nước ngọt','KV001','8930000000011','Coca Cola lon','Coca','10.000','7.500',24,6,'lon',1])
+ws.append(['Hàng hóa','Đồ uống>>Nước ngọt','KV002','','Pepsi lon','Pepsi','1.200.000','900.000',5,0,'lon',1])
+ws.append(['Hàng hóa','Bánh kẹo','KV003','','Bánh cũ ngừng bán','','5000','3000',3,0,'gói',0])
+wb.save(sys.argv[1])
+wb = Workbook(); ws = wb.active
+ws.append(['Tên khách hàng','Điện thoại','Nhóm khách hàng'])
+ws.append(['Chị Lan Import','0933111222','Khách sỉ KV'])
+wb.save(sys.argv[2])
+PYX
+PIT=$(tk $A/products_import.php $CJ)
+curl -s -b $CJ -c $CJ -o /dev/null -F csrf="$PIT" -F "file=@$W/kv.xlsx" $A/products_import.php
+PIC=$(curl -s -b $CJ -c $CJ -F csrf="$PIT" -F "file=@$W/kv.xlsx" $A/products_import.php | grep -o 'name="csrf" value="[^"]*"' | tail -1 | sed 's/.*value="//;s/"//')
+IMP=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$PIC" -d "action=confirm" $A/products_import.php)
+eq "nhap san pham kieu KiotViet: them 3, ghi ton kho dau ky cho 3" "1" "$([ "$(echo "$IMP" | grep -c 'Đã thêm mới 3')" -ge 1 ] && [ "$(echo "$IMP" | grep -c 'tồn kho đầu kỳ cho 3')" -ge 1 ] && echo 1 || echo 0)"
+eq "so kieu VN 10.000 -> 10000" "10000" "$(curl -s -b $CJ "$A/pos_search.php?q=KV001" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['sell_price'])))" 2>/dev/null)"
+eq "so kieu VN 1.200.000 -> 1200000" "1200000" "$(curl -s -b $CJ "$A/pos_search.php?q=KV002" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['sell_price'])))" 2>/dev/null)"
+eq "ton kho dau ky Coca = 24" "24" "$(curl -s -b $CJ "$A/pos_search.php?q=KV001" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['qty'])))" 2>/dev/null)"
+eq "hang 'Dang kinh doanh = 0' khong hien o man hinh ban" "[]" "$(curl -s -b $CJ "$A/pos_search.php?q=KV003")"
+CATS=$(curl -s -b $CJ $A/categories.php)
+eq "nhom hang 3 cap tu dong tao: Do uong va Nuoc ngot" "1" "$([ "$(echo "$CATS" | grep -c 'Đồ uống')" -ge 1 ] && [ "$(echo "$CATS" | grep -c 'Nước ngọt')" -ge 1 ] && echo 1 || echo 0)"
+eq "thuong hieu tu dong tao: Coca" "1" "$([ "$(curl -s -b $CJ $A/brands.php | grep -c 'Coca')" -ge 1 ] && echo 1 || echo 0)"
+IMP2=$(curl -s -b $CJ -c $CJ -F csrf="$PIT" -F "file=@$W/kv.xlsx" $A/products_import.php | grep -o 'name="csrf" value="[^"]*"' | tail -1 | sed 's/.*value="//;s/"//')
+IMP2R=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$IMP2" -d "action=confirm" $A/products_import.php)
+eq "nhap lai cung file: cap nhat 3, khong them trung, khong de len ton kho" "1" "$([ "$(echo "$IMP2R" | grep -c 'Đã thêm mới 0, cập nhật 3')" -ge 1 ] && echo 1 || echo 0)"
+eq "ton kho Coca van 24 sau khi nhap lai" "24" "$(curl -s -b $CJ "$A/pos_search.php?q=KV001" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['qty'])))" 2>/dev/null)"
+CIT=$(tk $A/customers_import.php $CJ)
+CIC=$(curl -s -b $CJ -c $CJ -F csrf="$CIT" -F "file=@$W/kh.xlsx" $A/customers_import.php | grep -o 'name="csrf" value="[^"]*"' | tail -1 | sed 's/.*value="//;s/"//')
+CIMP=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$CIC" -d "action=confirm" $A/customers_import.php)
+eq "nhap khach kieu KiotViet: them 1 khach kem nhom" "1" "$([ "$(echo "$CIMP" | grep -c 'Đã thêm mới 1')" -ge 1 ] && echo 1 || echo 0)"
+eq "nhom khach 'Khach si KV' tu dong tao" "1" "$([ "$(curl -s -b $CJ $A/groups.php | grep -c 'Khách sỉ KV')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

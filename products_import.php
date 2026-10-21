@@ -2,7 +2,7 @@
 require_once __DIR__ . '/inc_auth.php';
 require_once __DIR__ . '/inc_functions.php';
 require_once __DIR__ . '/inc_xlsx.php';
-requireRole('ADMIN', 'MANAGER');
+$currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $tenantId = currentTenantId();
@@ -28,7 +28,77 @@ const PRODUCT_IMPORT_SPEC = [
         'labels' => ['Giá vốn', 'Giá nhập', 'cost_price']],
     'sell_price' => ['display' => 'Giá bán', 'required' => false,
         'labels' => ['Giá bán', 'Đơn giá', 'Giá', 'sell_price']],
+    // Cot them de chuyen du lieu tu KiotViet / Sapo / file Excel khac
+    'category' => ['display' => 'Nhóm hàng', 'required' => false,
+        'labels' => ['Nhóm hàng(3 Cấp)', 'Nhóm hàng', 'Danh mục', 'Loại sản phẩm', 'Nhóm sản phẩm', 'category']],
+    'brand' => ['display' => 'Thương hiệu', 'required' => false,
+        'labels' => ['Thương hiệu', 'Nhãn hiệu', 'brand']],
+    'stock' => ['display' => 'Tồn kho', 'required' => false,
+        'labels' => ['Tồn kho', 'Tồn', 'Số lượng tồn', 'Số lượng', 'stock', 'quantity']],
+    'min_stock' => ['display' => 'Tồn tối thiểu', 'required' => false,
+        'labels' => ['Tồn nhỏ nhất', 'Tồn tối thiểu', 'Định mức tồn', 'min_stock']],
+    'active' => ['display' => 'Đang kinh doanh', 'required' => false,
+        'labels' => ['Đang kinh doanh', 'Trạng thái', 'Hoạt động', 'active']],
 ];
+
+/** Doc so tu file Excel cua cac phan mem khac: chap nhan 1.200.000 / 1,200,000 / 1200000 / 12,5 / 12.5. */
+function parseSoNhap(string $v): float
+{
+    $v = trim(str_replace([' ', "\xC2\xA0"], '', $v));
+    if ($v === '') {
+        return 0.0;
+    }
+    if (preg_match('/^-?\d{1,3}(\.\d{3})+(,\d+)?$/', $v)) {
+        $v = str_replace(',', '.', str_replace('.', '', $v));
+    } elseif (preg_match('/^-?\d{1,3}(,\d{3})+(\.\d+)?$/', $v)) {
+        $v = str_replace(',', '', $v);
+    } elseif (substr_count($v, ',') === 1 && strpos($v, '.') === false) {
+        $v = str_replace(',', '.', $v);
+    }
+    return is_numeric($v) ? (float) $v : 0.0;
+}
+
+/** Tim hoac tao nhom hang / thuong hieu theo ten (khong phan biet hoa thuong), co bo nho dem trong 1 lan nhap. */
+function timHoacTaoDanhMuc(PDO $pdo, string $table, int $tenantId, string $name, ?int $parentId = null): int
+{
+    static $cache = [];
+    $key = $table . '|' . $tenantId . '|' . mb_strtolower($name) . '|' . ($parentId ?? 0);
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+    if ($table === 'categories') {
+        $st = $pdo->prepare('SELECT id FROM categories WHERE tenant_id = ? AND LOWER(name) = LOWER(?) AND ' . ($parentId ? 'parent_id = ?' : 'parent_id IS NULL') . ' LIMIT 1');
+        $st->execute($parentId ? [$tenantId, $name, $parentId] : [$tenantId, $name]);
+        $id = (int) $st->fetchColumn();
+        if (!$id) {
+            $pdo->prepare('INSERT INTO categories (name, parent_id, tenant_id) VALUES (?,?,?)')->execute([$name, $parentId, $tenantId]);
+            $id = (int) $pdo->lastInsertId();
+        }
+    } else {
+        $st = $pdo->prepare('SELECT id FROM brands WHERE tenant_id = ? AND LOWER(name) = LOWER(?) LIMIT 1');
+        $st->execute([$tenantId, $name]);
+        $id = (int) $st->fetchColumn();
+        if (!$id) {
+            $pdo->prepare('INSERT INTO brands (name, tenant_id) VALUES (?,?)')->execute([$name, $tenantId]);
+            $id = (int) $pdo->lastInsertId();
+        }
+    }
+    return $cache[$key] = $id;
+}
+
+/** "Do uong>>Nuoc ngot" (KiotViet 3 cap) -> id nhom con cuoi cung, tu tao nhom cha neu chua co. */
+function nhomHangTuChuoi(PDO $pdo, int $tenantId, string $path): ?int
+{
+    $parent = null;
+    foreach (preg_split('/\s*(?:>>|>|\/)\s*/u', $path, -1, PREG_SPLIT_NO_EMPTY) as $part) {
+        $part = trim($part);
+        if ($part === '') {
+            continue;
+        }
+        $parent = timHoacTaoDanhMuc($pdo, 'categories', $tenantId, mb_substr($part, 0, 255), $parent);
+    }
+    return $parent;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
@@ -42,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $created = 0;
             $updated = 0;
             $skipped = 0;
+            $stockSet = 0;
 
             foreach ($rows as $row) {
                 $name = trim((string) ($row['name'] ?? ''));
@@ -50,8 +121,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sku = trim((string) ($row['sku'] ?? ''));
                 $barcode = trim((string) ($row['barcode'] ?? '')) ?: null;
                 $unit = trim((string) ($row['unit'] ?? '')) ?: null;
-                $costPrice = (float) str_replace([',', ' '], '', (string) ($row['cost_price'] ?? 0));
-                $sellPrice = (float) str_replace([',', ' '], '', (string) ($row['sell_price'] ?? 0));
+                $costPrice = parseSoNhap((string) ($row['cost_price'] ?? 0));
+                $sellPrice = parseSoNhap((string) ($row['sell_price'] ?? 0));
+                $catPath = trim((string) ($row['category'] ?? ''));
+                $categoryId = $catPath !== '' ? nhomHangTuChuoi($pdo, $tenantId, $catPath) : null;
+                $brandName = trim((string) ($row['brand'] ?? ''));
+                $brandId = $brandName !== '' ? timHoacTaoDanhMuc($pdo, 'brands', $tenantId, mb_substr($brandName, 0, 255)) : null;
+                $stockQty = array_key_exists('stock', $row) && trim((string) $row['stock']) !== '' ? max(0.0, parseSoNhap((string) $row['stock'])) : null;
+                $minStockImp = array_key_exists('min_stock', $row) && trim((string) $row['min_stock']) !== '' ? max(0, (int) round(parseSoNhap((string) $row['min_stock']))) : null;
+                $activeRaw = mb_strtolower(trim((string) ($row['active'] ?? '')));
+                $isActive = in_array($activeRaw, ['0', 'không', 'khong', 'ngừng', 'ngung', 'no', 'false', 'ngừng kinh doanh'], true) ? 0 : 1;
 
                 $existing = null;
                 if ($sku !== '') {
@@ -61,8 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($existing) {
-                    $pdo->prepare('UPDATE products SET barcode=?, name=?, unit=?, cost_price=?, sell_price=? WHERE id=?')
-                        ->execute([$barcode, $name, $unit, $costPrice, $sellPrice, $existing['id']]);
+                    $pdo->prepare('UPDATE products SET barcode=?, name=?, unit=?, cost_price=?, sell_price=?, category_id = COALESCE(?, category_id), brand_id = COALESCE(?, brand_id), is_active = ? WHERE id=? AND tenant_id = ?')
+                        ->execute([$barcode, $name, $unit, $costPrice, $sellPrice, $categoryId, $brandId, $isActive, $existing['id'], $tenantId]);
+                    $productIdImp = (int) $existing['id'];
                     $updated++;
                 } else {
                     // File cua khach thuong khong co cot ma hang - tu sinh ma de ho khong phai tu
@@ -70,14 +150,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($sku === '') {
                         $sku = genCode('SP');
                     }
-                    $pdo->prepare('INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, tenant_id) VALUES (?,?,?,?,?,?,?)')
-                        ->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $tenantId]);
+                    $pdo->prepare('INSERT INTO products (sku, barcode, name, unit, cost_price, sell_price, tenant_id, category_id, brand_id, is_active) VALUES (?,?,?,?,?,?,?,?,?,?)')
+                        ->execute([$sku, $barcode, $name, $unit, $costPrice, $sellPrice, $tenantId, $categoryId, $brandId, $isActive]);
+                    $productIdImp = (int) $pdo->lastInsertId();
                     $created++;
+                }
+
+                // Ton kho dau ky (chi khi file co cot Ton kho): ghi vao chi nhanh cua nguoi nhap neu mat hang CHUA co dong ton o chi nhanh do -
+                // khong ghi de so ton dang co.
+                if ($stockQty !== null || $minStockImp !== null) {
+                    $targetBranch = (int) ($currentUser['branch_id'] ?: ($branches0 ??= (int) $pdo->query('SELECT id FROM branches WHERE tenant_id = ' . (int) $tenantId . ' ORDER BY id LIMIT 1')->fetchColumn()));
+                    if ($targetBranch) {
+                        $has = $pdo->prepare('SELECT id FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL');
+                        $has->execute([$targetBranch, $productIdImp]);
+                        if (!$has->fetchColumn()) {
+                            $pdo->prepare('INSERT INTO inventory (branch_id, product_id, quantity, min_stock) VALUES (?,?,?,?)')
+                                ->execute([$targetBranch, $productIdImp, $stockQty ?? 0, $minStockImp ?? 0]);
+                            $stockSet++;
+                        }
+                    }
                 }
             }
 
             unset($_SESSION['import_preview_products']);
             $result = "Đã thêm mới $created, cập nhật $updated"
+                . ($stockSet ? ", ghi tồn kho đầu kỳ cho $stockSet mặt hàng" : '')
                 . ($skipped ? ", bỏ qua $skipped dòng thiếu tên sản phẩm" : '') . '.';
             logActivity('IMPORT_PRODUCTS', "created=$created updated=$updated skipped=$skipped");
         }
@@ -125,6 +222,11 @@ require_once __DIR__ . '/inc_header.php';
         <?php endforeach; ?>
       </tbody>
     </table>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
+      <b>Đang dùng KiotViet, Sapo hoặc phần mềm khác?</b> Xuất danh sách hàng hóa ra Excel (.xlsx) từ phần mềm cũ rồi tải lên đây — hệ thống tự nhận
+      các cột <i>Mã hàng, Tên hàng, Mã vạch, Nhóm hàng (3 cấp, tự tạo nhóm cha–con), Thương hiệu, Giá vốn, Giá bán, Tồn kho, Tồn nhỏ nhất, ĐVT, Đang kinh doanh</i>
+      (số kiểu 1.200.000 hoặc 1,200,000 đều được). Tồn kho chỉ ghi cho hàng chưa có tồn ở chi nhánh của bạn, không đè số đang có. Nhớ xem trước kết quả rồi mới xác nhận.
+    </div>
     <p class="muted" style="margin:0 0 14px;font-size:13px;">
       Sản phẩm trùng mã hàng sẽ được cập nhật. Nếu file không có cột mã hàng, hệ thống <b>tự sinh mã</b>.
       <a href="products_export.php">Tải file mẫu (xuất từ dữ liệu hiện tại)</a>.
