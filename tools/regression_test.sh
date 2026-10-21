@@ -11,8 +11,7 @@ HOST="${FTP_HOST:-103.75.184.20}"
 REMOTE_DIR="${FTP_DIR:-domains/app.kt-soft.vn}"
 A="${SITE_URL:-https://app.kt-soft.vn}"
 # Mat khau FTP: lay tu bien moi truong, neu chua co thi doc tu tep ~/.qlbh_ftp (1 dong user:matkhau) - khong can go mat khau vao cua so chat/lich su lenh
-[ -z "${FTP_USERPASS:-}" ] && [ -f "$HOME/.qlbh_ftp" ] && FTP_USERPASS=$(head -n1 "$HOME/.qlbh_ftp" | tr -d '
-') && export FTP_USERPASS
+[ -z "${FTP_USERPASS:-}" ] && [ -f "$HOME/.qlbh_ftp" ] && FTP_USERPASS=$(head -n1 "$HOME/.qlbh_ftp" | tr -d "$(printf '\r\n')") && export FTP_USERPASS
 : "${FTP_USERPASS:?Can dat bien moi truong FTP_USERPASS=user:matkhau}"
 cd "$(dirname "$0")/.." || exit 1
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
