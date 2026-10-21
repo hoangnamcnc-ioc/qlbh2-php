@@ -129,5 +129,23 @@
   });
 })();
 </script>
+<button id="pwa-install" type="button" style="display:none;position:fixed;left:12px;bottom:12px;z-index:50;padding:8px 14px;border:0;border-radius:999px;background:#2563eb;color:#fff;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.2);cursor:pointer;">📲 Cài ứng dụng</button>
+<script>
+// PWA: dang ky service worker (chi giu trang bao mat mang + anh, khong luu trang da dang nhap) va nut "Cai ung dung" khi trinh duyet cho phep
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+(function () {
+  var deferred = null, btn = document.getElementById('pwa-install');
+  if (!btn || /\/pos\.php$/.test(location.pathname)) return;   // man hinh ban hang co thanh thanh toan o day: khong chen nut
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; btn.style.display = 'block'; });
+  btn.addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.finally(function () { deferred = null; btn.style.display = 'none'; });
+  });
+  window.addEventListener('appinstalled', function () { btn.style.display = 'none'; });
+})();
+</script>
 </body>
 </html>

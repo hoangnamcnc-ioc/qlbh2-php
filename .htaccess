@@ -29,3 +29,6 @@ Options -Indexes
 # va POST ve kt-soft.vn/feedback_api.php. Khong dat form-action vi thanh toan VNPay chuyen huong sang pay.vnpay.vn sau khi POST.
 Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://kt-soft.vn; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; upgrade-insecure-requests"
 Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+
+# PWA: kieu MIME dung cho manifest va service worker
+AddType application/manifest+json .webmanifest

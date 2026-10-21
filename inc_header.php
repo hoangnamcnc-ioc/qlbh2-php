@@ -167,6 +167,11 @@ if ($isManagerUp) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QLBH-CLOUD - Quản lý bán hàng</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="QLBH-CLOUD">
 <?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php else: ?><link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png"><link rel="apple-touch-icon" href="img/logo.png"><?php endif; ?>
 <style>
   :root { --brand: <?= e($brandColor) ?>; --brand-dark: <?= e($brandColorDark) ?>; }

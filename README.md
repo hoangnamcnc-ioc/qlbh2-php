@@ -2466,3 +2466,9 @@ Toàn bộ chạy trên dữ liệu của chính cửa hàng, không gửi dữ 
 ### Mật khẩu FTP cho công cụ kiểm thử/triển khai
 Các script trong `tools/` lấy mật khẩu từ biến môi trường `FTP_USERPASS`, nếu chưa có thì đọc dòng đầu của tệp `~/.qlbh_ftp` (định dạng `user:matkhau`).
 Nên tạo tệp này trên máy mình thay vì gõ mật khẩu vào cửa sổ chat hay lịch sử lệnh.
+
+### Chuyển dữ liệu từ KiotViet/Sapo và PWA (21/10/2026)
+- **Nhập sản phẩm kiểu KiotViet/Sapo** (`products_import.php`): nhận thêm cột *Nhóm hàng(3 Cấp)* (tự tạo nhóm cha–con theo `>>`), *Thương hiệu*, *Tồn kho*, *Tồn nhỏ nhất*, *Đang kinh doanh*;
+  số kiểu 1.200.000 / 1,200,000 / 12,5 (`parseSoNhap()`); tồn kho chỉ ghi cho hàng chưa có tồn ở chi nhánh người nhập (không đè số đang có). `customers_import.php` nhận *Nhóm khách hàng* (tự tạo nhóm).
+- **PWA** (`manifest.webmanifest`, `sw.js`, `offline.html`, `img/pwa-*.png`): cài được như ứng dụng; service worker CHỈ giữ trang báo mất mạng + ảnh `/img/`, không lưu trang đã đăng nhập; nút "Cài ứng dụng" (ẩn ở màn hình bán hàng).
+  Chưa có thông báo đẩy (cần máy chủ Web Push + khóa VAPID).

@@ -664,6 +664,17 @@ CIMP=$(curl -s -b $CJ -c $CJ --data-urlencode csrf="$CIC" -d "action=confirm" $A
 eq "nhap khach kieu KiotViet: them 1 khach kem nhom" "1" "$([ "$(echo "$CIMP" | grep -c 'Đã thêm mới 1')" -ge 1 ] && echo 1 || echo 0)"
 eq "nhom khach 'Khach si KV' tu dong tao" "1" "$([ "$(curl -s -b $CJ $A/groups.php | grep -c 'Khách sỉ KV')" -ge 1 ] && echo 1 || echo 0)"
 
+echo "== 6zzzzzzzzzzz. PWA: cai duoc nhu ung dung tren dien thoai"
+MF=$(curl -s -b $CJ $A/manifest.webmanifest)
+eq "manifest hop le, co ten + 2 bieu tuong + start_url" "1" "$(echo "$MF" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d['name'] and d['start_url'] and d['display']=='standalone' and len(d['icons'])>=2 else 0)" 2>/dev/null)"
+eq "bieu tuong 192 + 512 tai duoc" "200 200" "$(curl -s -o /dev/null -w '%{http_code}' $A/img/pwa-192.png) $(curl -s -o /dev/null -w '%{http_code}' $A/img/pwa-512.png)"
+eq "manifest tra dung kieu MIME json" "1" "$([ "$(curl -sI $A/manifest.webmanifest | tr -d '\r' | grep -ic 'content-type:.*json')" -ge 1 ] && echo 1 || echo 0)"
+eq "service worker sw.js tai duoc va khong luu trang da dang nhap" "1" "$(curl -s $A/sw.js | python -c "import sys;t=sys.stdin.read();print(1 if 'offline.html' in t and 'cache.put' not in t and 'cache.addAll' not in t.replace('c.addAll','') else 0)")"
+eq "trang offline.html tai duoc (khong can dang nhap)" "200" "$(curl -s -o /dev/null -w '%{http_code}' $A/offline.html)"
+PGH=$(curl -s -b $CJ $A/index.php)
+eq "trang co lien ket manifest + dang ky service worker" "1" "$([ "$(echo "$PGH" | grep -c 'rel="manifest"')" -ge 1 ] && [ "$(echo "$PGH" | grep -c "serviceWorker.register('sw.js')")" -ge 1 ] && echo 1 || echo 0)"
+eq "man hinh ban hang khong chen nut Cai ung dung" "1" "$([ "$(curl -s -b $CJ $A/pos.php | grep -c 'pos\\.php')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"
