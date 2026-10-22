@@ -37,8 +37,8 @@ $storeLogo = getSetting('store_logo', '');
 <title>Màn hình đã khóa - QLBH-CLOUD</title>
 <?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php endif; ?>
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
-  .box { background: #fff; border-radius: 12px; padding: 32px; width: 100%; max-width: 340px; text-align: center; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; font-family: -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; box-sizing: border-box; }
+  .box { background: #fff; border-radius: 12px; padding: 32px; width: 100%; max-width: 404px; text-align: center; box-sizing: border-box; }
   .lock-icon { font-size: 40px; margin-bottom: 8px; }
   h1 { font-size: 17px; margin: 0 0 2px; color: #1e293b; }
   .muted { color: #64748b; font-size: 13px; margin: 0 0 20px; }

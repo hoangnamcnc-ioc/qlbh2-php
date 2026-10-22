@@ -19,7 +19,7 @@ if ($loggedInUser && !isset($_GET['new'])) {
     <title><?= e($pageTitle) ?></title>
     <style>
       body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0f172a; font-family: -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; box-sizing: border-box; }
-      .box { background: #fff; border-radius: 12px; padding: 36px; width: 100%; max-width: 420px; text-align: center; }
+      .box { background: #fff; border-radius: 12px; padding: 36px; width: 100%; max-width: 492px; text-align: center; box-sizing: border-box; }
       h1 { font-size: 19px; margin: 0 0 10px; color: #1e293b; }
       p { color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 22px; }
       p b { color: #1e293b; }
@@ -148,7 +148,7 @@ $pageTitle = 'Đăng ký dùng thử QLBH-CLOUD';
 <title><?= e($pageTitle) ?></title>
 <style>
   body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; font-family: -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; box-sizing: border-box; }
-  .box { background: #fff; border-radius: 12px; padding: 36px; width: 100%; max-width: 420px; }
+  .box { background: #fff; border-radius: 12px; padding: 36px; width: 100%; max-width: 492px; box-sizing: border-box; }
   h1 { font-size: 20px; margin: 0 0 6px; color: #1e293b; text-align: center; }
   p.lead { color: #64748b; font-size: 13px; text-align: center; margin: 0 0 24px; }
   .field { margin-bottom: 14px; }

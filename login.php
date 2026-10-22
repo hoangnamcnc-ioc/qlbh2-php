@@ -43,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <title>Đăng nhập - QLBH-CLOUD</title>
 <?php if ($storeLogo): ?><link rel="icon" href="uploads/store/<?= e($storeLogo) ?>"><?php else: ?><link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png"><?php endif; ?>
 <style>
-  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-  .box { width: 100%; max-width: 360px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 32px; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; box-sizing: border-box; }
+  .box { width: 100%; max-width: 426px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 32px; box-sizing: border-box; }
   h1 { margin: 0 0 4px; font-size: 20px; }
   p.sub { margin: 0 0 20px; color: #64748b; font-size: 14px; }
   label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #334155; }
