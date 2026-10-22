@@ -58,7 +58,7 @@ if (!$reset) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Đặt lại mật khẩu - QLBH-CLOUD</title>
 <style>
-  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
   .box { width: 100%; max-width: 380px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 32px; }
   h1 { margin: 0 0 4px; font-size: 20px; }
   p.sub { margin: 0 0 20px; color: #64748b; font-size: 14px; line-height: 1.6; }
