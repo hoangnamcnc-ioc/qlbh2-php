@@ -106,6 +106,14 @@ $entries = $pdo->prepare(
 $entries->execute($params);
 $entries = $entries->fetchAll();
 
+// Goi y ly do hay dung (phieu thu/chi nhap tay) de go nhanh va dat ten thong nhat cho bao cao
+$reasonStmt = $pdo->prepare(
+    "SELECT ce.reason, COUNT(*) AS c FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+     WHERE b.tenant_id = ? AND ce.auto_generated = 0 GROUP BY ce.reason ORDER BY c DESC, MAX(ce.created_at) DESC LIMIT 12"
+);
+$reasonStmt->execute([$tenantId]);
+$reasonList = $reasonStmt->fetchAll(PDO::FETCH_COLUMN);
+
 require_once __DIR__ . '/inc_header.php';
 ?>
 
@@ -200,7 +208,8 @@ require_once __DIR__ . '/inc_header.php';
 
     <div class="field">
       <label>Lý do</label>
-      <input class="input" name="reason" required placeholder="vd: Thu tiền bán hàng, Chi tiền điện...">
+      <input class="input" name="reason" required list="reason-list" maxlength="255" placeholder="vd: Thu tiền bán hàng, Chi tiền điện...">
+      <datalist id="reason-list"><?php foreach ($reasonList as $rs): ?><option value="<?= e($rs) ?>"><?php endforeach; ?></datalist>
     </div>
 
     <button type="submit" class="btn">Lưu phiếu</button>

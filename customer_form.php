@@ -96,7 +96,8 @@ require_once __DIR__ . '/inc_header.php';
     <div class="grid-2">
       <div class="field">
         <label>Số điện thoại</label>
-        <input class="input" name="phone" value="<?= e($customer['phone'] ?? '') ?>">
+        <input class="input" name="phone" id="f-phone" value="<?= e($customer['phone'] ?? '') ?>">
+        <div id="phone-hint" style="font-size:12px;margin-top:3px;color:#b45309;"></div>
       </div>
       <div class="field">
         <label>Email</label>
@@ -182,5 +183,21 @@ require_once __DIR__ . '/inc_header.php';
     <button type="submit" class="btn">Lưu khách hàng</button>
   </form>
 </div>
+
+<script>
+// Canh bao khach trung so dien thoai (ke ca viet khac nhau: 0912..., +84912..., co dau cach)
+(function () {
+  const ph = document.getElementById('f-phone'), hint = document.getElementById('phone-hint');
+  if (!ph || !hint) return;
+  const selfId = <?= (int) ($customer['id'] ?? 0) ?>;
+  ph.addEventListener('blur', () => {
+    hint.textContent = '';
+    if (ph.value.replace(/\D/g, '').length < 8) return;
+    fetch('khach_trung.php?phone=' + encodeURIComponent(ph.value) + '&id=' + selfId).then(r => r.json()).then(d => {
+      if ((d.dup || []).length) hint.textContent = '⚠ Số này đã có khách: ' + d.dup.map(x => x.name + ' (' + x.phone + ')').join(', ') + ' — kiểm tra để tránh tạo hồ sơ trùng.';
+    }).catch(() => {});
+  });
+})();
+</script>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

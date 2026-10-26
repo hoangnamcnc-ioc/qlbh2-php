@@ -596,6 +596,75 @@ function traLoiCauHoi(PDO $pdo, int $tenantId, int $branchId, string $question):
         }
         return $res('du_lieu', $lines, [['Xem và sửa', 'kiem_tra_du_lieu.php']]);
     }
+    // So sanh ky nay voi ky truoc
+    if (preg_match('/so sanh|tang bao nhieu|giam bao nhieu|hon (tuan|thang|hom) truoc|so voi (tuan|thang|hom)|tang hay giam/', $a) && !preg_match('/chi nhanh/', $a)) {
+        if (preg_match('/thang/', $a)) {
+            $c1 = [date('Y-m-d 00:00:00', strtotime('first day of this month')), date('Y-m-d H:i:s')];
+            $span = time() - strtotime($c1[0]);
+            $p0 = strtotime('first day of last month midnight');
+            $c0 = [date('Y-m-d H:i:s', $p0), date('Y-m-d H:i:s', $p0 + $span)];
+            [$ten1, $ten0] = ['tháng này (đến nay)', 'cùng kỳ tháng trước'];
+        } elseif (preg_match('/hom (nay|qua)/', $a)) {
+            $c1 = [date('Y-m-d 00:00:00'), date('Y-m-d H:i:s')];
+            $c0 = [date('Y-m-d 00:00:00', strtotime('-1 day')), date('Y-m-d H:i:s', strtotime('-1 day'))];
+            [$ten1, $ten0] = ['hôm nay (đến giờ)', 'cùng giờ hôm qua'];
+        } else {
+            $mon = strtotime('monday this week');
+            $c1 = [date('Y-m-d 00:00:00', $mon), date('Y-m-d H:i:s')];
+            $c0 = [date('Y-m-d 00:00:00', $mon - 7 * 86400), date('Y-m-d H:i:s', time() - 7 * 86400)];
+            [$ten1, $ten0] = ['tuần này (đến nay)', 'cùng kỳ tuần trước'];
+        }
+        $r1 = doanhThuLai($pdo, $tenantId, $branchId, $c1[0], $c1[1]);
+        $r0 = doanhThuLai($pdo, $tenantId, $branchId, $c0[0], $c0[1]);
+        $pc = static fn(float $x, float $y): string => $y > 0 ? (($x >= $y ? '+' : '') . round(($x / $y - 1) * 100) . '%') : '—';
+        return $res('so_sanh', [
+            "Doanh thu $ten1: " . money($r1['doanh_thu']) . " ($ten0: " . money($r0['doanh_thu']) . ', ' . $pc($r1['doanh_thu'], $r0['doanh_thu']) . ').',
+            'Lãi gộp ước tính: ' . money($r1['lai']) . ' (' . money($r0['lai']) . ', ' . $pc($r1['lai'], $r0['lai']) . ').',
+            'Số đơn: ' . $r1['so_don'] . ' (' . $r0['so_don'] . ', ' . $pc((float) $r1['so_don'], (float) $r0['so_don']) . ').',
+        ], [['Phân tích kinh doanh', 'phan_tich.php']]);
+    }
+    // Theo chi nhanh
+    if (preg_match('/chi nhanh nao|theo chi nhanh|tung chi nhanh|cac chi nhanh|so sanh chi nhanh/', $a)) {
+        $bq = [$tenantId, $from, $to];
+        $bwq = phamViChiNhanh($branchId, $bq, 'o.branch_id');
+        $stmt = $pdo->prepare(
+            "SELECT b.name, COUNT(*) AS so_don, COALESCE(SUM(o.sub_total - o.discount), 0) AS dt
+             FROM orders o JOIN branches b ON b.id = o.branch_id
+             WHERE b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at BETWEEN ? AND ?$bwq
+             GROUP BY b.id, b.name ORDER BY dt DESC"
+        );
+        $stmt->execute($bq);
+        $rows = $stmt->fetchAll();
+        if (!$rows) {
+            return $res('chi_nhanh', ["Chưa có doanh thu $label."]);
+        }
+        $lines = ["Doanh thu theo chi nhánh $label:"];
+        foreach ($rows as $r) {
+            $lines[] = '• ' . $r['name'] . ' — ' . money($r['dt']) . ' (' . (int) $r['so_don'] . ' đơn)';
+        }
+        return $res('chi_nhanh', $lines, [['Báo cáo', 'reports.php']]);
+    }
+    // Theo nhan vien
+    if (preg_match('/nhan vien nao|ai ban|nhan vien ban|thu ngan nao|ban nhieu nhat/', $a) && !preg_match('/mat hang|san pham/', $a)) {
+        $sq = [$tenantId, $from, $to];
+        $swq = phamViChiNhanh($branchId, $sq, 'o.branch_id');
+        $stmt = $pdo->prepare(
+            "SELECT u.name, COUNT(*) AS so_don, COALESCE(SUM(o.sub_total - o.discount), 0) AS dt
+             FROM orders o JOIN branches b ON b.id = o.branch_id JOIN users u ON u.id = o.sold_by_id
+             WHERE b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at BETWEEN ? AND ?$swq
+             GROUP BY u.id, u.name ORDER BY dt DESC LIMIT 5"
+        );
+        $stmt->execute($sq);
+        $rows = $stmt->fetchAll();
+        if (!$rows) {
+            return $res('nhan_vien', ["Chưa có đơn bán $label."]);
+        }
+        $lines = ["Nhân viên bán nhiều nhất $label:"];
+        foreach ($rows as $i => $r) {
+            $lines[] = ($i + 1) . '. ' . $r['name'] . ' — ' . money($r['dt']) . ' (' . (int) $r['so_don'] . ' đơn)';
+        }
+        return $res('nhan_vien', $lines);
+    }
     // Suc khoe cua hang
     if (preg_match('/suc khoe|diem cua hang|cua hang the nao|tinh hinh chung|danh gia cua hang/', $a)) {
         $sk = diemSucKhoe($pdo, $tenantId, $branchId);
@@ -839,6 +908,88 @@ function traLoiCauHoi(PDO $pdo, int $tenantId, int $branchId, string $question):
         $r = $stmt->fetch();
         $tb = (int) $r['so_don'] > 0 ? money((float) $r['dt'] / (int) $r['so_don']) : '—';
         return $res('doanh_thu', ["Doanh thu $label: " . money($r['dt']) . ' từ ' . (int) $r['so_don'] . ' đơn (trung bình ' . $tb . '/đơn).'], [['Báo cáo', 'reports.php']]);
+    }
+
+    // Khong khop y nao: thu tra cuu theo TEN mat hang / khach hang trong cau hoi ("sua tuoi", "Nguyen Van A", "0912...")
+    $stopAll = ['ban', 'cho', 'toi', 'xem', 'tim', 'hoi', 'cua', 'la', 'gi', 'the', 'nao', 'bao', 'nhieu', 'co', 'khong', 'mat', 'hang', 'san', 'pham', 'khach',
+        'thong', 'tin', 'nay', 'kia', 'dang', 'duoc', 'giup', 've', 'va', 'o', 'tai', 'em', 'anh', 'chi'];
+    $tk = [];
+    foreach (preg_split('/[\s,.?!]+/u', mb_strtolower($q, 'UTF-8'), -1, PREG_SPLIT_NO_EMPTY) as $t) {
+        if (mb_strlen($t) >= 2 && !in_array(boDau($t), $stopAll, true)) {
+            $tk[] = $t;
+        }
+    }
+    $tk = array_slice($tk, 0, 4);
+    if ($tk) {
+        // 1) Mat hang
+        $where = ['p.tenant_id = ?', "p.product_type = 'PRODUCT'", 'p.is_active = 1'];
+        $params = [$branchId ?: 0, $tenantId];
+        foreach ($tk as $t) {
+            $where[] = '(p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)';
+            $lk = '%' . $t . '%';
+            array_push($params, $lk, $lk, $lk);
+        }
+        $ibw = $branchId ? 'AND i.branch_id = ?' : 'AND i.branch_id IN (SELECT id FROM branches WHERE tenant_id = ' . (int) $tenantId . ')';
+        $sqlP = "SELECT p.id, p.name, p.sell_price, p.cost_price, p.unit, COALESCE(SUM(i.quantity), 0) AS ton
+                 FROM products p LEFT JOIN inventory i ON i.product_id = p.id " . ($branchId ? 'AND i.branch_id = ?' : $ibw) . ' WHERE ' . implode(' AND ', $where) . '
+                 GROUP BY p.id, p.name, p.sell_price, p.cost_price, p.unit ORDER BY p.name LIMIT 3';
+        if (!$branchId) {
+            array_shift($params);
+        }
+        $stmt = $pdo->prepare($sqlP);
+        $stmt->execute($params);
+        $prods = $stmt->fetchAll();
+        if ($prods) {
+            $lines = [];
+            foreach ($prods as $pr) {
+                $ps = [(int) $pr['id'], $tenantId];
+                $pw = phamViChiNhanh($branchId, $ps, 'o.branch_id');
+                $st2 = $pdo->prepare(
+                    "SELECT COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN oi.quantity ELSE 0 END), 0) AS q7, COALESCE(SUM(oi.quantity), 0) AS q30
+                     FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id
+                     WHERE oi.product_id = ? AND b.tenant_id = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)$pw"
+                );
+                $st2->execute($ps);
+                $sl = $st2->fetch();
+                $margin = (float) $pr['sell_price'] > 0 ? round(((float) $pr['sell_price'] - (float) $pr['cost_price']) / (float) $pr['sell_price'] * 100) : 0;
+                $lines[] = '• ' . $pr['name'] . ': giá bán ' . money($pr['sell_price']) . ($margin ? ' (biên lãi ~' . $margin . '%)' : '') . ', tồn ' . fmtQty($pr['ton']) . ' ' . $pr['unit']
+                    . ', bán 7 ngày ' . fmtQty($sl['q7']) . ' / 30 ngày ' . fmtQty($sl['q30']);
+            }
+            return $res('tra_cuu_hang', array_merge(['Mặt hàng khớp với câu hỏi:'], $lines), [['Quản lý kho', 'inventory.php']]);
+        }
+        // 2) Khach hang (theo ten hoac so dien thoai)
+        $cw = ['c.tenant_id = ?'];
+        $cp = [$tenantId];
+        $tkc = $tk;
+        foreach ($tk as $t) {          // co so dien thoai trong cau hoi thi chi tim theo so do (bo cac tu thua nhu "mua", "hom qua")
+            if (preg_match('/^\+?\d{6,}$/', $t)) {
+                $tkc = [$t];
+                break;
+            }
+        }
+        foreach ($tkc as $t) {
+            $cw[] = '(c.name LIKE ? OR c.phone LIKE ? OR c.code LIKE ?)';
+            $lk = '%' . $t . '%';
+            array_push($cp, $lk, $lk, $lk);
+        }
+        $stmt = $pdo->prepare(
+            "SELECT c.id, c.name, c.phone, c.debt, c.loyalty_points,
+                    (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status NOT IN ('CANCELLED','DRAFT')) AS so_don,
+                    (SELECT COALESCE(SUM(o.total_amount), 0) FROM orders o WHERE o.customer_id = c.id AND o.status NOT IN ('CANCELLED','DRAFT')) AS tong_mua,
+                    (SELECT MAX(o.created_at) FROM orders o WHERE o.customer_id = c.id AND o.status NOT IN ('CANCELLED','DRAFT')) AS lan_cuoi
+             FROM customers c WHERE " . implode(' AND ', $cw) . ' ORDER BY c.name LIMIT 3'
+        );
+        $stmt->execute($cp);
+        $custs = $stmt->fetchAll();
+        if ($custs) {
+            $lines = ['Khách hàng khớp với câu hỏi:'];
+            foreach ($custs as $c) {
+                $lines[] = '• ' . $c['name'] . ($c['phone'] ? ' (' . $c['phone'] . ')' : '') . ': đã mua ' . (int) $c['so_don'] . ' đơn, tổng ' . money($c['tong_mua'])
+                    . ($c['lan_cuoi'] ? ', gần nhất ' . date('d/m/Y', strtotime($c['lan_cuoi'])) : '') . ', điểm ' . (int) $c['loyalty_points']
+                    . ((float) $c['debt'] > 0 ? ', ĐANG NỢ ' . money($c['debt']) : '');
+            }
+            return $res('tra_cuu_khach', $lines, [['Danh sách khách hàng', 'customers.php']]);
+        }
     }
 
     return $res('khong_hieu', [

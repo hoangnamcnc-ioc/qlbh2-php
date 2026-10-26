@@ -675,6 +675,32 @@ PGH=$(curl -s -b $CJ $A/index.php)
 eq "trang co lien ket manifest + dang ky service worker" "1" "$([ "$(echo "$PGH" | grep -c 'rel="manifest"')" -ge 1 ] && [ "$(echo "$PGH" | grep -c "serviceWorker.register('sw.js')")" -ge 1 ] && echo 1 || echo 0)"
 eq "man hinh ban hang khong chen nut Cai ung dung" "1" "$([ "$(curl -s -b $CJ $A/pos.php | grep -c 'pos\\.php')" -ge 1 ] && echo 1 || echo 0)"
 
+echo "== 6zzzzzzzzzzzz. Tim nhanh Ctrl+K, tro ly tra cuu ten/so sanh, goi y sai chinh ta o POS, canh bao khach trung, goi y ly do so quy"
+TN=$(curl -s -b $CJ "$A/tim_nhanh.php?q=REG1")
+eq "tim nhanh: ra san pham SP Reg theo ma" "1" "$(echo "$TN" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if any(x['label']=='SP Reg' for x in d['products']) else 0)" 2>/dev/null)"
+eq "tim nhanh: ra khach theo SDT" "1" "$(curl -s -b $CJ "$A/tim_nhanh.php?q=0911000111" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d['customers'] else 0)" 2>/dev/null)"
+TCODE=$(curl -s -b $CJ "$A/orders.php" | grep -o 'order_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
+OCODE=$(curl -s -b $CJ "$A/order_view.php?id=$TCODE" | grep -o 'DH[A-Z0-9]*\|ORD[A-Z0-9]*' | head -1)
+[ -n "$OCODE" ] && eq "tim nhanh: ra don theo ma" "1" "$(curl -s -b $CJ "$A/tim_nhanh.php?q=$OCODE" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d['orders'] else 0)" 2>/dev/null)" || ok "tim nhanh theo ma don (bo qua: khong doc duoc ma don mau)"
+eq "tim nhanh: ra nha cung cap cho quan ly" "1" "$(curl -s -b $CJ "$A/tim_nhanh.php?q=NCC+Reg" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d['suppliers'] else 0)" 2>/dev/null)"
+eq "tim nhanh: thu ngan khong thay nha cung cap" "0" "$(curl -s -b $W/cj_cash "$A/tim_nhanh.php?q=NCC+Reg" | python -c "import sys,json;d=json.load(sys.stdin);print(len(d['suppliers']))" 2>/dev/null)"
+eq "tim nhanh: cau ngan (<2 ky tu) tra rong" "{}" "$(curl -s -b $CJ "$A/tim_nhanh.php?q=a")"
+eq "giao dien co hop Tim nhanh Ctrl+K" "1" "$([ "$(curl -s -b $CJ $A/index.php | grep -c 'id="qs-modal"')" -ge 1 ] && echo 1 || echo 0)"
+eq "tro ly: 'so sanh tuan nay voi tuan truoc' -> so sanh" "so_sanh" "$(ask 'So sánh doanh thu tuần này với tuần trước' | jv "['intent']")"
+eq "tro ly: 'doanh thu tung chi nhanh' -> chi nhanh" "chi_nhanh" "$(ask 'Doanh thu từng chi nhánh tháng này' | jv "['intent']")"
+eq "tro ly: 'nhan vien nao ban nhieu nhat' -> nhan vien" "nhan_vien" "$(ask 'Nhân viên nào bán nhiều nhất tuần này?' | jv "['intent']")"
+eq "tro ly: tra cuu ten mat hang 'SP Reg' (khong tu khoa y dinh)" "tra_cuu_hang" "$(ask 'SP Reg' | jv "['intent']")"
+eq "tro ly: tra cuu khach theo SDT -> khach" "tra_cuu_khach" "$(ask 'khách 0911000111 mua gì' | jv "['intent']")"
+eq "tro ly: cau vo nghia van tra khong hieu" "khong_hieu" "$(ask 'qwertyu zxcvbn' | jv "['intent']")"
+python -c "import urllib.parse;print(urllib.parse.quote('SP Rg'))" > "$W/q.txt"
+eq "POS: go sai chinh ta 'SP Rg' van goi y SP Reg" "1" "$(curl -s -b $CJ "$A/pos_search.php?fuzzy=1&q=$(cat $W/q.txt)" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if any(x['name']=='SP Reg' for x in d) else 0)" 2>/dev/null)"
+eq "POS: tu khoa khong lien quan khong goi y bay" "[]" "$(curl -s -b $CJ "$A/pos_search.php?fuzzy=1&q=zzzzqqqq")"
+eq "POS co ma goi y 'co phai ban muon tim'" "1" "$([ "$(curl -s -b $CJ $A/pos.php | grep -c 'có phải bạn muốn tìm')" -ge 1 ] && echo 1 || echo 0)"
+eq "khach trung: SDT viet khac (+84911000111) nhan ra khach 0911000111" "1" "$(curl -s -b $CJ "$A/khach_trung.php?phone=%2B84911000111" | python -c "import sys,json;d=json.load(sys.stdin);print(1 if d['dup'] else 0)" 2>/dev/null)"
+eq "khach trung: SDT chua co khong bao trung" "[]" "$(curl -s -b $CJ "$A/khach_trung.php?phone=0987654321" | python -c "import sys,json;print(json.dumps(json.load(sys.stdin)['dup']))" 2>/dev/null)"
+eq "form khach co canh bao trung SDT" "1" "$([ "$(curl -s -b $CJ $A/customer_form.php | grep -c 'id="phone-hint"')" -ge 1 ] && echo 1 || echo 0)"
+eq "so quy co goi y ly do (datalist)" "1" "$([ "$(curl -s -b $CJ $A/cashbook.php | grep -c 'id="reason-list"')" -ge 1 ] && echo 1 || echo 0)"
+
 echo "== 7. Doi chieu so lieu sau toan bo kich ban"
 DC=$(curl -s -b $CJ $A/doi_chieu.php)
 eq "trang doi chieu mo duoc va khong bao lech" "1" "$(echo "$DC" | grep -c 'Không phát hiện chỗ nào lệch')"

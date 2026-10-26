@@ -129,6 +129,89 @@
   });
 })();
 </script>
+<?php
+// Tim nhanh (Ctrl+K): danh sach trang menu nguoi dung duoc phep vao (da loc theo vai tro o inc_header) + tim san pham/khach/don/NCC qua tim_nhanh.php
+$qsNav = [];
+foreach (($navGroups ?? []) as $qsG => $qsItems) {
+    foreach ($qsItems as $qsFile => $qsLabel) {
+        $qsNav[] = ['t' => $qsLabel, 'u' => $qsFile, 'g' => $qsG];
+    }
+}
+?>
+<div id="qs-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1100;align-items:flex-start;justify-content:center;padding-top:12vh;">
+  <div style="background:#fff;border-radius:12px;width:min(560px,94vw);box-shadow:0 20px 50px rgba(0,0,0,.3);overflow:hidden;">
+    <input id="qs-input" type="text" placeholder="Tìm trang, sản phẩm, khách hàng, mã đơn, nhà cung cấp…  (Esc để đóng)" autocomplete="off"
+           style="width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #e2e8f0;padding:14px 16px;font-size:15px;outline:none;">
+    <div id="qs-list" style="max-height:52vh;overflow-y:auto;"></div>
+  </div>
+</div>
+<button id="qs-open" type="button" title="Tìm nhanh (Ctrl+K)" style="position:fixed;right:12px;bottom:12px;z-index:50;padding:8px 14px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#334155;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);">🔎 Tìm nhanh <span style="color:#94a3b8;">Ctrl+K</span></button>
+<script>
+(function () {
+  const NAV = <?= json_encode($qsNav, JSON_UNESCAPED_UNICODE) ?>;
+  const modal = document.getElementById('qs-modal'), input = document.getElementById('qs-input'), list = document.getElementById('qs-list'), openBtn = document.getElementById('qs-open');
+  if (!modal || !input || !list) return;
+  if (/\/pos\.php$/.test(location.pathname)) openBtn.style.display = 'none';   // man hinh ban hang co thanh thanh toan o day; van dung duoc Ctrl+K
+  let items = [], sel = 0, timer = null;
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  function pagesFor(q) {
+    const n = norm(q);
+    return NAV.filter(p => !n || norm(p.t).includes(n) || norm(p.u).includes(n)).slice(0, 8).map(p => ({ icon: '📄', label: p.t, sub: p.g, url: p.u }));
+  }
+  function render(arr) {
+    items = arr; sel = 0;
+    list.textContent = '';
+    if (!arr.length) { const d = document.createElement('div'); d.style.cssText = 'padding:14px 16px;color:#64748b;font-size:14px;'; d.textContent = 'Không tìm thấy kết quả.'; list.appendChild(d); return; }
+    arr.forEach((it, i) => {
+      const row = document.createElement('a');
+      row.href = it.url;
+      row.dataset.i = i;
+      row.style.cssText = 'display:flex;gap:10px;align-items:baseline;padding:9px 16px;text-decoration:none;color:#0f172a;font-size:14px;cursor:pointer;' + (i === 0 ? 'background:#eff6ff;' : '');
+      const a = document.createElement('span'); a.textContent = it.icon;
+      const b = document.createElement('span'); b.textContent = it.label; b.style.fontWeight = '600';
+      const c = document.createElement('span'); c.textContent = it.sub || ''; c.style.cssText = 'color:#64748b;font-size:12px;margin-left:auto;';
+      row.append(a, b, c);
+      row.addEventListener('mouseenter', () => highlight(i));
+      list.appendChild(row);
+    });
+  }
+  function highlight(i) {
+    sel = i;
+    list.querySelectorAll('a').forEach((r, k) => { r.style.background = k === i ? '#eff6ff' : ''; });
+    const cur = list.querySelectorAll('a')[i]; if (cur) cur.scrollIntoView({ block: 'nearest' });
+  }
+  function open() { modal.style.display = 'flex'; input.value = ''; render(pagesFor('')); input.focus(); }
+  function close() { modal.style.display = 'none'; }
+  openBtn.addEventListener('click', open);
+  modal.addEventListener('mousedown', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); modal.style.display === 'flex' ? close() : open(); return; }
+    if (modal.style.display !== 'flex') return;
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); if (items.length) highlight((sel + 1) % items.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (items.length) highlight((sel - 1 + items.length) % items.length); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (items[sel]) location.href = items[sel].url; }
+  });
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    const pages = pagesFor(q);
+    render(pages);
+    clearTimeout(timer);
+    if (q.length < 2) return;
+    timer = setTimeout(() => {
+      fetch('tim_nhanh.php?q=' + encodeURIComponent(q)).then(r => r.json()).then(d => {
+        if (input.value.trim() !== q) return;
+        const extra = [];
+        (d.products || []).forEach(x => extra.push({ icon: '📦', label: x.label, sub: x.sub, url: x.url }));
+        (d.customers || []).forEach(x => extra.push({ icon: '👤', label: x.label, sub: x.sub, url: x.url }));
+        (d.orders || []).forEach(x => extra.push({ icon: '🧾', label: x.label, sub: x.sub, url: x.url }));
+        (d.suppliers || []).forEach(x => extra.push({ icon: '🚚', label: x.label, sub: x.sub, url: x.url }));
+        render(pages.concat(extra));
+      }).catch(() => {});
+    }, 220);
+  });
+})();
+</script>
 <button id="pwa-install" type="button" style="display:none;position:fixed;left:12px;bottom:12px;z-index:50;padding:8px 14px;border:0;border-radius:999px;background:#2563eb;color:#fff;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.2);cursor:pointer;">📲 Cài ứng dụng</button>
 <script>
 // PWA: dang ky service worker (chi giu trang bao mat mang + anh, khong luu trang da dang nhap) va nut "Cai ung dung" khi trinh duyet cho phep

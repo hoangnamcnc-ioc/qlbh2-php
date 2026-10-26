@@ -6,6 +6,38 @@ header('Content-Type: application/json; charset=utf-8');
 
 $q = trim($_GET['q'] ?? '');
 $browse = !empty($_GET['browse']);
+
+// Go sai chinh ta / thieu dau: goi y cac mat hang co ten gan giong (khong tinh dau, so khop mo). Chi dung khi tim thuong khong ra gi.
+if (!empty($_GET['fuzzy']) && $q !== '') {
+    require_once __DIR__ . '/inc_thong_minh.php';
+    $fb = effectiveBranchId($user);
+    $st = db()->prepare(
+        "SELECT p.id, p.sku, p.name, p.sell_price, COALESCE(i.quantity, 0) AS qty
+         FROM products p LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
+         WHERE p.tenant_id = ? AND p.is_active = 1 AND p.product_type = 'PRODUCT'
+           AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.is_active = 1) LIMIT 3000"
+    );
+    $st->execute([$fb, currentTenantId()]);
+    $qa = boDau($q);
+    $scored = [];
+    foreach ($st->fetchAll() as $r) {
+        $na = boDau($r['name']);
+        similar_text($qa, $na, $pct);
+        $best = $pct;
+        foreach (preg_split('/\s+/', $na, -1, PREG_SPLIT_NO_EMPTY) as $w) {   // go gan dung 1 tu trong ten cung tinh
+            if (strlen($w) >= 3 && strlen($qa) >= 3) {
+                similar_text($qa, $w, $p2);
+                $best = max($best, $p2 - 5);
+            }
+        }
+        if ($best >= 55) {
+            $scored[] = [$best, ['id' => (int) $r['id'], 'variant_id' => null, 'sku' => $r['sku'], 'name' => $r['name'], 'sell_price' => $r['sell_price'], 'qty' => $r['qty']]];
+        }
+    }
+    usort($scored, static fn($a, $b) => $b[0] <=> $a[0]);
+    echo json_encode(array_map(static fn($x) => $x[1], array_slice($scored, 0, 5)), JSON_UNESCAPED_UNICODE);
+    exit;
+}
 if ($q === '' && !$browse) {
     echo '[]';
     exit;

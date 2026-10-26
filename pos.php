@@ -680,28 +680,40 @@ function searchUrl(q) {
   return url;
 }
 
+function renderSearchItems(data, hint) {
+  searchResults.innerHTML = (hint ? '<div class="muted" style="padding:6px 12px;font-size:12px;border-bottom:1px solid #f1f5f9;">' + hint + '</div>' : '') + data.map((p, i) => `
+    <div class="search-item" data-i="${i}"
+         style="padding:8px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;">
+      <span>${escapeHtml(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${escapeHtml(p.sku)})</span></span>
+      <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${fmtQty(p.qty)}</span>
+    </div>`).join('');
+  searchResults.style.display = 'block';
+  searchResults.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('mouseenter', () => el.style.background = '#f8fafc');
+    el.addEventListener('mouseleave', () => el.style.background = '#fff');
+    el.addEventListener('click', () => {
+      const p = data[parseInt(el.dataset.i, 10)];
+      addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
+      searchInput.value = '';
+      searchResults.style.display = 'none';
+    });
+  });
+}
+
 function doSearch(q) {
   fetch(searchUrl(q))
     .then(r => r.json())
     .then(data => {
-      if (!data.length) { searchResults.style.display = 'none'; return; }
-      searchResults.innerHTML = data.map((p, i) => `
-        <div class="search-item" data-i="${i}"
-             style="padding:8px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;">
-          <span>${escapeHtml(p.name)} <span class="muted" style="font-family:monospace;font-size:12px;">(${escapeHtml(p.sku)})</span></span>
-          <span class="muted">${formatMoney(p.sell_price)} · Tồn: ${fmtQty(p.qty)}</span>
-        </div>`).join('');
-      searchResults.style.display = 'block';
-      searchResults.querySelectorAll('.search-item').forEach(el => {
-        el.addEventListener('mouseenter', () => el.style.background = '#f8fafc');
-        el.addEventListener('mouseleave', () => el.style.background = '#fff');
-        el.addEventListener('click', () => {
-          const p = data[parseInt(el.dataset.i, 10)];
-          addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
-          searchInput.value = '';
-          searchResults.style.display = 'none';
-        });
-      });
+      if (data.length) { renderSearchItems(data, ''); return; }
+      // Khong ra gi: thu goi y ten gan giong (go sai chinh ta, thieu dau)
+      fetch('pos_search.php?fuzzy=1&q=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(sug => {
+          if (searchInput.value.trim() !== q) return;
+          if (!sug.length) { searchResults.style.display = 'none'; return; }
+          renderSearchItems(sug, 'Không thấy &quot;' + escapeHtml(q) + '&quot; — có phải bạn muốn tìm:');
+        })
+        .catch(() => { searchResults.style.display = 'none'; });
     });
 }
 

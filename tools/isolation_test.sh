@@ -133,6 +133,10 @@ if [ -n "${CATA:-}" ]; then
 fi
 ST=$(curl -s -b $CB "$A/pos_goi_y.php?ids=$PID")
 [ "$ST" = "{}" ] || leak "pos_goi_y.php?ids= tra thong ke san pham cua cua hang khac: $ST"
+TNB=$(curl -s -b $CB "$A/tim_nhanh.php?q=LEAKMARK")
+[ "$(echo "$TNB" | grep -c LEAKMARK)" -eq 0 ] || leak "tim_nhanh.php?q=LEAKMARK lo du lieu cua hang khac"
+KTB=$(curl -s -b $CB "$A/khach_trung.php?phone=0988777666")
+[ "$(echo "$KTB" | grep -c LEAKMARK)" -eq 0 ] || leak "khach_trung.php lo khach cua hang khac"
 NGB=$(curl -s -b $CB "$A/ncc_gia.php?product_id=$PID")
 [ "$NGB" = "[]" ] || leak "ncc_gia.php tra gia nhap/NCC cua cua hang khac: $NGB"
 GYB=$(curl -s -b $CB $A/pos_goi_y.php)

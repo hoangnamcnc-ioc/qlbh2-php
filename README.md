@@ -2472,3 +2472,9 @@ Nên tạo tệp này trên máy mình thay vì gõ mật khẩu vào cửa sổ
   số kiểu 1.200.000 / 1,200,000 / 12,5 (`parseSoNhap()`); tồn kho chỉ ghi cho hàng chưa có tồn ở chi nhánh người nhập (không đè số đang có). `customers_import.php` nhận *Nhóm khách hàng* (tự tạo nhóm).
 - **PWA** (`manifest.webmanifest`, `sw.js`, `offline.html`, `img/pwa-*.png`): cài được như ứng dụng; service worker CHỈ giữ trang báo mất mạng + ảnh `/img/`, không lưu trang đã đăng nhập; nút "Cài ứng dụng" (ẩn ở màn hình bán hàng).
   Chưa có thông báo đẩy (cần máy chủ Web Push + khóa VAPID).
+
+### Tăng cường hỗ trợ sử dụng (26/10/2026)
+- **Tìm nhanh Ctrl+K** (`tim_nhanh.php` + hộp trong `inc_footer.php`, nút 🔎 ở góc phải): gõ để nhảy tới trang menu (đã lọc theo vai trò), sản phẩm, khách (tên/SĐT/mã), đơn hàng (theo mã), nhà cung cấp; thu ngân chỉ thấy đơn chi nhánh mình và không tìm nhà cung cấp; vai trò "chặt" không có quyền khách thì không tìm khách. Dùng được cả ở màn hình bán hàng.
+- **Trợ lý hỏi đáp**: thêm *so sánh kỳ này với kỳ trước* (doanh thu/lãi/số đơn), *theo chi nhánh*, *theo nhân viên*, và **tra cứu theo tên** khi câu hỏi không khớp ý nào (tên mặt hàng → giá/biên lãi/tồn/bán 7–30 ngày; tên hoặc SĐT khách → số đơn, tổng mua, lần gần nhất, điểm, nợ).
+- **POS gợi ý khi gõ sai chính tả** (`pos_search.php?fuzzy=1`): không ra kết quả thì gợi ý tên gần giống ("có phải bạn muốn tìm…").
+- **Cảnh báo khách trùng SĐT** ở form khách (`khach_trung.php`, so khớp kể cả +84/0 đầu/dấu cách); **gợi ý lý do thu/chi** hay dùng ở Sổ quỹ. Kiểm thử 276 kịch bản.
