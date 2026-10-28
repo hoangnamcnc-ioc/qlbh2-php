@@ -151,12 +151,26 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card" style="max-width:640px;margin-bottom:16px;">
     <div class="field">
       <label>Nhà cung cấp</label>
-      <select class="input" name="supplier_id">
-        <option value="">— Không chọn —</option>
-        <?php foreach ($suppliers as $s): ?>
-          <option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
+      <div style="display:flex;gap:8px;">
+        <select class="input" name="supplier_id" style="flex:1;">
+          <option value="">— Không chọn —</option>
+          <?php foreach ($suppliers as $s): ?>
+            <option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <button type="button" id="sup-add-btn" class="btn btn-secondary" style="flex-shrink:0;">➕ Thêm NCC</button>
+      </div>
+      <div id="sup-add-box" style="display:none;margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:8px;">
+        <div id="sup-error" class="alert alert-error" style="display:none;margin-bottom:8px;"></div>
+        <div class="grid-2">
+          <div class="field"><label>Tên nhà cung cấp *</label><input type="text" id="sup-name" class="input"></div>
+          <div class="field"><label>Điện thoại</label><input type="text" id="sup-phone" class="input"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" id="sup-cancel" class="btn btn-secondary">Hủy</button>
+          <button type="button" id="sup-save" class="btn">Tạo và chọn NCC này</button>
+        </div>
+      </div>
     </div>
     <div class="grid-2">
       <div class="field"><label>Ngày hoá đơn</label><input class="input" type="date" name="invoice_date"></div>
@@ -178,6 +192,7 @@ require_once __DIR__ . '/inc_header.php';
       <input type="text" id="search-input" class="input" placeholder="Tìm sản phẩm theo tên hoặc SKU để thêm vào phiếu nhập...">
       <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
     </div>
+    <button type="button" id="new-prod-btn" class="btn btn-secondary" style="flex-shrink:0;">➕ Hàng mới</button>
     <button type="button" id="scan-btn" class="btn btn-secondary" style="flex-shrink:0;">📷 Quét mã vạch</button>
   </div>
   <div id="qa-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:1000;align-items:center;justify-content:center;">
@@ -497,6 +512,40 @@ document.getElementById('qa-save').addEventListener('click', () => {
       addLine(d.id, d.variant_id, d.name, parseFloat(d.cost_price) || 0, d.pack_unit, parseFloat(d.pack_size) || 1, parseFloat(d.sell_price) || 0);
       searchInput.value = '';
       closeQuickAdd();
+    })
+    .catch(() => { btn.disabled = false; errBox.textContent = 'Lỗi kết nối, vui lòng thử lại.'; errBox.style.display = 'block'; });
+});
+
+document.getElementById('new-prod-btn').addEventListener('click', () => openQuickAdd(searchInput.value.trim()));
+
+// Tao nhanh nha cung cap ngay trong phieu nhap.
+const supBox = document.getElementById('sup-add-box');
+document.getElementById('sup-add-btn').addEventListener('click', () => {
+  supBox.style.display = supBox.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('sup-name').focus();
+});
+document.getElementById('sup-cancel').addEventListener('click', () => { supBox.style.display = 'none'; });
+document.getElementById('sup-save').addEventListener('click', () => {
+  const btn = document.getElementById('sup-save');
+  const errBox = document.getElementById('sup-error');
+  const fd = new FormData();
+  fd.append('csrf', <?= json_encode(csrfToken()) ?>);
+  fd.append('name', document.getElementById('sup-name').value);
+  fd.append('phone', document.getElementById('sup-phone').value);
+  btn.disabled = true;
+  fetch('supplier_quick_add.php', { method: 'POST', body: fd })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      btn.disabled = false;
+      if (!ok) { errBox.textContent = d.error || 'Không tạo được nhà cung cấp.'; errBox.style.display = 'block'; return; }
+      let opt = Array.from(supSel.options).find(o => parseInt(o.value, 10) === d.id);
+      if (!opt) { opt = new Option(d.name, d.id); supSel.add(opt); }
+      supSel.value = String(d.id);
+      supSel.dispatchEvent(new Event('change'));
+      errBox.style.display = 'none';
+      document.getElementById('sup-name').value = '';
+      document.getElementById('sup-phone').value = '';
+      supBox.style.display = 'none';
     })
     .catch(() => { btn.disabled = false; errBox.textContent = 'Lỗi kết nối, vui lòng thử lại.'; errBox.style.display = 'block'; });
 });
