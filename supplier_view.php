@@ -25,6 +25,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'revie
         ->execute([$tenantId, $id, $kind, mb_substr(post('note'), 0, 255) ?: null, $currentUser['id']]);
     redirect('supplier_view.php?id=' . $id . '#danh-gia');
 }
+$infoError = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'info') {
+    checkCsrf();
+    $newName = mb_substr(post('name'), 0, 255);
+    $newTax = chuanHoaMaSoThue(post('tax_code'));
+    $newAddr = mb_substr(post('address'), 0, 255);
+    if ($newName === '') {
+        $infoError = 'Vui lòng nhập tên nhà cung cấp';
+    } elseif ($newTax === null) {
+        $infoError = 'Mã số thuế bắt buộc nhập và phải gồm 10 số (hoặc 13 số: 10 số + 3 số chi nhánh, ví dụ 0312345678-001)';
+    } elseif ($newAddr === '') {
+        $infoError = 'Vui lòng nhập địa chỉ nhà cung cấp';
+    } else {
+        $pdo->prepare('UPDATE suppliers SET name = ?, tax_code = ?, address = ?, phone = ? WHERE id = ? AND tenant_id = ?')
+            ->execute([$newName, $newTax, $newAddr, mb_substr(post('phone'), 0, 50) ?: null, $id, $tenantId]);
+        logActivity('SUPPLIER_EDIT', "supplier_id=$id");
+        redirect('supplier_view.php?id=' . $id);
+    }
+    // Loi: giu lai gia tri vua go de nguoi dung sua tiep
+    $supplier['name'] = $newName; $supplier['tax_code'] = post('tax_code'); $supplier['address'] = $newAddr; $supplier['phone'] = post('phone');
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'category') {
     checkCsrf();
     $pdo->prepare('UPDATE suppliers SET category = ? WHERE id = ? AND tenant_id = ?')
@@ -93,6 +114,10 @@ require_once __DIR__ . '/inc_header.php';
     <div style="font-size:16px;"><?= e($supplier['phone'] ?: '—') ?></div>
   </div>
   <div class="card">
+    <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Mã số thuế</div>
+    <div style="font-size:16px;"><?= e($supplier['tax_code'] ?: '—') ?></div>
+  </div>
+  <div class="card">
     <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Địa chỉ</div>
     <div style="font-size:16px;"><?= e($supplier['address'] ?: '—') ?></div>
   </div>
@@ -105,6 +130,23 @@ require_once __DIR__ . '/inc_header.php';
     </form>
   </div>
 </div>
+
+<details class="card" style="margin-bottom:24px;max-width:640px;" <?= $infoError || !$supplier['tax_code'] || !$supplier['address'] ? 'open' : '' ?>>
+  <summary style="cursor:pointer;font-size:14px;font-weight:600;">Thông tin nhà cung cấp<?= !$supplier['tax_code'] || !$supplier['address'] ? ' <span class="badge badge-red">Thiếu mã số thuế / địa chỉ</span>' : '' ?></summary>
+  <?php if ($infoError): ?><div class="alert alert-error" style="margin-top:12px;"><?= e($infoError) ?></div><?php endif; ?>
+  <form method="post" style="margin-top:12px;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="info">
+    <div class="grid-2">
+      <div class="field"><label>Tên nhà cung cấp *</label><input class="input" name="name" required value="<?= e($supplier['name']) ?>"></div>
+      <div class="field"><label>Mã số thuế *</label><input class="input" name="tax_code" required maxlength="14" placeholder="10 hoặc 13 số" value="<?= e($supplier['tax_code'] ?? '') ?>"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Địa chỉ *</label><input class="input" name="address" required value="<?= e($supplier['address'] ?? '') ?>"></div>
+      <div class="field"><label>Số điện thoại</label><input class="input" name="phone" value="<?= e($supplier['phone'] ?? '') ?>"></div>
+    </div>
+    <button type="submit" class="btn">Lưu thông tin</button>
+  </form>
+</details>
 
 <?php if ($supplier['debt'] > 0): ?>
 <div class="card" style="margin-bottom:24px;max-width:480px;">
