@@ -83,10 +83,24 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card" style="max-width:640px;margin-bottom:16px;">
     <div class="field">
       <label>Nhà cung cấp</label>
-      <select class="input" name="supplier_id">
-        <option value="">— Không chọn —</option>
-        <?php foreach ($suppliers as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option><?php endforeach; ?>
-      </select>
+      <div style="display:flex;gap:8px;">
+        <select class="input" name="supplier_id" style="flex:1;">
+          <option value="">— Không chọn —</option>
+          <?php foreach ($suppliers as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option><?php endforeach; ?>
+        </select>
+        <button type="button" id="sup-add-btn" class="btn btn-secondary" style="flex-shrink:0;">➕ Thêm NCC</button>
+      </div>
+      <div id="sup-add-box" style="display:none;margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:8px;">
+        <div id="sup-error" class="alert alert-error" style="display:none;margin-bottom:8px;"></div>
+        <div class="grid-2">
+          <div class="field"><label>Tên nhà cung cấp *</label><input type="text" id="sup-name" class="input"></div>
+          <div class="field"><label>Điện thoại</label><input type="text" id="sup-phone" class="input"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" id="sup-cancel" class="btn btn-secondary">Hủy</button>
+          <button type="button" id="sup-save" class="btn">Tạo và chọn NCC này</button>
+        </div>
+      </div>
     </div>
     <div class="grid-2">
       <div class="field">
@@ -102,9 +116,32 @@ require_once __DIR__ . '/inc_header.php';
     <div class="field"><label>Ghi chú</label><input class="input" name="note"></div>
   </div>
 
-  <div style="position:relative;margin-bottom:12px;max-width:640px;">
-    <input type="text" id="search-input" class="input" placeholder="Tìm sản phẩm để đặt hàng...">
-    <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
+  <div style="margin-bottom:12px;max-width:640px;display:flex;gap:8px;">
+    <div style="position:relative;flex:1;">
+      <input type="text" id="search-input" class="input" placeholder="Tìm sản phẩm để đặt hàng...">
+      <div id="search-results" style="position:absolute;z-index:10;margin-top:4px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-height:280px;overflow-y:auto;display:none;"></div>
+    </div>
+    <button type="button" id="new-prod-btn" class="btn btn-secondary" style="flex-shrink:0;">➕ Hàng mới</button>
+  </div>
+  <div id="qa-box" class="card" style="display:none;max-width:640px;margin-bottom:12px;">
+    <p class="muted" style="font-size:12px;margin:0 0 10px;">Hàng chưa có trong danh mục: tạo nhanh rồi thêm luôn vào phiếu; khai báo đầy đủ (danh mục, thương hiệu...) thì vào Sản phẩm sau.</p>
+    <div id="qa-error" class="alert alert-error" style="display:none;margin-bottom:8px;"></div>
+    <div class="grid-2">
+      <div class="field"><label>Tên hàng *</label><input type="text" id="qa-name" class="input"></div>
+      <div class="field"><label>Mã SKU (bỏ trống để tự sinh)</label><input type="text" id="qa-sku" class="input"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Mã vạch (nếu có)</label><input type="text" id="qa-barcode" class="input"></div>
+      <div class="field"><label>Đơn vị tính</label><input type="text" id="qa-unit" class="input" placeholder="cái, hộp..."></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Giá nhập</label><input type="number" id="qa-cost" class="input" min="0" value="0"></div>
+      <div class="field"><label>Giá bán</label><input type="number" id="qa-sell" class="input" min="0" value="0"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button type="button" id="qa-cancel" class="btn btn-secondary">Hủy</button>
+      <button type="button" id="qa-save" class="btn">Tạo và thêm vào phiếu</button>
+    </div>
   </div>
 
   <div class="card" style="padding:0;overflow-x:auto;max-width:800px;margin-bottom:16px;">
@@ -187,6 +224,67 @@ function esc(s) { const d = document.createElement('div'); d.textContent = s; re
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) searchResults.style.display = 'none';
+});
+
+// Tao nhanh hang moi / nha cung cap ngay trong phieu (cung endpoint voi phieu nhap hang).
+const csrfVal = <?= json_encode(csrfToken()) ?>;
+const qaBox = document.getElementById('qa-box');
+function postForm(url, fields, errBox, btn, done) {
+  const fd = new FormData();
+  fd.append('csrf', csrfVal);
+  Object.keys(fields).forEach(k => fd.append(k, fields[k]));
+  btn.disabled = true;
+  fetch(url, { method: 'POST', body: fd })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      btn.disabled = false;
+      if (!ok) { errBox.textContent = d.error || 'Không tạo được.'; errBox.style.display = 'block'; return; }
+      errBox.style.display = 'none';
+      done(d);
+    })
+    .catch(() => { btn.disabled = false; errBox.textContent = 'Lỗi kết nối, vui lòng thử lại.'; errBox.style.display = 'block'; });
+}
+document.getElementById('new-prod-btn').addEventListener('click', () => {
+  const q = searchInput.value.trim();
+  const isCode = /^[0-9]{8,14}$/.test(q);
+  document.getElementById('qa-name').value = isCode ? '' : q;
+  document.getElementById('qa-barcode').value = isCode ? q : '';
+  searchResults.style.display = 'none';
+  qaBox.style.display = 'block';
+  document.getElementById('qa-name').focus();
+});
+document.getElementById('qa-cancel').addEventListener('click', () => { qaBox.style.display = 'none'; });
+document.getElementById('qa-save').addEventListener('click', () => {
+  postForm('product_quick_add.php', {
+    name: document.getElementById('qa-name').value, sku: document.getElementById('qa-sku').value,
+    barcode: document.getElementById('qa-barcode').value, unit: document.getElementById('qa-unit').value,
+    cost_price: document.getElementById('qa-cost').value, sell_price: document.getElementById('qa-sell').value,
+  }, document.getElementById('qa-error'), document.getElementById('qa-save'), d => {
+    addLine(d.id, d.variant_id, d.name, parseFloat(d.cost_price) || 0);
+    ['qa-name', 'qa-sku', 'qa-barcode', 'qa-unit'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('qa-cost').value = 0; document.getElementById('qa-sell').value = 0;
+    searchInput.value = '';
+    qaBox.style.display = 'none';
+  });
+});
+
+const supSel = document.querySelector('select[name="supplier_id"]');
+const supBox = document.getElementById('sup-add-box');
+document.getElementById('sup-add-btn').addEventListener('click', () => {
+  supBox.style.display = supBox.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('sup-name').focus();
+});
+document.getElementById('sup-cancel').addEventListener('click', () => { supBox.style.display = 'none'; });
+document.getElementById('sup-save').addEventListener('click', () => {
+  postForm('supplier_quick_add.php', {
+    name: document.getElementById('sup-name').value, phone: document.getElementById('sup-phone').value,
+  }, document.getElementById('sup-error'), document.getElementById('sup-save'), d => {
+    let opt = Array.from(supSel.options).find(o => parseInt(o.value, 10) === d.id);
+    if (!opt) { opt = new Option(d.name, d.id); supSel.add(opt); }
+    supSel.value = String(d.id);
+    document.getElementById('sup-name').value = ''; document.getElementById('sup-phone').value = '';
+    supBox.style.display = 'none';
+  });
 });
 </script>
 
