@@ -11,7 +11,7 @@ A="${SITE_URL:-https://app.kt-soft.vn}"
 cd "$(dirname "$0")/.." || exit 1
 KEY=$(python -c "import secrets;print(secrets.token_hex(16))")
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
-sed "s/__KEY__/$KEY/" tools/migrate_tap_hoa.php > "$W/mig.php"
+sed "s/__KEY__/$KEY/" ${MIG_SCRIPT:-tools/migrate_tap_hoa.php} > "$W/mig.php"
 curl -s --user "$FTP_USERPASS" -T "$W/mig.php" "ftp://$HOST/$REMOTE_DIR/_chk_mig.php" || { echo "upload loi"; exit 1; }
 curl -s "$A/_chk_mig.php?k=$KEY"
 curl -s --user "$FTP_USERPASS" -Q "DELE $REMOTE_DIR/_chk_mig.php" "ftp://$HOST/" >/dev/null

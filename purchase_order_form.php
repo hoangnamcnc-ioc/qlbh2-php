@@ -94,6 +94,10 @@ require_once __DIR__ . '/inc_header.php';
         <div id="sup-error" class="alert alert-error" style="display:none;margin-bottom:8px;"></div>
         <div class="grid-2">
           <div class="field"><label>Tên nhà cung cấp *</label><input type="text" id="sup-name" class="input"></div>
+          <div class="field"><label>Mã số thuế *</label><input type="text" id="sup-tax" class="input" maxlength="14" placeholder="10 hoặc 13 số"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>Địa chỉ *</label><input type="text" id="sup-addr" class="input"></div>
           <div class="field"><label>Điện thoại</label><input type="text" id="sup-phone" class="input"></div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -278,11 +282,12 @@ document.getElementById('sup-cancel').addEventListener('click', () => { supBox.s
 document.getElementById('sup-save').addEventListener('click', () => {
   postForm('supplier_quick_add.php', {
     name: document.getElementById('sup-name').value, phone: document.getElementById('sup-phone').value,
+    tax_code: document.getElementById('sup-tax').value, address: document.getElementById('sup-addr').value,
   }, document.getElementById('sup-error'), document.getElementById('sup-save'), d => {
     let opt = Array.from(supSel.options).find(o => parseInt(o.value, 10) === d.id);
     if (!opt) { opt = new Option(d.name, d.id); supSel.add(opt); }
     supSel.value = String(d.id);
-    document.getElementById('sup-name').value = ''; document.getElementById('sup-phone').value = '';
+    document.getElementById('sup-name').value = ''; document.getElementById('sup-phone').value = ''; document.getElementById('sup-tax').value = ''; document.getElementById('sup-addr').value = '';
     supBox.style.display = 'none';
   });
 });

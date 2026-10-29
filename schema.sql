@@ -979,3 +979,5 @@ CREATE TABLE IF NOT EXISTS supplier_reviews (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_review_supplier (supplier_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE suppliers ADD COLUMN tax_code VARCHAR(20) NULL;

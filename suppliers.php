@@ -11,14 +11,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $name = post('name');
     $phone = post('phone') ?: null;
-    $address = post('address') ?: null;
+    $address = post('address');
+    $taxCode = chuanHoaMaSoThue(post('tax_code'));
     $category = mb_substr(post('category'), 0, 100) ?: null;
 
     if ($name === '') {
         $error = 'Vui lòng nhập tên nhà cung cấp';
+    } elseif ($taxCode === null) {
+        $error = 'Mã số thuế bắt buộc nhập và phải gồm 10 số (hoặc 13 số: 10 số + 3 số chi nhánh, ví dụ 0312345678-001)';
+    } elseif ($address === '') {
+        $error = 'Vui lòng nhập địa chỉ nhà cung cấp';
     } else {
-        $pdo->prepare('INSERT INTO suppliers (name, phone, address, tenant_id, category) VALUES (?,?,?,?,?)')
-            ->execute([$name, $phone, $address, $tenantId, $category]);
+        $pdo->prepare('INSERT INTO suppliers (name, phone, address, tenant_id, category, tax_code) VALUES (?,?,?,?,?,?)')
+            ->execute([$name, $phone, $address, $tenantId, $category, $taxCode]);
         redirect('suppliers.php');
     }
 }
@@ -46,9 +51,12 @@ require_once __DIR__ . '/inc_header.php';
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
     <div class="grid-2">
       <div class="field"><label>Tên nhà cung cấp *</label><input class="input" name="name" required></div>
-      <div class="field"><label>Số điện thoại</label><input class="input" name="phone"></div>
+      <div class="field"><label>Mã số thuế *</label><input class="input" name="tax_code" required maxlength="14" placeholder="10 hoặc 13 số"></div>
     </div>
-    <div class="field"><label>Địa chỉ</label><input class="input" name="address"></div>
+    <div class="grid-2">
+      <div class="field"><label>Số điện thoại</label><input class="input" name="phone"></div>
+      <div class="field"><label>Địa chỉ *</label><input class="input" name="address" required></div>
+    </div>
     <div class="field"><label>Nhóm ngành hàng</label>
       <input class="input" name="category" list="cat-list" maxlength="100" placeholder="vd: Bánh kẹo, Hóa mỹ phẩm, Gia vị, Nước giải khát...">
       <datalist id="cat-list"><?php foreach ($catList as $c): ?><option value="<?= e($c) ?>"><?php endforeach; ?></datalist>
@@ -65,14 +73,15 @@ require_once __DIR__ . '/inc_header.php';
 <?php endif; ?>
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Tên nhà cung cấp</th><th>Nhóm ngành</th><th>SĐT</th><th>Địa chỉ</th><th class="text-right">Công nợ phải trả</th></tr></thead>
+    <thead><tr><th>Tên nhà cung cấp</th><th>Mã số thuế</th><th>Nhóm ngành</th><th>SĐT</th><th>Địa chỉ</th><th class="text-right">Công nợ phải trả</th></tr></thead>
     <tbody>
       <?php if (!$suppliers): ?>
-        <tr><td colspan="5" class="text-center muted" style="padding:32px;">Chưa có nhà cung cấp nào.</td></tr>
+        <tr><td colspan="6" class="text-center muted" style="padding:32px;">Chưa có nhà cung cấp nào.</td></tr>
       <?php endif; ?>
       <?php foreach ($suppliers as $s): ?>
         <tr>
           <td><a href="supplier_view.php?id=<?= (int) $s['id'] ?>"><?= e($s['name']) ?></a><?= (int) $s['so_van_de'] > 0 ? ' <span class="badge badge-red" title="Số lần bị ghi nhận giao chậm / hàng lỗi / tăng giá">⚠ ' . (int) $s['so_van_de'] . '</span>' : '' ?></td>
+          <td><?= e($s['tax_code'] ?: '—') ?></td>
           <td class="muted"><?= e($s['category'] ?: '—') ?></td>
           <td><?= e($s['phone'] ?: '—') ?></td>
           <td><?= e($s['address'] ?: '—') ?></td>

@@ -164,6 +164,10 @@ require_once __DIR__ . '/inc_header.php';
         <div id="sup-error" class="alert alert-error" style="display:none;margin-bottom:8px;"></div>
         <div class="grid-2">
           <div class="field"><label>Tên nhà cung cấp *</label><input type="text" id="sup-name" class="input"></div>
+          <div class="field"><label>Mã số thuế *</label><input type="text" id="sup-tax" class="input" maxlength="14" placeholder="10 hoặc 13 số"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>Địa chỉ *</label><input type="text" id="sup-addr" class="input"></div>
           <div class="field"><label>Điện thoại</label><input type="text" id="sup-phone" class="input"></div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -532,6 +536,8 @@ document.getElementById('sup-save').addEventListener('click', () => {
   fd.append('csrf', <?= json_encode(csrfToken()) ?>);
   fd.append('name', document.getElementById('sup-name').value);
   fd.append('phone', document.getElementById('sup-phone').value);
+  fd.append('tax_code', document.getElementById('sup-tax').value);
+  fd.append('address', document.getElementById('sup-addr').value);
   btn.disabled = true;
   fetch('supplier_quick_add.php', { method: 'POST', body: fd })
     .then(r => r.json().then(d => ({ ok: r.ok, d })))
@@ -544,7 +550,7 @@ document.getElementById('sup-save').addEventListener('click', () => {
       supSel.dispatchEvent(new Event('change'));
       errBox.style.display = 'none';
       document.getElementById('sup-name').value = '';
-      document.getElementById('sup-phone').value = '';
+      document.getElementById('sup-phone').value = ''; document.getElementById('sup-tax').value = ''; document.getElementById('sup-addr').value = '';
       supBox.style.display = 'none';
     })
     .catch(() => { btn.disabled = false; errBox.textContent = 'Lỗi kết nối, vui lòng thử lại.'; errBox.style.display = 'block'; });

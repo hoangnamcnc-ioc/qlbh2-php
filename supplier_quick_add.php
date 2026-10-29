@@ -26,10 +26,17 @@ $pdo = db();
 $tenantId = currentTenantId();
 $name = mb_substr(post('name'), 0, 255);
 $phone = mb_substr(post('phone'), 0, 50) ?: null;
-$address = post('address') ?: null;
+$address = mb_substr(post('address'), 0, 255);
+$taxCode = chuanHoaMaSoThue(post('tax_code'));
 
 if ($name === '') {
     traLoi(['error' => 'Vui lòng nhập tên nhà cung cấp'], 400);
+}
+if ($taxCode === null) {
+    traLoi(['error' => 'Mã số thuế bắt buộc nhập, gồm 10 số (hoặc 13 số: 10 số + 3 số chi nhánh)'], 400);
+}
+if ($address === '') {
+    traLoi(['error' => 'Vui lòng nhập địa chỉ nhà cung cấp'], 400);
 }
 $dup = $pdo->prepare('SELECT id, name FROM suppliers WHERE tenant_id = ? AND LOWER(name) = LOWER(?)');
 $dup->execute([$tenantId, $name]);
@@ -37,6 +44,6 @@ if ($row = $dup->fetch()) {
     // Da co NCC cung ten: dung lai thay vi tao trung
     traLoi(['id' => (int) $row['id'], 'name' => $row['name'], 'existing' => true]);
 }
-$pdo->prepare('INSERT INTO suppliers (name, phone, address, tenant_id) VALUES (?,?,?,?)')
-    ->execute([$name, $phone, $address, $tenantId]);
+$pdo->prepare('INSERT INTO suppliers (name, phone, address, tenant_id, tax_code) VALUES (?,?,?,?,?)')
+    ->execute([$name, $phone, $address, $tenantId, $taxCode]);
 traLoi(['id' => (int) $pdo->lastInsertId(), 'name' => $name]);

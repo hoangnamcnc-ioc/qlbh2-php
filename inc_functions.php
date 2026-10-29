@@ -1004,3 +1004,13 @@ function veKhoiPhanTrang(int $totalRows, int $page, int $pageSize = TRANG_MAC_DI
     }
     echo '</div></div>';
 }
+
+/** Ma so thue Viet Nam: 10 so, hoac 13 so (10 + 3 so chi nhanh, co the cach bang dau gach). Tra ve dang chuan hoa hoac null neu sai. */
+function chuanHoaMaSoThue(string $raw): ?string
+{
+    $s = preg_replace('/\s+/', '', $raw);
+    if (preg_match('/^(\d{10})(?:-?(\d{3}))?$/', $s, $m)) {
+        return $m[1] . (isset($m[2]) ? '-' . $m[2] : '');
+    }
+    return null;
+}
