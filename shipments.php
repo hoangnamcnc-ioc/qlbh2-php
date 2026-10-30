@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('don');
 
 $statusLabels = [
     'PENDING' => 'Chờ lấy hàng', 'PICKED_UP' => 'Đã lấy hàng', 'IN_TRANSIT' => 'Đang giao',

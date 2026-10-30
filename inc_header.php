@@ -129,6 +129,38 @@ if (!$isManagerUp && in_array('strict', currentUserPermissionGroups(), true)) {
     if (!userHasPermissionGroup('customers') && !userHasPermissionGroup('pos')) { unset($navGroups['Khách hàng']); }
     if (!userHasPermissionGroup('warranty') && !userHasPermissionGroup('pos')) { unset($navGroups['Bảo hành']); }
 }
+// Gop man hinh tuong tu: cac trang phu van truy cap duoc (qua thanh tab o dau trang chinh) nhung khong con
+// chiem 1 dong rieng o menu ben trai. $allNavFiles giu day du de thanh tab biet nguoi dung duoc mo trang nao.
+$allNavFiles = [];
+foreach ($navGroups as $lk) {
+    foreach ($lk as $f => $t) {
+        $allNavFiles[$f] = true;
+    }
+}
+$menuAlias = [
+    'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php',
+    'order_sources.php' => 'channels.php',
+    'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
+    'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
+    'brands.php' => 'categories.php',
+    'coupons.php' => 'promotions.php', 'campaigns.php' => 'promotions.php',
+    'batches.php' => 'inventory.php', 'ton_cham.php' => 'inventory.php', 'xuat_huy.php' => 'inventory.php',
+];
+$menuRename = [
+    'orders.php' => 'Đơn hàng, trả hàng, vận chuyển', 'channels.php' => 'Kênh & nguồn bán hàng',
+    'canh_bao.php' => 'Kiểm soát số liệu', 'reports.php' => 'Báo cáo & phân tích',
+    'categories.php' => 'Danh mục & nhãn hiệu', 'promotions.php' => 'Khuyến mại, mã giảm giá, chiến dịch',
+    'inventory.php' => 'Kho: tồn, lô hạn, xuất hủy',
+];
+foreach ($navGroups as $gl => $lk) {
+    foreach ($lk as $f => $t) {
+        if (isset($menuAlias[$f]) && isset($lk[$menuAlias[$f]])) {
+            unset($navGroups[$gl][$f]);
+        } elseif (isset($menuRename[$f]) && ($f !== 'channels.php' || true)) {
+            $navGroups[$gl][$f] = $menuRename[$f];
+        }
+    }
+}
 $groupIcons = [
     'Chức năng' => '🧭',
     'Tổng quan' => '📊',
@@ -144,6 +176,7 @@ $groupIcons = [
 ];
 
 $currentFile = basename($_SERVER['SCRIPT_NAME']);
+$navCurrent = $menuAlias[$currentFile] ?? $currentFile;
 $storeLogo = getSetting('store_logo', '');
 $brandColor = getSetting('brand_color', '#2563eb');
 $brandColorDark = darkenColor($brandColor, 15);
@@ -261,7 +294,7 @@ if ($isManagerUp) {
       <span>QLBH-CLOUD</span>
     </div>
     <?php foreach ($navGroups as $label => $links): ?>
-      <?php $hasActive = array_key_exists($currentFile, $links) || $label === 'Chức năng'; ?>
+      <?php $hasActive = array_key_exists($navCurrent, $links) || $label === 'Chức năng'; ?>
       <?php $groupIcon = $groupIcons[$label] ?? '•'; ?>
       <?php if (count($links) > 1): ?>
         <div class="group-toggle<?= $hasActive ? ' open has-active' : '' ?>" onclick="toggleGroup(this)">
@@ -273,13 +306,13 @@ if ($isManagerUp) {
             <?php if ($file === '#goi-y'): ?>
               <a href="#" onclick="var b=document.getElementById('fbToggleBtn'); if (b) b.click(); return false;"><?= e($text) ?></a>
             <?php else: ?>
-              <a href="<?= e($file) ?>" class="<?= $currentFile === $file ? 'active' : '' ?>"><?= e($text) ?></a>
+              <a href="<?= e($file) ?>" class="<?= $navCurrent === $file ? 'active' : '' ?>"><?= e($text) ?></a>
             <?php endif; ?>
           <?php endforeach; ?>
         </div>
       <?php else: ?>
         <?php foreach ($links as $file => $text): ?>
-          <a href="<?= e($file) ?>" class="nav-item <?= $currentFile === $file ? 'active' : '' ?>"><span class="nav-icon"><?= $groupIcon ?></span><?= e($text) ?></a>
+          <a href="<?= e($file) ?>" class="nav-item <?= $navCurrent === $file ? 'active' : '' ?>"><span class="nav-icon"><?= $groupIcon ?></span><?= e($text) ?></a>
         <?php endforeach; ?>
       <?php endif; ?>
     <?php endforeach; ?>

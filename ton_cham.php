@@ -58,6 +58,7 @@ foreach ($rows as $r) {
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kho') ?>
 <a href="reports.php" class="muted" style="font-size:14px;">← Báo cáo</a>
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 8px;">Hàng tồn lâu / bán chậm</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:760px;">

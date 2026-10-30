@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('don');
 
 $pdo = db();
 $created = $_GET['created'] ?? null;

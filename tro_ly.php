@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('baocao');
 $samples = ['Hôm nay bán được bao nhiêu?', 'Doanh thu tuần này', 'Mặt hàng nào bán chạy tháng này?', 'Hàng nào lãi nhất tháng này?',
     'Hàng nào sắp hết, cần nhập?', 'Hàng nào cận date?', 'Khách nào đang nợ?', 'Nợ nhà cung cấp?', 'Hàng nào tồn lâu?', 'Có gì bất thường không?'];
 ?>

@@ -25,6 +25,7 @@ $soMuc = count(array_filter($sections, static fn($s) => $s['total'] > 0));
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kiemsoat') ?>
 <h1 style="font-size:24px;font-weight:600;margin:0 0 8px;">Kiểm tra dữ liệu</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:780px;">
   Tìm chỗ dữ liệu sai hoặc thiếu làm báo cáo, gợi ý nhập hàng và cảnh báo kém chính xác. Trang này chỉ <b>đọc</b>, không tự sửa gì —

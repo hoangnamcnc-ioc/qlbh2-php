@@ -38,6 +38,7 @@ $campaigns = $campaignsStmt->fetchAll();
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('khuyenmai') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Marketing</h1>
 <?php hopDieuKienTrienKhai(
     'Phần mềm <b>lưu nội dung chiến dịch</b> và tệp khách hàng mục tiêu, nhưng <b>chưa tự gửi

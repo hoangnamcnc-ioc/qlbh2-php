@@ -71,6 +71,7 @@ $totalIssues = count($debtMismatch) + count($paidMismatch) + count($cancelMismat
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kiemsoat') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:4px;">Đối chiếu số liệu</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:760px;">
   Tự động tìm những chỗ sổ sách không khớp nhau. Trang chỉ xem, không sửa dữ liệu. Đơn bán từ trước

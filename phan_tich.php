@@ -42,6 +42,7 @@ $maxDu = max(1.0, max(array_map(static fn($d) => abs($d['so_du']), $tien['ngay']
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('baocao') ?>
 <h1 style="font-size:24px;font-weight:600;margin:0 0 8px;">Phân tích kinh doanh</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:780px;">
   Bốn công cụ giúp quyết định nhanh: nên dồn vốn vào hàng nào (ABC), có thiếu tiền trong 2 tuần tới không, khách quen nào sắp bỏ đi,

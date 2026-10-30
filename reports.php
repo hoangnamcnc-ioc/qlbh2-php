@@ -6,6 +6,7 @@ require_once __DIR__ . '/inc_xlsx.php';
 // Che do xuat Excel: gom moi dau ra cua menu/khung trang vao bo dem roi bo di truoc khi gui file.
 if (isset($_GET['export'])) { ob_start(); }
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('baocao');
 
 $pdo = db();
 $tenantId = currentTenantId();

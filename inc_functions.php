@@ -1051,3 +1051,41 @@ document.getElementById(<?= json_encode($id) ?>).addEventListener('click', funct
 <?php
     return ob_get_clean();
 }
+
+/**
+ * Thanh tab noi cac man hinh cung nghiep vu (don hang / tra hang / van chuyen, bao cao / phan tich...) o dau
+ * trang. Chi hien tab ma nguoi dung thuc su mo duoc (theo dung quy tac hien muc trong menu, $allNavFiles do
+ * inc_header.php dung); neu chi con 1 tab thi khong ve gi.
+ */
+function thanhTabNghiepVu(string $nhom): string
+{
+    global $allNavFiles, $currentFile;
+    $bo = [
+        'don' => ['orders.php' => 'Đơn hàng', 'order_returns.php' => 'Đơn trả hàng', 'don_cho_thanh_toan.php' => 'Đơn online chờ thanh toán', 'shipments.php' => 'Vận chuyển'],
+        'kenh' => ['channels.php' => 'Kênh bán hàng', 'order_sources.php' => 'Nguồn bán hàng'],
+        'no' => ['cong_no.php' => 'Công nợ phải thu / phải trả', 'customer_debt_reminders.php' => 'Nhắc nợ khách hàng'],
+        'kiemsoat' => ['canh_bao.php' => 'Cảnh báo bất thường', 'doi_chieu.php' => 'Đối chiếu số liệu', 'bank_reconcile.php' => 'Đối soát chuyển khoản', 'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu'],
+        'baocao' => ['reports.php' => 'Báo cáo', 'phan_tich.php' => 'Phân tích kinh doanh', 'tro_ly.php' => 'Trợ lý hỏi đáp'],
+        'danhmuc' => ['categories.php' => 'Danh mục', 'brands.php' => 'Nhãn hiệu', 'groups.php' => 'Nhóm khách hàng'],
+        'khuyenmai' => ['promotions.php' => 'Khuyến mại', 'coupons.php' => 'Mã giảm giá', 'campaigns.php' => 'Chiến dịch'],
+        'kho' => ['inventory.php' => 'Tồn kho', 'batches.php' => 'Lô & hạn dùng', 'ton_cham.php' => 'Tồn lâu / bán chậm', 'xuat_huy.php' => 'Xuất hủy', 'stock_takes.php' => 'Kiểm hàng'],
+        'nhap' => ['reorder_suggestions.php' => 'Gợi ý nhập hàng', 'purchase_orders.php' => 'Đặt hàng nhập', 'stock_receipts.php' => 'Nhập hàng', 'supplier_returns.php' => 'Trả hàng NCC', 'suppliers.php' => 'Nhà cung cấp'],
+    ];
+    $tabs = [];
+    foreach ($bo[$nhom] ?? [] as $file => $nhan) {
+        $mo = isset($allNavFiles[$file]) || ($file === 'order_sources.php' && hasRole('ADMIN'));
+        if ($mo || $file === $currentFile) {
+            $tabs[$file] = $nhan;
+        }
+    }
+    if (count($tabs) < 2) {
+        return '';
+    }
+    $html = '<div class="tab-nghiep-vu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">';
+    foreach ($tabs as $file => $nhan) {
+        $dang = $file === $currentFile;
+        $html .= '<a href="' . e($file) . '" style="padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;'
+            . ($dang ? 'background:var(--brand,#2563eb);color:#fff;font-weight:600;' : 'background:#f1f5f9;color:#334155;') . '">' . e($nhan) . '</a>';
+    }
+    return $html . '</div>';
+}

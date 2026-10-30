@@ -34,6 +34,7 @@ $brands = $brandsStmt->fetchAll();
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('danhmuc') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:24px;">Nhãn hiệu</h1>
 
 <div class="card" style="max-width:480px;margin-bottom:24px;">

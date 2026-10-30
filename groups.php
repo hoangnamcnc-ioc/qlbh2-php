@@ -66,6 +66,7 @@ $priceLists = $priceListsStmt->fetchAll();
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('danhmuc') ?>
 <a href="customers.php" class="muted" style="font-size:14px;">← Danh sách khách hàng</a>
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Nhóm khách hàng</h1>
 

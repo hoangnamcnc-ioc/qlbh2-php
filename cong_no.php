@@ -108,6 +108,7 @@ if (isset($_GET['export'])) {
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('no') ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
   <h1 style="font-size:24px;font-weight:600;margin:0;">Công nợ phải thu / phải trả</h1>
   <a class="btn btn-secondary" href="?export=1">⬇ Xuất Excel</a>

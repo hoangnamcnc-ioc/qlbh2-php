@@ -11,6 +11,7 @@
  * chi soan san noi dung tin nhan de chu quan tu bam Sao chep roi dan vao Zalo/SMS.
  */
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('no');
 
 $pdo = db();
 $tenantId = currentTenantId();

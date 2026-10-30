@@ -31,6 +31,7 @@ $promotions = $promotionsStmt->fetchAll();
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('khuyenmai') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Quản lý khuyến mại</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">
   Khác với Mã giảm giá — chương trình này <b>tự động áp dụng</b> trong POS khi đơn hàng đạt giá trị

@@ -72,6 +72,7 @@ $labels = ['MATCHED' => ['Đã khớp đơn', '#059669'], 'POS_REF' => ['Chờ �
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kiemsoat') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:4px;">Đối soát chuyển khoản tự động</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:780px;">
   Khi khách chuyển khoản, dịch vụ thông báo biến động số dư (SePay, Casso...) gửi giao dịch về đây; hệ thống tìm <b>mã đơn</b> trong nội dung chuyển khoản

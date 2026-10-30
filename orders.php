@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('don');
 
 $statusLabels = [
     'DRAFT' => 'Đặt hàng', 'APPROVED' => 'Duyệt', 'PACKED' => 'Đóng gói',

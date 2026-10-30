@@ -42,6 +42,7 @@ $catList = $catListStmt->fetchAll(PDO::FETCH_COLUMN);
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('nhap') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:24px;">Nhà cung cấp</h1>
 
 <div class="card" style="max-width:640px;margin-bottom:24px;">

@@ -23,6 +23,7 @@ $style = [
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kiemsoat') ?>
 <h1 style="font-size:24px;font-weight:600;margin:0 0 8px;">Cảnh báo bất thường</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:760px;">
   Hệ thống tự rà soát 30 ngày qua để tìm dấu hiệu cần xem lại: huỷ đơn nhiều, chiết khấu cao, chênh lệch tiền mặt ca,

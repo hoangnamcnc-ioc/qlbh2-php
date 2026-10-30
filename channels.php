@@ -49,6 +49,7 @@ $typeLabels = [
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kenh') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Kênh bán hàng</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">
   Khai báo các kênh bán hàng (Shopee, Facebook, Website...) để gắn vào đơn hàng và thống kê doanh

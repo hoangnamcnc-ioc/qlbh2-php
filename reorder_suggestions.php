@@ -11,6 +11,7 @@
  * Combo/dich vu khong co "nhap hang" nen loai khoi danh sach.
  */
 require_once __DIR__ . '/inc_header.php';
+echo thanhTabNghiepVu('nhap');
 require_once __DIR__ . '/inc_xlsx.php';
 require_once __DIR__ . '/inc_thong_minh.php';
 

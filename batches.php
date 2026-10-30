@@ -79,6 +79,7 @@ $cntCan = (int) $pdo->query("SELECT COUNT(*) FROM product_batches b JOIN branche
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kho') ?>
 <a href="settings.php" class="muted" style="font-size:14px;">← Cấu hình</a>
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 8px;">Lô hàng & Hạn sử dụng</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">

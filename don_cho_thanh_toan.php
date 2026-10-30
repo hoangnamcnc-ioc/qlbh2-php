@@ -49,6 +49,7 @@ $tuoi = static fn(int $p): string => $p >= 1440 ? intdiv($p, 1440) . ' ngày' : 
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('don') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:4px;">Đơn online chờ thanh toán</h1>
 <p class="muted" style="margin:0 0 14px;font-size:13px;max-width:780px;">
   Đơn khách đặt qua QR/trang đặt hàng chưa thanh toán đủ sau <b><?= $minutes >= 60 ? ($minutes / 60) . ' giờ' : $minutes . ' phút' ?></b>.

@@ -162,6 +162,7 @@ foreach ($list as $w) {
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('kho') ?>
 <a href="batches.php" class="muted" style="font-size:14px;">← Lô hàng & Hạn sử dụng</a>
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 8px;">Xuất hủy hàng</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;max-width:760px;">
