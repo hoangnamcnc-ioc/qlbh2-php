@@ -10,9 +10,28 @@ $suppliersStmt->execute([$tenantId]);
 $suppliers = $suppliersStmt->fetchAll();
 $error = null;
 
+// Nhap kho TU DON DAT HANG: mo form nay da dien san NCC + dong hang tu don (?po=ID), nguoi dung chinh
+// so luong/gia thuc nhan, them lo/han dung, so tien da tra... roi luu; don dat hang chuyen sang "Da nhap".
+$poId = (int) ($_GET['po'] ?? $_POST['po_id'] ?? 0);
+$po = $poId ? layDonDatHangCuaToi($poId) : null;
+if ($po && $po['status'] !== 'PENDING') {
+    $po = null;
+}
+$preLines = [];
+if ($po) {
+    $pl = $pdo->prepare(
+        "SELECT i.product_id AS id, i.variant_id, i.quantity, i.cost_price, p.pack_unit, p.pack_size, p.sell_price,
+                IF(i.variant_id IS NULL, p.name, CONCAT(p.name, ' - ', v.name)) AS name
+         FROM purchase_order_items i JOIN products p ON p.id = i.product_id
+         LEFT JOIN product_variants v ON v.id = i.variant_id WHERE i.po_id = ?"
+    );
+    $pl->execute([(int) $po['id']]);
+    $preLines = $pl->fetchAll();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
-    $branchId = (int) ($currentUser['branch_id'] ?? 0);
+    $branchId = $po ? (int) $po['branch_id'] : (int) ($currentUser['branch_id'] ?? 0);
     $supplierId = (int) ($_POST['supplier_id'] ?? 0) ?: null;
     if ($supplierId && !in_array($supplierId, array_map('intval', array_column($suppliers, 'id')), true)) {
         $supplierId = null;
@@ -83,8 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $code = 'PN' . substr((string) (int) round(microtime(true) * 1000), -8);
                 $pdo->prepare(
-                    'INSERT INTO stock_receipts (code, branch_id, supplier_id, created_by_id, invoice_date, reference_no, discount_amount, extra_cost, paid_amount, total_amount, note, due_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$code, $branchId, $supplierId, $currentUser['id'], $invoiceDate, $referenceNo, $discountAmount, $extraCost, $paidAmount, $total, $note, ($total - $paidAmount) > 0 ? $dueDate : null]);
+                    'INSERT INTO stock_receipts (code, branch_id, supplier_id, created_by_id, invoice_date, reference_no, discount_amount, extra_cost, paid_amount, total_amount, note, due_date, purchase_order_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$code, $branchId, $supplierId, $currentUser['id'], $invoiceDate, $referenceNo, $discountAmount, $extraCost, $paidAmount, $total, $note ?? ($po ? 'Nhập từ đặt hàng ' . $po['code'] : null), ($total - $paidAmount) > 0 ? $dueDate : null, $po ? (int) $po['id'] : null]);
                 $receiptId = (int) $pdo->lastInsertId();
 
                 $itemStmt = $pdo->prepare(
@@ -127,6 +146,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     recordCashbookEntry($branchId, 'PAYMENT', $paidAmount, "Chi tiền nhập hàng $code", 'CASH', $currentUser['id'], null, $receiptId);
                 }
 
+                if ($po) {
+                    $pdo->prepare("UPDATE purchase_orders SET status = 'RECEIVED' WHERE id = ? AND status = 'PENDING'")->execute([(int) $po['id']]);
+                }
+
                 $pdo->commit();
                 redirect('stock_receipt_view.php?id=' . $receiptId);
             } catch (Throwable $ex) {
@@ -142,11 +165,15 @@ require_once __DIR__ . '/inc_header.php';
 
 <a href="stock_receipts.php" class="muted" style="font-size:14px;">← Danh sách phiếu nhập</a>
 <h1 style="font-size:24px;font-weight:600;margin:8px 0 24px;">Tạo phiếu nhập hàng</h1>
+<?php if ($po): ?>
+  <div class="alert alert-warning">Nhập kho từ đặt hàng <b><?= e($po['code']) ?></b>. Kiểm tra lại số lượng, giá thực nhận, thêm lô / hạn dùng và số tiền đã trả rồi bấm Lưu; đơn đặt hàng sẽ chuyển sang "Đã nhập". Nhận thiếu thì sửa số lượng (đơn vẫn coi là đã nhập).</div>
+<?php endif; ?>
 
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
 
 <form method="post" id="receipt-form">
   <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+  <?php if ($po): ?><input type="hidden" name="po_id" value="<?= (int) $po['id'] ?>"><?php endif; ?>
 
   <div class="card" style="max-width:640px;margin-bottom:16px;">
     <div class="field">
@@ -155,7 +182,7 @@ require_once __DIR__ . '/inc_header.php';
         <select class="input" name="supplier_id" style="flex:1;">
           <option value="">— Không chọn —</option>
           <?php foreach ($suppliers as $s): ?>
-            <option value="<?= (int) $s['id'] ?>"><?= e($s['name']) ?></option>
+            <option value="<?= (int) $s['id'] ?>" <?= $po && (int) $po['supplier_id'] === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option>
           <?php endforeach; ?>
         </select>
         <button type="button" id="sup-add-btn" class="btn btn-secondary" style="flex-shrink:0;">➕ Thêm NCC</button>
@@ -466,6 +493,14 @@ function updateTotals() {
   document.getElementById('grand-total').textContent = fmt(total);
 }
 document.getElementById('discount-input').addEventListener('input', updateTotals);
+// Dien san cac dong tu don dat hang (neu mo tu don dat hang)
+<?= json_encode($preLines, JSON_UNESCAPED_UNICODE) ?>.forEach(r => {
+  addLine(parseInt(r.id, 10), r.variant_id ? parseInt(r.variant_id, 10) : null, r.name, parseFloat(r.cost_price) || 0, r.pack_unit, parseFloat(r.pack_size) || 1, parseFloat(r.sell_price) || 0);
+  const l = lines[lines.length - 1];
+  l.qtyInput = parseFloat(r.quantity) || 1;
+  recalc();
+  render();
+});
 const supSel = document.querySelector('select[name="supplier_id"]');
 if (supSel) supSel.addEventListener('change', render);
 document.getElementById('extra-cost-input').addEventListener('input', updateTotals);

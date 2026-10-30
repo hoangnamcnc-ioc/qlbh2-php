@@ -9,6 +9,51 @@ requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $tenantId = currentTenantId();
+$currentUser = currentUser();
+
+// Thu no khach / tra no NCC ngay tren trang nay (cung nghiep vu voi customer_view.php / supplier_view.php:
+// khoa dong, tru no, ghi but toan cong no va so quy chi nhanh dang lam viec).
+$msg = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['thu', 'tra'], true)) {
+    checkCsrf();
+    $isThu = $_POST['action'] === 'thu';
+    $objId = (int) ($_POST['id'] ?? 0);
+    $amount = postFloat('amount');
+    $method = in_array($_POST['method'] ?? '', ['CASH', 'BANK_TRANSFER', 'CARD', 'QR_CODE'], true) ? $_POST['method'] : 'CASH';
+    $branchId = (int) effectiveBranchId($currentUser);
+    $table = $isThu ? 'customers' : 'suppliers';
+    if (!$branchId) {
+        $msg = ['err', 'Chưa xác định chi nhánh để ghi sổ quỹ — chọn chi nhánh làm việc rồi thử lại.'];
+    } else {
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->prepare("SELECT name, debt FROM $table WHERE id = ? AND tenant_id = ? FOR UPDATE");
+            $lock->execute([$objId, $tenantId]);
+            $obj = $lock->fetch();
+            if (!$obj || $amount <= 0 || $amount > (float) $obj['debt']) {
+                $pdo->rollBack();
+                $msg = ['err', 'Số tiền không hợp lệ (phải lớn hơn 0 và không vượt quá số đang nợ).'];
+            } else {
+                $pdo->prepare("UPDATE $table SET debt = debt - ? WHERE id = ?")->execute([$amount, $objId]);
+                if ($isThu) {
+                    $pdo->prepare('INSERT INTO customer_debt_entries (customer_id, amount, note, created_by_id) VALUES (?,?,?,?)')
+                        ->execute([$objId, -$amount, 'Thu nợ trực tiếp', $currentUser['id']]);
+                    recordCashbookEntry($branchId, 'RECEIPT', $amount, 'Thu nợ trực tiếp KH ' . $obj['name'], $method, $currentUser['id']);
+                } else {
+                    recordCashbookEntry($branchId, 'PAYMENT', $amount, 'Trả nợ NCC ' . $obj['name'], $method === 'BANK_TRANSFER' ? 'BANK_TRANSFER' : 'CASH', $currentUser['id']);
+                    logActivity('SUPPLIER_DEBT_PAY', "supplier_id=$objId amount=$amount");
+                }
+                $pdo->commit();
+                $msg = ['ok', ($isThu ? 'Đã ghi nhận thu ' : 'Đã ghi nhận trả ') . money($amount) . ' — ' . $obj['name']];
+            }
+        } catch (Throwable $ex) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $msg = ['err', 'Không ghi nhận được, vui lòng thử lại.'];
+        }
+    }
+}
 
 // Phai thu: khach con no, kem so ngay tu lan ghi no cu nhat con chua tra (xep theo tuoi no).
 $stmt = $pdo->prepare(
@@ -69,7 +114,7 @@ require_once __DIR__ . '/inc_header.php';
 </div>
 <p class="muted" style="font-size:13px;margin:0 0 16px;max-width:760px;">
   Tổng hợp số tiền khách còn nợ cửa hàng và số tiền cửa hàng còn nợ nhà cung cấp tại thời điểm hiện tại.
-  Muốn thu nợ vào hồ sơ khách (<a href="customers.php">Khách hàng</a>) hoặc trả tiền phiếu nhập (<a href="stock_receipts.php">Nhập hàng</a>).
+  Thu nợ khách hoặc trả nợ nhà cung cấp ngay ở từng dòng bên dưới (sẽ ghi vào sổ quỹ chi nhánh đang làm việc); muốn xem chi tiết từng đơn thì bấm tên khách / nhà cung cấp.
 </p>
 
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
@@ -78,12 +123,13 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card" style="min-width:200px;"><div class="muted" style="font-size:12px;">Chênh lệch</div><div style="font-size:22px;font-weight:700;"><?= money($tongThu - $tongTra) ?></div><div class="muted" style="font-size:12px;">phải thu − phải trả</div></div>
 </div>
 
+<?php if ($msg): ?><div class="alert alert-<?= $msg[0] === 'ok' ? 'success' : 'error' ?>"><?= e($msg[1]) ?></div><?php endif; ?>
 <h2 style="font-size:16px;margin:0 0 8px;">Khách hàng còn nợ</h2>
 <div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
   <table>
-    <thead><tr><th>Khách hàng</th><th>SĐT</th><th class="text-right">Còn nợ</th><th>Nợ từ</th><th class="text-right">Số ngày</th></tr></thead>
+    <thead><tr><th>Khách hàng</th><th>SĐT</th><th class="text-right">Còn nợ</th><th>Nợ từ</th><th class="text-right">Số ngày</th><th>Thu nợ</th></tr></thead>
     <tbody>
-      <?php if (!$phaiThu): ?><tr><td colspan="5" class="text-center muted" style="padding:20px;">Không có khách nào đang nợ.</td></tr><?php endif; ?>
+      <?php if (!$phaiThu): ?><tr><td colspan="6" class="text-center muted" style="padding:20px;">Không có khách nào đang nợ.</td></tr><?php endif; ?>
       <?php foreach ($phaiThu as $r): ?>
         <?php $ngay = (int) $tuoi($r['dau_tien']); ?>
         <tr>
@@ -92,6 +138,14 @@ require_once __DIR__ . '/inc_header.php';
           <td class="text-right"><b><?= money($r['debt']) ?></b></td>
           <td class="muted"><?= $r['dau_tien'] ? e(date('d/m/Y', strtotime($r['dau_tien']))) : '—' ?></td>
           <td class="text-right" style="<?= $ngay >= 30 ? 'color:#dc2626;font-weight:600;' : '' ?>"><?= $r['dau_tien'] ? $ngay : '—' ?></td>
+          <td>
+            <form method="post" style="display:flex;gap:4px;align-items:center;" onsubmit="return confirm('Ghi nhận thu nợ khách này?');">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="thu"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+              <input type="number" name="amount" min="1" max="<?= (float) $r['debt'] ?>" value="<?= (float) $r['debt'] ?>" required style="width:110px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;">
+              <select name="method" style="padding:4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:auto;"><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option></select>
+              <button type="submit" class="btn" style="padding:4px 10px;font-size:13px;">Thu</button>
+            </form>
+          </td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -101,14 +155,22 @@ require_once __DIR__ . '/inc_header.php';
 <h2 style="font-size:16px;margin:0 0 8px;">Nhà cung cấp cửa hàng còn nợ</h2>
 <div class="card" style="padding:0;overflow-x:auto;">
   <table>
-    <thead><tr><th>Nhà cung cấp</th><th>SĐT</th><th class="text-right">Còn nợ</th></tr></thead>
+    <thead><tr><th>Nhà cung cấp</th><th>SĐT</th><th class="text-right">Còn nợ</th><th>Trả nợ</th></tr></thead>
     <tbody>
-      <?php if (!$phaiTra): ?><tr><td colspan="3" class="text-center muted" style="padding:20px;">Không còn nợ nhà cung cấp nào.</td></tr><?php endif; ?>
+      <?php if (!$phaiTra): ?><tr><td colspan="4" class="text-center muted" style="padding:20px;">Không còn nợ nhà cung cấp nào.</td></tr><?php endif; ?>
       <?php foreach ($phaiTra as $r): ?>
         <tr>
           <td><a href="supplier_view.php?id=<?= (int) $r['id'] ?>"><?= e($r['name']) ?></a></td>
           <td><?= e((string) $r['phone']) ?></td>
           <td class="text-right"><b><?= money($r['debt']) ?></b></td>
+          <td>
+            <form method="post" style="display:flex;gap:4px;align-items:center;" onsubmit="return confirm('Ghi nhận trả nợ nhà cung cấp này?');">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="tra"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+              <input type="number" name="amount" min="1" max="<?= (float) $r['debt'] ?>" value="<?= (float) $r['debt'] ?>" required style="width:110px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;">
+              <select name="method" style="padding:4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:auto;"><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option></select>
+              <button type="submit" class="btn" style="padding:4px 10px;font-size:13px;">Trả</button>
+            </form>
+          </td>
         </tr>
       <?php endforeach; ?>
     </tbody>

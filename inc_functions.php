@@ -1014,3 +1014,40 @@ function chuanHoaMaSoThue(string $raw): ?string
     }
     return null;
 }
+
+/**
+ * Nut "+ Them nhanh" canh o chon danh muc (category | brand | customer_group): hoi ten, tao qua
+ * danh_muc_quick_add.php roi chon luon muc vua tao trong o <select> $selectId. Chi hien cho ADMIN/MANAGER
+ * (cung quyen voi trang quan ly danh muc).
+ */
+function nutThemNhanhDanhMuc(string $selectId, string $type, string $nhan): string
+{
+    if (!hasRole('ADMIN', 'MANAGER')) {
+        return '';
+    }
+    $id = 'tn-' . preg_replace('/[^a-z0-9]/i', '', $selectId) . '-' . $type;
+    ob_start(); ?>
+<button type="button" id="<?= e($id) ?>" class="btn btn-secondary" style="flex-shrink:0;padding:6px 10px;font-size:13px;" title="Thêm nhanh <?= e($nhan) ?>">➕ Thêm</button>
+<script>
+document.getElementById(<?= json_encode($id) ?>).addEventListener('click', function () {
+  var ten = prompt(<?= json_encode('Tên ' . $nhan . ' mới:') ?>);
+  if (!ten || !ten.trim()) return;
+  var btn = this, sel = document.getElementById(<?= json_encode($selectId) ?>) || document.querySelector('select[name=' + <?= json_encode($selectId) ?> + ']');
+  var fd = new FormData();
+  fd.append('csrf', <?= json_encode(csrfToken()) ?>); fd.append('type', <?= json_encode($type) ?>); fd.append('name', ten.trim());
+  btn.disabled = true;
+  fetch('danh_muc_quick_add.php', { method: 'POST', body: fd })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (x) {
+      btn.disabled = false;
+      if (!x.ok) { alert(x.d.error || 'Không thêm được.'); return; }
+      var opt = Array.prototype.find.call(sel.options, function (o) { return parseInt(o.value, 10) === x.d.id; });
+      if (!opt) { opt = new Option(x.d.name, x.d.id); sel.add(opt); }
+      sel.value = String(x.d.id);
+    })
+    .catch(function () { btn.disabled = false; alert('Lỗi kết nối, vui lòng thử lại.'); });
+});
+</script>
+<?php
+    return ob_get_clean();
+}

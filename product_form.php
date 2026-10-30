@@ -309,21 +309,23 @@ require_once __DIR__ . '/inc_header.php';
     <div class="grid-2">
       <div class="field">
         <label for="f-category">Danh mục (<a href="categories.php" class="muted">quản lý</a>)</label>
-        <select id="f-category" class="input" name="category_id">
+        <div style="display:flex;gap:6px;"><select id="f-category" class="input" style="flex:1;min-width:0;" name="category_id">
           <option value="">— Không chọn —</option>
           <?php foreach ($categories as $c): ?>
             <option value="<?= (int) $c['id'] ?>" <?= ($product['category_id'] ?? null) == $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
           <?php endforeach; ?>
         </select>
+        <?= nutThemNhanhDanhMuc('f-category', 'category', 'danh mục') ?></div>
       </div>
       <div class="field">
         <label for="f-brand">Nhãn hiệu (<a href="brands.php" class="muted">quản lý</a>)</label>
-        <select id="f-brand" class="input" name="brand_id">
+        <div style="display:flex;gap:6px;"><select id="f-brand" class="input" style="flex:1;min-width:0;" name="brand_id">
           <option value="">— Không chọn —</option>
           <?php foreach ($brands as $b): ?>
             <option value="<?= (int) $b['id'] ?>" <?= ($product['brand_id'] ?? null) == $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option>
           <?php endforeach; ?>
         </select>
+        <?= nutThemNhanhDanhMuc('f-brand', 'brand', 'nhãn hiệu') ?></div>
       </div>
     </div>
 

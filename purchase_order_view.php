@@ -43,11 +43,7 @@ require_once __DIR__ . '/inc_header.php';
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
     <?php if ($po['status'] === 'PENDING'): ?>
-      <form method="post" action="purchase_order_receive.php" onsubmit="return confirm('Tạo phiếu nhập kho từ đặt hàng này?');">
-        <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
-        <input type="hidden" name="po_id" value="<?= (int) $po['id'] ?>">
-        <button type="submit" class="btn">Nhập kho từ đặt hàng này</button>
-      </form>
+      <a href="stock_receipt_form.php?po=<?= (int) $po['id'] ?>" class="btn">Nhập kho từ đặt hàng này</a>
     <?php endif; ?>
     <?php if ($po['status'] === 'RECEIVED'): ?><span class="badge badge-green">Đã nhập</span>
     <?php elseif ($po['status'] === 'CANCELLED'): ?><span class="badge badge-gray">Đã hủy</span>

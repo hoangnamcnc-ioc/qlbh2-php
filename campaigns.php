@@ -73,10 +73,11 @@ require_once __DIR__ . '/inc_header.php';
     </div>
     <div class="field">
       <label>Nhóm khách hàng mục tiêu</label>
-      <select class="input" name="target_group_id">
+      <div style="display:flex;gap:6px;"><select class="input" style="flex:1;min-width:0;" id="f-target-group" name="target_group_id">
         <option value="">— Tất cả khách hàng —</option>
         <?php foreach ($groups as $g): ?><option value="<?= (int) $g['id'] ?>"><?= e($g['name']) ?></option><?php endforeach; ?>
       </select>
+        <?= nutThemNhanhDanhMuc('f-target-group', 'customer_group', 'nhóm khách hàng') ?></div>
     </div>
     <div class="field"><label>Nội dung *</label><input class="input" name="message" required></div>
     <button type="submit" class="btn">Lưu chiến dịch</button>

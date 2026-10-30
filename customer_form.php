@@ -129,12 +129,13 @@ require_once __DIR__ . '/inc_header.php';
     <div class="grid-2">
       <div class="field">
         <label>Nhóm khách hàng</label>
-        <select class="input" name="group_id">
+        <div style="display:flex;gap:6px;"><select class="input" style="flex:1;min-width:0;" id="f-group" name="group_id">
           <option value="">— Không nhóm —</option>
           <?php foreach ($groups as $g): ?>
             <option value="<?= (int) $g['id'] ?>" <?= ($customer['group_id'] ?? null) == $g['id'] ? 'selected' : '' ?>><?= e($g['name']) ?></option>
           <?php endforeach; ?>
         </select>
+        <?= nutThemNhanhDanhMuc('f-group', 'customer_group', 'nhóm khách hàng') ?></div>
       </div>
       <div class="field">
         <label>Nhân viên phụ trách</label>
