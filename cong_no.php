@@ -73,6 +73,7 @@ $phaiTra = $stmt->fetchAll();
 // Phieu nhap con no NCC co ghi han tra (xep theo han, qua han len dau)
 $phieuCoHan = layPhieuNhapDenHan($pdo, $tenantId, 0, 3650, 200);
 
+$tenCuaHang = getSetting('store_name', '');
 $tongThu = array_sum(array_map(static fn($r) => (float) $r['debt'], $phaiThu));
 $tongTra = array_sum(array_map(static fn($r) => (float) $r['debt'], $phaiTra));
 $tuoi = static fn(?string $ts): string => $ts ? (string) max(0, (int) floor((time() - strtotime($ts)) / 86400)) : '';
@@ -108,14 +109,13 @@ if (isset($_GET['export'])) {
 require_once __DIR__ . '/inc_header.php';
 ?>
 
-<?= thanhTabNghiepVu('no') ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
   <h1 style="font-size:24px;font-weight:600;margin:0;">Công nợ phải thu / phải trả</h1>
   <a class="btn btn-secondary" href="?export=1">⬇ Xuất Excel</a>
 </div>
 <p class="muted" style="font-size:13px;margin:0 0 16px;max-width:760px;">
   Tổng hợp số tiền khách còn nợ cửa hàng và số tiền cửa hàng còn nợ nhà cung cấp tại thời điểm hiện tại.
-  Thu nợ khách hoặc trả nợ nhà cung cấp ngay ở từng dòng bên dưới (sẽ ghi vào sổ quỹ chi nhánh đang làm việc); muốn xem chi tiết từng đơn thì bấm tên khách / nhà cung cấp.
+  Thu nợ khách, soạn sẵn tin nhắc nợ (bấm Sao chép rồi dán vào Zalo/SMS gửi tay — hệ thống không tự gửi tin) hoặc trả nợ nhà cung cấp ngay ở từng dòng bên dưới (sẽ ghi vào sổ quỹ chi nhánh đang làm việc); muốn xem chi tiết từng đơn thì bấm tên khách / nhà cung cấp.
 </p>
 
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
@@ -128,11 +128,12 @@ require_once __DIR__ . '/inc_header.php';
 <h2 style="font-size:16px;margin:0 0 8px;">Khách hàng còn nợ</h2>
 <div class="card" style="padding:0;overflow-x:auto;margin-bottom:24px;">
   <table>
-    <thead><tr><th>Khách hàng</th><th>SĐT</th><th class="text-right">Còn nợ</th><th>Nợ từ</th><th class="text-right">Số ngày</th><th>Thu nợ</th></tr></thead>
+    <thead><tr><th>Khách hàng</th><th>SĐT</th><th class="text-right">Còn nợ</th><th>Nợ từ</th><th class="text-right">Số ngày</th><th>Thu nợ</th><th>Nhắc nợ</th></tr></thead>
     <tbody>
-      <?php if (!$phaiThu): ?><tr><td colspan="6" class="text-center muted" style="padding:20px;">Không có khách nào đang nợ.</td></tr><?php endif; ?>
+      <?php if (!$phaiThu): ?><tr><td colspan="7" class="text-center muted" style="padding:20px;">Không có khách nào đang nợ.</td></tr><?php endif; ?>
       <?php foreach ($phaiThu as $r): ?>
-        <?php $ngay = (int) $tuoi($r['dau_tien']); ?>
+        <?php $ngay = (int) $tuoi($r['dau_tien']);
+          $tin = 'Chào ' . $r['name'] . ', ' . ($tenCuaHang ? $tenCuaHang . ' xin ' : '') . 'nhắc bạn hiện còn khoản công nợ ' . money((float) $r['debt']) . 'đ tại cửa hàng. Bạn sắp xếp thanh toán giúp mình nhé, cảm ơn bạn!'; ?>
         <tr>
           <td><a href="customer_view.php?id=<?= (int) $r['id'] ?>"><?= e($r['name']) ?></a></td>
           <td><?= e((string) $r['phone']) ?></td>
@@ -147,6 +148,7 @@ require_once __DIR__ . '/inc_header.php';
               <button type="submit" class="btn" style="padding:4px 10px;font-size:13px;">Thu</button>
             </form>
           </td>
+          <td><button type="button" class="btn btn-secondary copy-btn" style="padding:4px 10px;font-size:12px;white-space:nowrap;" data-tin="<?= e($tin) ?>">Sao chép tin nhắc</button></td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -201,4 +203,15 @@ require_once __DIR__ . '/inc_header.php';
 </div>
 
 <p class="muted" style="font-size:12px;margin:14px 0 0;max-width:820px;">⚖️ Số liệu trên trang này được tính từ dữ liệu bạn nhập theo cách tính mặc định của phần mềm, chỉ mang tính <b>tham khảo</b> và không thay thế tư vấn của kế toán/cơ quan thuế. Xem <a href="dieu_khoan.php" target="_blank" rel="noopener">Điều khoản sử dụng</a>.</p>
+<script>
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(btn.dataset.tin).then(() => {
+      const old = btn.textContent;
+      btn.textContent = 'Đã sao chép ✓';
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    });
+  });
+});
+</script>
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

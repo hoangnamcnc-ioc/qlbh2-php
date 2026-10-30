@@ -139,13 +139,16 @@ foreach ($navGroups as $lk) {
 }
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php',
-    'order_sources.php' => 'channels.php',
     'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',
     'coupons.php' => 'promotions.php', 'campaigns.php' => 'promotions.php',
     'batches.php' => 'inventory.php', 'ton_cham.php' => 'inventory.php', 'xuat_huy.php' => 'inventory.php',
 ];
+// Nhac no khach da gop vao trang Cong no: nguoi co nhom Tai chinh khong can muc rieng
+if (isset($allNavFiles['cong_no.php'])) {
+    unset($navGroups['Khách hàng']['customer_debt_reminders.php']);
+}
 $menuRename = [
     'orders.php' => 'Đơn hàng, trả hàng, vận chuyển', 'channels.php' => 'Kênh & nguồn bán hàng',
     'canh_bao.php' => 'Kiểm soát số liệu', 'reports.php' => 'Báo cáo & phân tích',

@@ -122,7 +122,7 @@ require_once __DIR__ . '/inc_header.php';
       </div>
     </div>
     <div class="field">
-      <label>Nguồn bán hàng (<a href="order_sources.php" class="muted">quản lý</a>)</label>
+      <label>Nguồn bán hàng (<a href="channels.php#nguon" class="muted">quản lý</a>)</label>
       <select class="input" name="source_id">
         <option value="">— Không chọn —</option>
         <?php foreach ($sources as $s): ?>

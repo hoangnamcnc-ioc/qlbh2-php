@@ -1062,8 +1062,6 @@ function thanhTabNghiepVu(string $nhom): string
     global $allNavFiles, $currentFile;
     $bo = [
         'don' => ['orders.php' => 'Đơn hàng', 'order_returns.php' => 'Đơn trả hàng', 'don_cho_thanh_toan.php' => 'Đơn online chờ thanh toán', 'shipments.php' => 'Vận chuyển'],
-        'kenh' => ['channels.php' => 'Kênh bán hàng', 'order_sources.php' => 'Nguồn bán hàng'],
-        'no' => ['cong_no.php' => 'Công nợ phải thu / phải trả', 'customer_debt_reminders.php' => 'Nhắc nợ khách hàng'],
         'kiemsoat' => ['canh_bao.php' => 'Cảnh báo bất thường', 'doi_chieu.php' => 'Đối chiếu số liệu', 'bank_reconcile.php' => 'Đối soát chuyển khoản', 'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu'],
         'baocao' => ['reports.php' => 'Báo cáo', 'phan_tich.php' => 'Phân tích kinh doanh', 'tro_ly.php' => 'Trợ lý hỏi đáp'],
         'danhmuc' => ['categories.php' => 'Danh mục', 'brands.php' => 'Nhãn hiệu', 'groups.php' => 'Nhóm khách hàng'],

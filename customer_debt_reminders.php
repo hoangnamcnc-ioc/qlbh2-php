@@ -10,8 +10,16 @@
  * KHONG tich hop API Zalo that (thu tuc duyet Zalo OA rat mat cong, ngoai pham vi 1 lan lam) -
  * chi soan san noi dung tin nhan de chu quan tu bam Sao chep roi dan vao Zalo/SMS.
  */
+require_once __DIR__ . '/inc_auth.php';
+require_once __DIR__ . '/inc_functions.php';
+requireLogin();
+// Da gop vao trang Cong no (cong_no.php) cho ADMIN/MANAGER (va vai tro co nhom Tai chinh); vai tro chi co
+// nhom Khach hang van dung trang nhac no nay.
+if (isManagerTier() || userHasPermissionGroup('finance')) {
+    header('Location: cong_no.php');
+    exit;
+}
 require_once __DIR__ . '/inc_header.php';
-echo thanhTabNghiepVu('no');
 
 $pdo = db();
 $tenantId = currentTenantId();

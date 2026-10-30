@@ -22,7 +22,7 @@ $sections = [
     ],
     'Thiết lập bán hàng' => [
         ['sales_settings.php', '⚙️', 'Cấu hình bán hàng', 'Thiết lập các cấu hình áp dụng khi bán hàng'],
-        ['order_sources.php', '📞', 'Nguồn bán hàng', 'Thêm và quản lý nguồn tạo ra đơn hàng'],
+        ['channels.php#nguon', '📞', 'Nguồn bán hàng', 'Thêm và quản lý nguồn tạo ra đơn hàng'],
         ['channels.php', '🔗', 'Kênh bán hàng', 'Quản lý các kênh bạn dùng để bán hàng (Shopee, Facebook, Website...)'],
         ['online_shop_settings.php', '🛒', 'Đặt hàng Online', 'Trang công khai cho khách tự đặt hàng không cần đăng nhập'],
         ['cancel_reasons.php', '↩️', 'Lý do hủy trả', 'Thêm và điều chỉnh lý do khi hủy/trả đơn hàng'],

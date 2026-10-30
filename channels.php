@@ -6,12 +6,30 @@ requireRole('ADMIN', 'MANAGER');
 $pdo = db();
 $tenantId = currentTenantId();
 $error = null;
+$srcError = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     checkCsrf();
     $action = $_POST['action'] ?? 'create';
 
-    if ($action === 'toggle') {
+    // Nguon ban hang (cach khach tiep can: Zalo, goi dien...) - chi ADMIN, nay quan ly chung tren trang nay
+    if (in_array($action, ['source_create', 'source_toggle'], true)) {
+        requireRole('ADMIN');
+        if ($action === 'source_toggle') {
+            $id = (int) ($_POST['id'] ?? 0);
+            $pdo->prepare('UPDATE order_sources SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
+            logActivity('ORDER_SOURCE_TOGGLE', 'id=' . $id);
+            redirect('channels.php#nguon');
+        }
+        $srcName = post('name');
+        if ($srcName === '') {
+            $srcError = 'Vui lòng nhập tên nguồn bán hàng';
+        } else {
+            $pdo->prepare('INSERT INTO order_sources (name, tenant_id) VALUES (?, ?)')->execute([$srcName, $tenantId]);
+            logActivity('ORDER_SOURCE_CREATE', $srcName);
+            redirect('channels.php#nguon');
+        }
+    } elseif ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
         $pdo->prepare('UPDATE sales_channels SET is_active = 1 - is_active WHERE id = ? AND tenant_id = ?')->execute([$id, $tenantId]);
         logActivity('CHANNEL_TOGGLE', 'id=' . $id);
@@ -41,6 +59,16 @@ $channelsStmt = $pdo->prepare(
 $channelsStmt->execute([$tenantId]);
 $channels = $channelsStmt->fetchAll();
 
+$sources = [];
+if (hasRole('ADMIN')) {
+    $srcStmt = $pdo->prepare(
+        'SELECT os.*, (SELECT COUNT(*) FROM orders o WHERE o.source_id = os.id) AS order_count
+         FROM order_sources os WHERE os.tenant_id = ? ORDER BY os.id'
+    );
+    $srcStmt->execute([$tenantId]);
+    $sources = $srcStmt->fetchAll();
+}
+
 $typeLabels = [
     'SHOPEE' => 'Shopee', 'LAZADA' => 'Lazada', 'TIKTOK' => 'TikTok Shop',
     'FACEBOOK' => 'Facebook', 'WEBSITE' => 'Website riêng', 'OTHER' => 'Khác',
@@ -49,7 +77,6 @@ $typeLabels = [
 require_once __DIR__ . '/inc_header.php';
 ?>
 
-<?= thanhTabNghiepVu('kenh') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:8px;">Kênh bán hàng</h1>
 <p class="muted" style="margin:0 0 16px;font-size:13px;">
   Khai báo các kênh bán hàng (Shopee, Facebook, Website...) để gắn vào đơn hàng và thống kê doanh
@@ -131,5 +158,45 @@ require_once __DIR__ . '/inc_header.php';
     </tbody>
   </table>
 </div>
+
+<?php if (hasRole('ADMIN')): ?>
+<h2 id="nguon" style="font-size:18px;font-weight:600;margin:32px 0 6px;">Nguồn bán hàng</h2>
+<p class="muted" style="margin:0 0 12px;font-size:13px;max-width:720px;">
+  Kênh ở trên là <b>nền tảng bán</b> (Shopee, Website...). Nguồn là <b>cách khách tiếp cận để đặt hàng</b>
+  (Tại quầy, Gọi điện thoại, Nhắn tin Zalo...). Một đơn có thể gắn cả kênh lẫn nguồn khi tạo / sửa đơn, phục vụ thống kê.
+</p>
+<div class="card" style="max-width:480px;margin-bottom:16px;">
+  <?php if ($srcError): ?><div class="alert alert-error"><?= e($srcError) ?></div><?php endif; ?>
+  <form method="post" style="display:flex;gap:8px;align-items:end;">
+    <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="action" value="source_create">
+    <div class="field" style="flex:1;margin:0;"><label>Tên nguồn *</label><input class="input" name="name" required placeholder="vd: Nhắn tin Zalo"></div>
+    <button type="submit" class="btn">Thêm nguồn</button>
+  </form>
+</div>
+<div class="card" style="padding:0;overflow-x:auto;">
+  <table>
+    <thead><tr><th>Tên nguồn</th><th class="text-right">Số đơn</th><th class="text-center">Trạng thái</th><th></th></tr></thead>
+    <tbody>
+      <?php if (!$sources): ?><tr><td colspan="4" class="text-center muted" style="padding:24px;">Chưa có nguồn bán hàng nào.</td></tr><?php endif; ?>
+      <?php foreach ($sources as $s): ?>
+        <tr>
+          <td><?= e($s['name']) ?></td>
+          <td class="text-right"><?= (int) $s['order_count'] ?></td>
+          <td class="text-center"><?php if ($s['is_active']): ?><span class="badge badge-green">Đang dùng</span><?php else: ?><span class="badge badge-gray">Đã tắt</span><?php endif; ?></td>
+          <td class="text-right">
+            <form method="post" style="display:inline;">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+              <input type="hidden" name="action" value="source_toggle">
+              <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+              <button type="submit" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;"><?= $s['is_active'] ? 'Tắt' : 'Bật' ?></button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>
