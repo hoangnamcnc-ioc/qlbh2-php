@@ -37,6 +37,9 @@ $sections = [
         ['cashbook.php', '📒', 'Sổ quỹ', 'Phiếu thu/chi & tổng hợp thu chi'],
         ['reports.php', '📊', 'Báo cáo', 'Doanh thu, lãi gộp, tồn kho, top sản phẩm/khách hàng'],
     ],
+    'Ứng dụng & thiết bị' => [
+        ['cai_ung_dung.php', '📲', 'Cài ứng dụng', 'Cài QLBH-CLOUD lên máy tính Windows, điện thoại Android, iPhone / iPad; hướng dẫn sử dụng'],
+    ],
     'Nhật ký' => [
         ['file_logs.php', '📁', 'Xuất/ nhập file', 'Theo dõi và quản lý xuất nhập file của cửa hàng'],
         ['activity_log.php', '🕒', 'Nhật ký hoạt động', 'Quản lý thao tác, nhật ký hoạt động của cửa hàng'],

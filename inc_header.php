@@ -17,6 +17,7 @@ $navGroups = [
     'Chức năng' => [
         'so_do_chuc_nang.php' => 'Sơ đồ chức năng',
         'huong_dan.php' => 'Hướng dẫn sử dụng',
+        'cai_ung_dung.php' => 'Cài ứng dụng (Windows, Android, iOS)',
         '#goi-y' => 'Góp ý / Báo lỗi',
     ],
     'Tổng quan' => ['index.php' => 'Tổng quan'],
