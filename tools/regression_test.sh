@@ -197,7 +197,7 @@ eq "chiet khau lam tong < da thu (40000) bi tu choi, tong van 90000" "90000" "$(
 
 echo "== 6h. Nha cung cap: nhap hang, tra tien, tra hang NCC, kiem kho"
 T=$(tk $A/suppliers.php $CJ)
-curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "name=NCC+Reg&phone=0911000222&address=HN" $A/suppliers.php
+curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "name=NCC+Reg&phone=0911000222&address=HN&tax_code=0123456789" $A/suppliers.php
 SIDR=$(curl -s -b $CJ $A/suppliers.php | grep -o 'supplier_view.php?id=[0-9]*' | head -1 | grep -o '[0-9]*$')
 ST0=$(stock)
 curl -s -b $CJ -c $CJ -o /dev/null --data-urlencode csrf="$T" -d "supplier_id=$SIDR&product_id[]=$PID&variant_id[]=&quantity[]=10&cost_price[]=60000&paid_amount=200000&reference_no=REGHD" $A/stock_receipt_form.php
@@ -273,7 +273,8 @@ h=sys.stdin.buffer.read().decode('utf-8','replace')
 side=h[h.find('<aside'):h.find('</aside>')]
 menu=set(re.findall(r'href=\"([a-z_0-9]+\.php)\"',side))-{'so_do_chuc_nang.php','huong_dan.php','index.php','change_password.php'}
 tiles=set(re.findall(r'class=\"sdcn-tile\" href=\"([a-z_0-9]+\.php)\"',h))
-print(len(menu-tiles), len(tiles-menu-{'cham_cong_cua_toi.php'}))
+gop={'cham_cong_cua_toi.php','quotes.php','chi_phi.php','hoa_don.php','phan_bo.php','kiem_ke_quy.php','thue_khac.php','san_xuat.php','xuat_huy.php','batches.php','ton_cham.php','order_returns.php','don_cho_thanh_toan.php','shipments.php','doi_chieu.php','bank_reconcile.php','phan_tich.php','tro_ly.php','brands.php','coupons.php','campaigns.php','nghi_phep.php','nhan_su.php'}
+print(len(menu-tiles), len(tiles-menu-gop))
 ")
   eq "so do chuc nang vai tro $RR: dung va du chuc nang trong menu (thieu, thua)" "0 0" "$MISS"
 done

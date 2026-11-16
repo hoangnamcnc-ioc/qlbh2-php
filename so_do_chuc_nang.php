@@ -11,10 +11,14 @@ require_once __DIR__ . '/inc_header.php';
 
 // Cac file duoc phep = moi lien ket dang co trong menu cua nguoi dung (inc_header.php dung chung quy tac phan quyen).
 $allowed = [];
+// $allNavFiles giu day du cac trang nguoi dung duoc mo, ke ca trang da gop vao tab (menu rut gon khong lam mat o tren so do).
 foreach ($navGroups as $links) {
     foreach (array_keys($links) as $file) {
         $allowed[$file] = true;
     }
+}
+foreach (array_keys($allNavFiles ?? []) as $file) {
+    $allowed[$file] = true;
 }
 // Mot so chuc nang khong nam o menu rieng nhung thuoc cung nhom quyen voi trang menu.
 $alsoAllowed = [
@@ -60,6 +64,7 @@ $stages = [
         ['📋', 'Kiểm hàng', 'Đếm thực tế (kiểm theo nhóm hàng), cân bằng kho', 'stock_takes.php'],
         ['📆', 'Lô hàng & hạn dùng', 'Cảnh báo hàng sắp hết hạn, nhập lô', 'batches.php'],
         ['🗑️', 'Xuất hủy hàng', 'Hết hạn, hư hỏng, mất — có lý do', 'xuat_huy.php'],
+        ['🏭', 'Sản xuất, giá thành', 'Định mức nguyên liệu, phiếu sản xuất, giá vốn thành phẩm', 'san_xuat.php'],
         ['🐌', 'Hàng tồn lâu / bán chậm', 'Vốn đang chôn vào hàng ế', 'ton_cham.php'],
         ['🧹', 'Kiểm tra dữ liệu', 'Giá bán < giá vốn, trùng mã, tồn âm, khách trùng SĐT', 'kiem_tra_du_lieu.php'],
         ['🔁', 'Chuyển hàng', 'Giữa các chi nhánh', 'stock_transfers.php'],
@@ -72,6 +77,7 @@ $stages = [
         ['🕒', 'Mở ca / đóng ca', 'Kiểm tiền đầu ca, cuối ca', 'ca_ban_hang.php'],
         ['🚛', 'Tạo đơn giao hàng', 'Đơn đặt trước, giao tận nơi', 'order_form.php'],
         ['📃', 'Danh sách đơn hàng', 'Duyệt, đóng gói, thu tiền, sửa đơn', 'orders.php'],
+        ['📝', 'Báo giá', 'Lập, in báo giá và chuyển thành đơn hàng', 'quotes.php'],
         ['📦', 'Vận chuyển & COD', 'Vận đơn, đối soát thu hộ', 'shipments.php'],
         ['↩️', 'Đơn trả hàng', 'Khách trả hàng, hoàn tiền', 'order_returns.php'],
         ['⏰', 'Đơn online chờ thanh toán', 'Nhắc khách chưa trả sau 1 giờ', 'don_cho_thanh_toan.php'],
@@ -88,6 +94,11 @@ $stages = [
         ['💵', 'Sổ quỹ', 'Thu chi tiền mặt, chuyển khoản', 'cashbook.php'],
         ['📊', 'Báo cáo', 'Doanh thu, lãi gộp, tồn kho', 'reports.php'],
         ['🧮', 'Kế toán & Thuế', 'Sổ sách, thuế, kết chuyển', 'accounting.php'],
+        ['🧾', 'Chi phí kinh doanh', 'Phân loại khoản chi được trừ thuế, cảnh báo, khóa sổ', 'chi_phi.php'],
+        ['📑', 'Sổ hóa đơn', 'Hóa đơn bán ra, mua vào, đơn chưa có hóa đơn', 'hoa_don.php'],
+        ['🏗️', 'Tài sản và phân bổ', 'Khấu hao, chi phí trả trước, doanh thu nhận trước', 'phan_bo.php'],
+        ['🔢', 'Kiểm kê quỹ', 'Đếm tiền mặt theo mệnh giá, so với sổ quỹ', 'kiem_ke_quy.php'],
+        ['📋', 'Sổ thuế khác (S3a)', 'Thuế xuất nhập khẩu, tiêu thụ đặc biệt, bảo vệ môi trường...', 'thue_khac.php'],
         ['🏦', 'Đối soát chuyển khoản', 'Tự ghi thu khi khách chuyển khoản', 'bank_reconcile.php'],
         ['📒', 'Công nợ phải thu/trả', 'Khách nợ, nợ nhà cung cấp, xuất Excel', 'cong_no.php'],
         ['🔎', 'Đối chiếu số liệu', 'Tự tìm chỗ sổ sách không khớp', 'doi_chieu.php'],
@@ -97,6 +108,8 @@ $stages = [
         ['⏱️', 'Chấm công & lương của tôi', 'Vào/ra ca, lương tạm tính', 'cham_cong_cua_toi.php'],
         ['🗓️', 'Lịch làm việc', 'Phân ca cho nhân viên', 'work_schedules.php'],
         ['💰', 'Bảng lương', 'Tính lương theo giờ công và hoa hồng', 'payroll.php'],
+        ['👤', 'Hồ sơ nhân sự', 'Hợp đồng, bảo hiểm, người phụ thuộc, ngày phép', 'nhan_su.php'],
+        ['🏖️', 'Nghỉ phép', 'Gửi đơn nghỉ, duyệt đơn, ngày phép còn lại', 'nghi_phep.php'],
         ['🗓️', 'Chấm công, lịch & bảng lương', 'Quản lý nhân sự, trả lương', 'attendance.php'],
         ['🕵️', 'Nhật ký hoạt động', 'Ai đã làm gì, lúc nào', 'activity_log.php'],
         ['💾', 'Xuất dữ liệu', 'Tải toàn bộ dữ liệu của cửa hàng', 'tenant_export.php'],
