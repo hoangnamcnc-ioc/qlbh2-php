@@ -12,6 +12,9 @@ $stmt = $pdo->prepare(
 $stmt->execute([$id, $tenantId]);
 $order = $stmt->fetch();
 if (!$order) redirect('orders.php');
+if (kyDaKhoa((string) $order['created_at'])) {
+    redirect('order_view.php?id=' . (int) $order['id'] . '&err=' . urlencode('Đơn thuộc kỳ đã khóa sổ đến ' . date('d/m/Y', strtotime(ngayKhoaSo())) . ', không sửa được.'));
+}
 
 $channelsStmt = $pdo->prepare('SELECT * FROM sales_channels WHERE is_active = 1 AND tenant_id = ? ORDER BY name');
 $channelsStmt->execute([$tenantId]);

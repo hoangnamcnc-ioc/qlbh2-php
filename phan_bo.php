@@ -45,8 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'asset_dispose') {
         $id = (int) ($_POST['id'] ?? 0);
         $d = (string) ($_POST['disposed_date'] ?? '');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
-            $error = 'Chọn ngày thanh lý.';
+        $as = $pdo->prepare('SELECT in_service_date FROM fixed_assets WHERE id = ? AND tenant_id = ?');
+        $as->execute([$id, $tenantId]);
+        $svcDate = $as->fetchColumn();
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) || $d > date('Y-m-d')) {
+            $error = 'Chọn ngày thanh lý hợp lệ (không sau hôm nay).';
+        } elseif (!$svcDate || $d < $svcDate) {
+            $error = 'Ngày thanh lý phải sau ngày đưa vào sử dụng.';
+        } elseif (kyDaKhoa($d)) {
+            $error = 'Ngày thanh lý thuộc kỳ đã khóa sổ.';
         } else {
             $pdo->prepare('UPDATE fixed_assets SET disposed_date = ?, disposal_amount = ? WHERE id = ? AND tenant_id = ? AND disposed_date IS NULL')
                 ->execute([$d, postFloat('disposal_amount'), $id, $tenantId]);

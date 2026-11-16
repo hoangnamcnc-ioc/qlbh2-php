@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $before = max(0.0, postFloat('amount_before_tax'));
         $rate = (float) ($_POST['vat_rate'] ?? 0);
         $rate = in_array($rate, [0.0, 5.0, 8.0, 10.0], true) ? $rate : 0.0;
-        $vat = $_POST['vat_amount'] !== '' && isset($_POST['vat_amount']) ? max(0.0, postFloat('vat_amount')) : round($before * $rate / 100);
+        $vat = isset($_POST['vat_amount']) && $_POST['vat_amount'] !== '' ? max(0.0, postFloat('vat_amount')) : round($before * $rate / 100);
         $orderCode = trim((string) ($_POST['order_code'] ?? ''));
         $orderId = null;
         if ($orderCode !== '' && $dir === 'SALE') {

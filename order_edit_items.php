@@ -14,6 +14,9 @@ $tenantId = currentTenantId();
 $id = (int) ($_GET['id'] ?? ($_POST['id'] ?? 0));
 $order = layDonHangCuaToi($id);
 if (!$order) redirect('orders.php');
+if (kyDaKhoa((string) $order['created_at'])) {
+    redirect('order_view.php?id=' . (int) $order['id'] . '&err=' . urlencode('Đơn thuộc kỳ đã khóa sổ đến ' . date('d/m/Y', strtotime(ngayKhoaSo())) . ', không sửa được.'));
+}
 
 $editable = in_array($order['status'], ['DRAFT', 'APPROVED', 'PACKED'], true);
 $hasReturn = $pdo->prepare('SELECT COUNT(*) FROM order_returns WHERE order_id = ?');

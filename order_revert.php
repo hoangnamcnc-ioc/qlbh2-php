@@ -12,6 +12,9 @@ $pipeline = ['DRAFT', 'APPROVED', 'PACKED', 'SHIPPED', 'COMPLETED'];
 
 $order = layDonHangCuaToi($orderId);
 
+if ($order && kyDaKhoa((string) $order['created_at'])) {
+    redirect('order_view.php?id=' . (int) $order['id'] . '&err=' . urlencode('Đơn thuộc kỳ đã khóa sổ đến ' . date('d/m/Y', strtotime(ngayKhoaSo())) . ', không đổi trạng thái được.'));
+}
 if ($order) {
     $idx = array_search($order['status'], $pipeline, true);
     if ($idx !== false && $idx > 0) {

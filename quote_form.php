@@ -102,7 +102,7 @@ require_once __DIR__ . '/inc_header.php';
 </form>
 
 <script>
-let lines = <?= json_encode(array_map(static fn($l) => ['key' => ($l['id'] ?? 0) . ':' . ($l['variantId'] ?? ''), 'id' => (int) ($l['id'] ?? 0), 'variantId' => $l['variantId'] ?? null, 'name' => (string) ($l['name'] ?? ''), 'qty' => (float) ($l['qty'] ?? 1), 'price' => (float) ($l['price'] ?? 0)], $old['lines']), JSON_UNESCAPED_UNICODE) ?>;
+let lines = <?= json_encode(array_map(static fn($l) => ['key' => ($l['id'] ?? 0) . ':' . ($l['variantId'] ?? ''), 'id' => (int) ($l['id'] ?? 0), 'variantId' => $l['variantId'] ?? null, 'name' => (string) ($l['name'] ?? ''), 'qty' => (float) ($l['qty'] ?? 1), 'price' => (float) ($l['price'] ?? 0)], $old['lines']), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 const searchInput = document.getElementById('search-input'), searchResults = document.getElementById('search-results');
 let timer = null;
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
