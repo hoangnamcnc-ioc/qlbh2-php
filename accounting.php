@@ -396,13 +396,21 @@ require_once __DIR__ . '/inc_header.php';
     $chiPhiRows = $pdo->prepare(
         "SELECT ce.code, DATE(ce.created_at) AS ngay, ce.reason, ce.amount
          FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
-         WHERE ce.type = 'PAYMENT' AND ce.auto_generated = 0 AND ce.category IS NULL
+         WHERE " . dieuKienChiKinhDoanh() . " AND ce.deductible = 1
            AND DATE(ce.created_at) BETWEEN ? AND ? AND b.tenant_id = ?
          ORDER BY ce.created_at"
     );
     $chiPhiRows->execute([$tuNgay, $denNgay, $tenantId]);
     $chiPhiRows = $chiPhiRows->fetchAll();
-    $tongChiPhi = array_sum(array_column($chiPhiRows, 'amount'));
+    $tongChiPhiKhac = array_sum(array_column($chiPhiRows, 'amount'));
+    $giaVonKy = giaVonTheoKy($pdo, $tenantId, $tuNgay, $denNgay);
+    $tongChiPhi = $tongChiPhiKhac + $giaVonKy;
+    $chuaPhanLoaiKy = $pdo->prepare(
+        "SELECT COUNT(*) FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+         WHERE " . dieuKienChiKinhDoanh() . " AND ce.deductible IS NULL AND DATE(ce.created_at) BETWEEN ? AND ? AND b.tenant_id = ?"
+    );
+    $chuaPhanLoaiKy->execute([$tuNgay, $denNgay, $tenantId]);
+    $chuaPhanLoaiKy = (int) $chuaPhanLoaiKy->fetchColumn();
 
     // --- S2d-HKD: So chi tiet vat lieu, dung cu, san pham, hang hoa (nhap - xuat - ton) ---
     $nhapRows = $pdo->prepare(
@@ -459,14 +467,20 @@ require_once __DIR__ . '/inc_header.php';
 <div class="card" style="margin-bottom:24px;">
   <h2 style="font-size:15px;font-weight:600;margin:0 0 4px;">Sổ doanh thu, chi phí</h2>
   <p class="muted" style="font-size:13px;margin:0 0 12px;">
-    Theo mẫu <b>S2c-HKD</b> — làm căn cứ xác định thu nhập tính thuế TNCN. Chi phí lấy từ các
-    khoản chi tay trong Sổ quỹ (không gồm chi tự động do bán hàng/nhập hàng sinh ra) — vui lòng
-    đối chiếu, bổ sung các chi phí hợp lý khác (nếu có) trước khi kê khai.
+    Theo mẫu <b>S2c-HKD</b> — làm căn cứ xác định thu nhập tính thuế TNCN. Chi phí gồm giá vốn hàng bán
+    và các khoản chi đã đánh dấu "được trừ" ở <a href="chi_phi.php">Chi phí kinh doanh</a>.
   </p>
+  <?php if ($chuaPhanLoaiKy > 0): ?>
+    <div class="alert" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;">
+      Còn <b><?= $chuaPhanLoaiKy ?></b> khoản chi trong kỳ chưa phân loại nên chưa được tính vào chi phí.
+      <a href="chi_phi.php?from=<?= e($tuNgay) ?>&amp;to=<?= e($denNgay) ?>&amp;f=todo">Phân loại ngay</a>.
+    </div>
+  <?php endif; ?>
   <table>
     <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Số tiền</th></tr></thead>
     <tbody>
-      <?php if (!$chiPhiRows): ?><tr><td colspan="4" class="muted">Không có khoản chi nào trong kỳ.</td></tr><?php endif; ?>
+      <tr><td class="muted" style="font-family:monospace;">GIAVON</td><td class="muted">—</td><td>Giá vốn hàng bán trong kỳ (đã trừ hàng trả lại)</td><td class="text-right"><?= money($giaVonKy) ?></td></tr>
+      <?php if (!$chiPhiRows): ?><tr><td colspan="4" class="muted">Không có khoản chi được trừ nào trong kỳ.</td></tr><?php endif; ?>
       <?php foreach ($chiPhiRows as $r): ?>
         <tr>
           <td class="muted" style="font-family:monospace;"><?= e($r['code']) ?></td>
@@ -547,10 +561,9 @@ require_once __DIR__ . '/inc_header.php';
   </p>
   <p class="muted" style="margin:0;font-size:13px;">
     Phần lớn cửa hàng bán lẻ/tạp hóa thông thường <b>không phát sinh</b> các loại thuế này nên
-    không bắt buộc lập sổ. Nếu cửa hàng của bạn có hoạt động thuộc diện trên, vui lòng theo dõi
-    thủ công theo mẫu S3a-HKD hoặc liên hệ kế toán viên — phần mềm chưa có dữ liệu để tự động
-    tổng hợp mục này.
+    không bắt buộc lập sổ. Nếu có phát sinh, ghi từng khoản phải nộp và đã nộp ở sổ riêng, xuất Excel được.
   </p>
+  <p style="margin:12px 0 0;"><a class="btn" href="thue_khac.php?nam=<?= e($nam) ?>">Mở sổ S3a-HKD</a></p>
 </div>
 
 <div class="card" style="max-width:640px;">

@@ -89,6 +89,7 @@ function generateTenantExportSql(int $tid): string
         'warranty_cards' => "order_item_id IN ($orderItemSub)",
         'warranty_claims' => "warranty_card_id IN (SELECT id FROM warranty_cards WHERE order_item_id IN ($orderItemSub))",
         'stock_write_offs' => "tenant_id = $tid",
+        'other_tax_entries' => "tenant_id = $tid",
         'supplier_reviews' => "tenant_id = $tid",
         'activity_logs' => "tenant_id = $tid",
     ];
@@ -347,7 +348,7 @@ const PERMISSION_GROUP_FILES = [
         'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
-    'finance' => ['accounting.php', 'chi_phi.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
+    'finance' => ['accounting.php', 'chi_phi.php', 'thue_khac.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
     'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
 ];
 
@@ -1162,4 +1163,25 @@ function tongHopChiPhiNam(PDO $pdo, int $tenantId, string $nam): array
 function thueSuatTncnThuNhap(float $doanhThu): float
 {
     return $doanhThu > 50000000000 ? 0.20 : ($doanhThu > 3000000000 ? 0.17 : 0.15);
+}
+
+/** Gia von hang ban trong khoang ngay (tru hang tra lai), dung cho so doanh thu chi phi S2c. */
+function giaVonTheoKy(PDO $pdo, int $tenantId, string $tu, string $den): float
+{
+    $gv = $pdo->prepare(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(oi.cost_price,0), p.cost_price, 0) * oi.quantity),0)
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id
+         JOIN products p ON p.id = oi.product_id
+         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?"
+    );
+    $gv->execute([$tu, $den, $tenantId]);
+    $v = (float) $gv->fetchColumn();
+    $gt = $pdo->prepare(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(oi.cost_price,0), p.cost_price, 0) * ri.quantity),0)
+         FROM order_return_items ri JOIN order_returns r ON r.id = ri.return_id JOIN order_items oi ON oi.id = ri.order_item_id
+         JOIN products p ON p.id = ri.product_id JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+         WHERE DATE(r.created_at) BETWEEN ? AND ? AND b.tenant_id = ?"
+    );
+    $gt->execute([$tu, $den, $tenantId]);
+    return max(0.0, $v - (float) $gt->fetchColumn());
 }
