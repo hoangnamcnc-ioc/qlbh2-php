@@ -90,6 +90,10 @@ function generateTenantExportSql(int $tid): string
         'warranty_claims' => "warranty_card_id IN (SELECT id FROM warranty_cards WHERE order_item_id IN ($orderItemSub))",
         'stock_write_offs' => "tenant_id = $tid",
         'other_tax_entries' => "tenant_id = $tid",
+        'fixed_assets' => "tenant_id = $tid",
+        'allocation_items' => "tenant_id = $tid",
+        'allocation_entries' => "tenant_id = $tid",
+        'cash_counts' => "tenant_id = $tid",
         'supplier_reviews' => "tenant_id = $tid",
         'activity_logs' => "tenant_id = $tid",
     ];
@@ -348,7 +352,7 @@ const PERMISSION_GROUP_FILES = [
         'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
-    'finance' => ['accounting.php', 'chi_phi.php', 'thue_khac.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
+    'finance' => ['accounting.php', 'chi_phi.php', 'thue_khac.php', 'phan_bo.php', 'kiem_ke_quy.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
     'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
 ];
 
@@ -1153,8 +1157,10 @@ function tongHopChiPhiNam(PDO $pdo, int $tenantId, string $nam): array
     );
     $cp->execute([$nam, $tenantId]);
     $r = $cp->fetch();
+    $pb = phanBoChiPhiNam($pdo, $tenantId, $nam);
     return [
-        'gia_von' => $giaVon, 'chi_phi_duoc_tru' => (float) $r['duoc_tru'], 'chi_phi_khong_tru' => (float) $r['khong_tru'],
+        'khau_hao' => $pb['khau_hao'], 'phan_bo_tra_truoc' => $pb['tra_truoc'],
+        'gia_von' => $giaVon, 'chi_phi_duoc_tru' => (float) $r['duoc_tru'] + $pb['khau_hao'] + $pb['tra_truoc'], 'chi_phi_khong_tru' => (float) $r['khong_tru'],
         'chua_phan_loai_tien' => (float) $r['chua_pl_tien'], 'chua_phan_loai_so' => (int) $r['chua_pl_so'],
     ];
 }
@@ -1184,4 +1190,81 @@ function giaVonTheoKy(PDO $pdo, int $tenantId, string $tu, string $den): float
     );
     $gt->execute([$tu, $den, $tenantId]);
     return max(0.0, $v - (float) $gt->fetchColumn());
+}
+
+// ===== Tai san co dinh, phan bo chi phi tra truoc / doanh thu nhan truoc =====
+function congThang(string $ym, int $n): string
+{
+    return date('Y-m', strtotime($ym . '-01 +' . $n . ' month'));
+}
+
+/** Lich khau hao duong thang: thang sau thang dua vao su dung, moi thang (nguyen gia - gia tri thanh ly) / so thang; thang cuoi lay phan con lai. */
+function lichKhauHao(array $a): array
+{
+    $total = max(0.0, (float) $a['cost'] - (float) $a['salvage']);
+    $n = max(1, (int) $a['life_months']);
+    $per = round($total / $n);
+    $start = congThang(substr((string) $a['in_service_date'], 0, 7), 1);
+    $stopAfter = !empty($a['disposed_date']) ? substr((string) $a['disposed_date'], 0, 7) : null;
+    $out = [];
+    $done = 0.0;
+    for ($i = 0; $i < $n; $i++) {
+        $p = congThang($start, $i);
+        if ($stopAfter !== null && $p > $stopAfter) break;
+        $amt = $i === $n - 1 ? round($total - $done) : $per;
+        $out[$p] = $amt;
+        $done += $amt;
+    }
+    return $out;
+}
+
+/** Lich phan bo deu cho chi phi tra truoc / doanh thu nhan truoc: bat dau ngay tu thang bat dau. */
+function lichPhanBo(array $it): array
+{
+    $n = max(1, (int) $it['months']);
+    $per = round((float) $it['total'] / $n);
+    $out = [];
+    $done = 0.0;
+    for ($i = 0; $i < $n; $i++) {
+        $amt = $i === $n - 1 ? round((float) $it['total'] - $done) : $per;
+        $out[congThang((string) $it['start_month'], $i)] = $amt;
+        $done += $amt;
+    }
+    return $out;
+}
+
+/** Ghi cac ky khau hao / phan bo con thieu den het thang $den (Y-m). Lam lai nhieu lan khong bi trung (khoa duy nhat). Tra ve so dong moi. */
+function trichPhanBoDen(PDO $pdo, int $tenantId, string $den): int
+{
+    $moi = 0;
+    $ins = $pdo->prepare('INSERT IGNORE INTO allocation_entries (tenant_id, source, source_id, period, amount) VALUES (?,?,?,?,?)');
+    $st = $pdo->prepare('SELECT * FROM fixed_assets WHERE tenant_id = ?');
+    $st->execute([$tenantId]);
+    foreach ($st->fetchAll() as $a) {
+        foreach (lichKhauHao($a) as $p => $amt) {
+            if ($p <= $den && $amt > 0) { $ins->execute([$tenantId, 'ASSET', $a['id'], $p, $amt]); $moi += $ins->rowCount(); }
+        }
+    }
+    $st = $pdo->prepare('SELECT * FROM allocation_items WHERE tenant_id = ?');
+    $st->execute([$tenantId]);
+    foreach ($st->fetchAll() as $it) {
+        foreach (lichPhanBo($it) as $p => $amt) {
+            if ($p <= $den && $amt > 0) { $ins->execute([$tenantId, 'ITEM', $it['id'], $p, $amt]); $moi += $ins->rowCount(); }
+        }
+    }
+    return $moi;
+}
+
+/** Tong khau hao + phan bo chi phi tra truoc DA TRICH trong nam: la chi phi duoc tru khi tinh TNCN theo thu nhap. */
+function phanBoChiPhiNam(PDO $pdo, int $tenantId, string $nam): array
+{
+    $st = $pdo->prepare(
+        "SELECT COALESCE(SUM(CASE WHEN e.source = 'ASSET' THEN e.amount ELSE 0 END),0) AS khau_hao,
+                COALESCE(SUM(CASE WHEN e.source = 'ITEM' AND i.kind = 'PREPAID' THEN e.amount ELSE 0 END),0) AS tra_truoc
+         FROM allocation_entries e LEFT JOIN allocation_items i ON e.source = 'ITEM' AND i.id = e.source_id
+         WHERE e.tenant_id = ? AND e.period LIKE ?"
+    );
+    $st->execute([$tenantId, $nam . '-%']);
+    $r = $st->fetch();
+    return ['khau_hao' => (float) $r['khau_hao'], 'tra_truoc' => (float) $r['tra_truoc']];
 }

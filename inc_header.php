@@ -79,6 +79,8 @@ if ($canGroup('finance')) {
     $navGroups['Tài chính & Báo cáo'] = [
         'cashbook.php' => 'Sổ quỹ',
         'chi_phi.php' => 'Chi phí kinh doanh',
+        'phan_bo.php' => 'Tài sản và phân bổ',
+        'kiem_ke_quy.php' => 'Kiểm kê quỹ',
         'reports.php' => 'Báo cáo',
         'accounting.php' => 'Kế toán và Thuế',
         'cong_no.php' => 'Công nợ phải thu / phải trả',

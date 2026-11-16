@@ -262,7 +262,7 @@ require_once __DIR__ . '/inc_header.php';
     <tbody>
       <tr><td>Doanh thu thuần năm <?= e($nam) ?></td><td class="text-right"><?= money($tongDoanhThuNam) ?></td></tr>
       <tr><td>Trừ giá vốn hàng bán</td><td class="text-right">− <?= money($cpNam['gia_von']) ?></td></tr>
-      <tr><td>Trừ chi phí được trừ</td><td class="text-right">− <?= money($cpNam['chi_phi_duoc_tru']) ?></td></tr>
+      <tr><td>Trừ chi phí được trừ<?php if ($cpNam['khau_hao'] + $cpNam['phan_bo_tra_truoc'] > 0): ?><div class="muted" style="font-size:12px;">gồm khấu hao tài sản <?= money($cpNam['khau_hao']) ?> và phân bổ chi phí trả trước <?= money($cpNam['phan_bo_tra_truoc']) ?> (<a href="phan_bo.php">xem</a>)</div><?php endif; ?></td><td class="text-right">− <?= money($cpNam['chi_phi_duoc_tru']) ?></td></tr>
       <tr style="border-top:1px solid #e2e8f0;"><td style="font-weight:600;">Thu nhập tính thuế</td><td class="text-right" style="font-weight:600;"><?= money($thuNhapNam) ?></td></tr>
       <tr><td>Thuế TNCN ước tính (<?= rtrim(rtrim(number_format($thueSuatThuNhap * 100, 1, ',', ''), '0'), ',') ?>% × thu nhập)</td><td class="text-right" style="font-weight:700;color:#2563eb;"><?= money($tncnThuNhap) ?></td></tr>
       <tr><td>Thuế GTGT ước tính (1% × doanh thu)</td><td class="text-right"><?= money($gtgtNam) ?></td></tr>
@@ -404,7 +404,15 @@ require_once __DIR__ . '/inc_header.php';
     $chiPhiRows = $chiPhiRows->fetchAll();
     $tongChiPhiKhac = array_sum(array_column($chiPhiRows, 'amount'));
     $giaVonKy = giaVonTheoKy($pdo, $tenantId, $tuNgay, $denNgay);
-    $tongChiPhi = $tongChiPhiKhac + $giaVonKy;
+    $pbKy = $pdo->prepare(
+        "SELECT COALESCE(SUM(CASE WHEN e.source = 'ASSET' THEN e.amount ELSE 0 END),0) AS khau_hao,
+                COALESCE(SUM(CASE WHEN e.source = 'ITEM' AND i.kind = 'PREPAID' THEN e.amount ELSE 0 END),0) AS tra_truoc
+         FROM allocation_entries e LEFT JOIN allocation_items i ON e.source = 'ITEM' AND i.id = e.source_id
+         WHERE e.tenant_id = ? AND e.period BETWEEN ? AND ?"
+    );
+    $pbKy->execute([$tenantId, substr($tuNgay, 0, 7), substr($denNgay, 0, 7)]);
+    $pbKy = $pbKy->fetch();
+    $tongChiPhi = $tongChiPhiKhac + $giaVonKy + (float) $pbKy['khau_hao'] + (float) $pbKy['tra_truoc'];
     $chuaPhanLoaiKy = $pdo->prepare(
         "SELECT COUNT(*) FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
          WHERE " . dieuKienChiKinhDoanh() . " AND ce.deductible IS NULL AND DATE(ce.created_at) BETWEEN ? AND ? AND b.tenant_id = ?"
@@ -480,6 +488,8 @@ require_once __DIR__ . '/inc_header.php';
     <thead><tr><th>Số hiệu</th><th>Ngày</th><th>Diễn giải</th><th class="text-right">Số tiền</th></tr></thead>
     <tbody>
       <tr><td class="muted" style="font-family:monospace;">GIAVON</td><td class="muted">—</td><td>Giá vốn hàng bán trong kỳ (đã trừ hàng trả lại)</td><td class="text-right"><?= money($giaVonKy) ?></td></tr>
+      <?php if ((float) $pbKy['khau_hao'] > 0): ?><tr><td class="muted" style="font-family:monospace;">KHAUHAO</td><td class="muted">—</td><td>Khấu hao tài sản cố định đã trích trong kỳ</td><td class="text-right"><?= money($pbKy['khau_hao']) ?></td></tr><?php endif; ?>
+      <?php if ((float) $pbKy['tra_truoc'] > 0): ?><tr><td class="muted" style="font-family:monospace;">PHANBO</td><td class="muted">—</td><td>Phân bổ chi phí trả trước đã trích trong kỳ</td><td class="text-right"><?= money($pbKy['tra_truoc']) ?></td></tr><?php endif; ?>
       <?php if (!$chiPhiRows): ?><tr><td colspan="4" class="muted">Không có khoản chi được trừ nào trong kỳ.</td></tr><?php endif; ?>
       <?php foreach ($chiPhiRows as $r): ?>
         <tr>
