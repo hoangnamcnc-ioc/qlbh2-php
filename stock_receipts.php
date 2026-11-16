@@ -13,7 +13,7 @@ $receiptsStmt = $pdo->prepare(
      LEFT JOIN suppliers s ON s.id = r.supplier_id
      JOIN users u ON u.id = r.created_by_id
      WHERE b.tenant_id = ?
-     ORDER BY r.created_at DESC LIMIT 100'
+     ORDER BY r.created_at DESC, r.id DESC LIMIT 100'
 );
 $receiptsStmt->execute([currentTenantId()]);
 $receipts = $receiptsStmt->fetchAll();
