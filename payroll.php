@@ -45,8 +45,18 @@ $attendanceStmt = $pdo->prepare(
     "SELECT time_in, time_out FROM attendance WHERE tenant_id = ? AND user_id = ? AND work_date LIKE ?"
 );
 
+$profStmt = $pdo->prepare('SELECT * FROM hr_profiles WHERE tenant_id = ?');
+$profStmt->execute([$tenantId]);
+$profiles = [];
+foreach ($profStmt->fetchAll() as $pr) { $profiles[(int) $pr['user_id']] = $pr; }
+$thamSo = thamSoLuong();
+
 $rows = [];
 $tongThucNhan = 0;
+$tongBhNld = 0;
+$tongThue = 0;
+$tongLinh = 0;
+$tongBhDn = 0;
 foreach ($employees as $emp) {
     $revenueStmt->execute([$emp['id'], $thang, $tenantId]);
     $doanhThuGop = (float) $revenueStmt->fetch()['doanh_thu'];
@@ -64,6 +74,29 @@ foreach ($employees as $emp) {
     $thucNhan = $luongGioThanhTien + $hoaHong;
     $tongThucNhan += $thucNhan;
 
+    // Khau tru bao hiem va thue TNCN theo ho so nhan su (neu da khai). Chua co ho so thi khong khau tru.
+    $pr = $profiles[(int) $emp['id']] ?? null;
+    $bhNld = 0;
+    $bhDn = 0;
+    $thue = 0;
+    if ($pr && (int) $pr['insured'] && (float) $pr['insured_salary'] > 0) {
+        $bh = tinhBaoHiem((float) $pr['insured_salary'], (int) $pr['region']);
+        $bhNld = $bh['nld'];
+        $bhDn = $bh['dn'];
+    }
+    if ($pr && $pr['contract_type'] !== 'SEASONAL') {
+        $giamTru = $thamSo['giam_tru_ban_than'] + (int) $pr['dependents'] * $thamSo['giam_tru_phu_thuoc'];
+        $thue = thueTncnTienLuong(max(0.0, $thucNhan - $bhNld - $giamTru));
+    } elseif ($pr) {
+        // Thoi vu: khau tru 10% khi thu nhap tu 2 trieu/lan neu khong co cam ket (don gian hoa, ke toan can doi chieu)
+        $thue = $thucNhan >= 2000000 ? (int) round($thucNhan * 0.10) : 0;
+    }
+    $linh = $thucNhan - $bhNld - $thue;
+    $tongBhNld += $bhNld;
+    $tongBhDn += $bhDn;
+    $tongThue += $thue;
+    $tongLinh += $linh;
+
     $rows[] = [
         'name' => $emp['name'],
         'gio_cong' => $gioCong,
@@ -73,6 +106,7 @@ foreach ($employees as $emp) {
         'commission_percent' => (float) $emp['commission_percent'],
         'hoa_hong' => $hoaHong,
         'thuc_nhan' => $thucNhan,
+        'bh_nld' => $bhNld, 'bh_dn' => $bhDn, 'thue' => $thue, 'linh' => $linh, 'co_ho_so' => (bool) $pr,
     ];
 }
 
@@ -99,11 +133,12 @@ require_once __DIR__ . '/inc_header.php';
       <tr>
         <th>Họ tên</th><th class="text-right">Giờ công</th><th class="text-right">Lương/giờ</th>
         <th class="text-right">Thành tiền lương giờ</th><th class="text-right">Doanh số bán</th>
-        <th class="text-right">% Hoa hồng</th><th class="text-right">Hoa hồng</th><th class="text-right">Thực nhận</th>
+        <th class="text-right">% Hoa hồng</th><th class="text-right">Hoa hồng</th><th class="text-right">Tổng thu nhập</th>
+        <th class="text-right">Trừ bảo hiểm</th><th class="text-right">Thuế TNCN</th><th class="text-right">Thực lĩnh</th>
       </tr>
     </thead>
     <tbody>
-      <?php if (!$rows): ?><tr><td colspan="8" class="muted" style="text-align:center;padding:24px;">Chưa có nhân viên nào đang hoạt động.</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="11" class="muted" style="text-align:center;padding:24px;">Chưa có nhân viên nào đang hoạt động.</td></tr><?php endif; ?>
       <?php foreach ($rows as $r): ?>
         <tr>
           <td><?= e($r['name']) ?></td>
@@ -113,14 +148,28 @@ require_once __DIR__ . '/inc_header.php';
           <td class="text-right muted"><?= money($r['doanh_so']) ?></td>
           <td class="text-right muted"><?= number_format($r['commission_percent'], 1) ?>%</td>
           <td class="text-right"><?= money($r['hoa_hong']) ?></td>
-          <td class="text-right" style="font-weight:700;color:#2563eb;"><?= money($r['thuc_nhan']) ?></td>
+          <td class="text-right"><?= money($r['thuc_nhan']) ?></td>
+          <td class="text-right muted"><?= $r['bh_nld'] ? '− ' . money($r['bh_nld']) : ($r['co_ho_so'] ? '—' : '<a href="nhan_su.php">chưa khai hồ sơ</a>') ?></td>
+          <td class="text-right muted"><?= $r['thue'] ? '− ' . money($r['thue']) : '—' ?></td>
+          <td class="text-right" style="font-weight:700;color:#2563eb;"><?= money($r['linh']) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>
     <?php if ($rows): ?>
-      <tfoot><tr style="border-top:1px solid #e2e8f0;"><td colspan="7" style="font-weight:700;">Tổng chi lương tháng <?= e($thang) ?></td><td class="text-right" style="font-weight:700;color:#2563eb;"><?= money($tongThucNhan) ?></td></tr></tfoot>
+      <tfoot><tr style="border-top:1px solid #e2e8f0;"><td colspan="7" style="font-weight:700;">Tổng tháng <?= e($thang) ?></td><td class="text-right" style="font-weight:700;"><?= money($tongThucNhan) ?></td><td class="text-right" style="font-weight:700;">− <?= money($tongBhNld) ?></td><td class="text-right" style="font-weight:700;">− <?= money($tongThue) ?></td><td class="text-right" style="font-weight:700;color:#2563eb;"><?= money($tongLinh) ?></td></tr></tfoot>
     <?php endif; ?>
   </table>
 </div>
+
+<?php if ($rows): ?>
+<div class="card" style="margin-top:16px;max-width:760px;font-size:13px;">
+  <b>Doanh nghiệp đóng thêm:</b> bảo hiểm phần của chủ <?= money($tongBhDn) ?>. Tổng chi phí nhân sự tháng này = tổng thu nhập + bảo hiểm phần của chủ = <b><?= money($tongThucNhan + $tongBhDn) ?></b>.
+  <div class="muted" style="margin-top:6px;">
+    Bảo hiểm người lao động 10,5% (BHXH 8%, BHYT 1,5%, BHTN 1%) trên lương đóng bảo hiểm trong hồ sơ nhân sự; thuế TNCN lũy tiến từng phần sau giảm trừ bản thân 15,5 triệu và người phụ thuộc 6,2 triệu/người.
+    Nhân viên chưa khai hồ sơ ở <a href="nhan_su.php">Hồ sơ nhân sự</a> thì chưa khấu trừ. Tham số theo quy định 2026, kế toán cần đối chiếu văn bản hiện hành trước khi trả lương. Chi lương trả bằng tiền từ két nhớ ghi ở
+    <a href="chi_phi.php">Chi phí kinh doanh</a> (nhóm Lương nhân viên) để tính vào chi phí được trừ.
+  </div>
+</div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

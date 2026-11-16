@@ -102,6 +102,7 @@ if ($canGroup('hr') || hasRole('ADMIN')) {
         $canGroup('hr') ? [
             'attendance.php' => 'Chấm công',
             'work_schedules.php' => 'Lịch làm việc',
+            'nhan_su.php' => 'Hồ sơ nhân sự',
             'payroll.php' => 'Bảng lương',
         ] : []
     );
@@ -125,7 +126,7 @@ if (hasRole('ADMIN')) {
     }
 }
 
-$navGroups['Cá nhân'] = ['cham_cong_cua_toi.php' => 'Chấm công & lương của tôi'];
+$navGroups['Cá nhân'] = ['cham_cong_cua_toi.php' => 'Chấm công & lương của tôi', 'nghi_phep.php' => 'Nghỉ phép'];
 if ($strictNoPos) {
     unset($navGroups['Bán hàng']);
 }

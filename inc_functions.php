@@ -94,6 +94,8 @@ function generateTenantExportSql(int $tid): string
         'allocation_items' => "tenant_id = $tid",
         'allocation_entries' => "tenant_id = $tid",
         'cash_counts' => "tenant_id = $tid",
+        'hr_profiles' => "tenant_id = $tid",
+        'leave_requests' => "tenant_id = $tid",
         'supplier_reviews' => "tenant_id = $tid",
         'activity_logs' => "tenant_id = $tid",
     ];
@@ -353,7 +355,7 @@ const PERMISSION_GROUP_FILES = [
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
     'finance' => ['accounting.php', 'chi_phi.php', 'thue_khac.php', 'phan_bo.php', 'kiem_ke_quy.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
-    'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
+    'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php', 'nhan_su.php'],
 ];
 
 /** File hien tai (script duoc trinh duyet goi truc tiep) thuoc nhom quyen nao, null neu khong
@@ -1267,4 +1269,66 @@ function phanBoChiPhiNam(PDO $pdo, int $tenantId, string $nam): array
     $st->execute([$tenantId, $nam . '-%']);
     $r = $st->fetch();
     return ['khau_hao' => (float) $r['khau_hao'], 'tra_truoc' => (float) $r['tra_truoc']];
+}
+
+// ===== Nhan su: bao hiem xa hoi, thue TNCN tien luong, nghi phep =====
+// Tham so phap ly (so lieu 2026, giong Ke toan HKD) - ke toan PHAI doi chieu voi van ban hien hanh truoc khi dung that.
+function thamSoLuong(): array
+{
+    return [
+        'luong_co_so' => 2340000, 'luong_toi_thieu_vung' => [1 => 5310000, 2 => 4730000, 3 => 4140000, 4 => 3700000],
+        'nld_bhxh' => 0.08, 'nld_bhyt' => 0.015, 'nld_bhtn' => 0.01,
+        'dn_bhxh' => 0.175, 'dn_bhyt' => 0.03, 'dn_bhtn' => 0.01,
+        'tran_boi_so' => 20, 'giam_tru_ban_than' => 15500000, 'giam_tru_phu_thuoc' => 6200000,
+        'bieu_thue' => [[10000000, 5], [30000000, 10], [60000000, 20], [100000000, 30], [PHP_INT_MAX, 35]],
+    ];
+}
+
+/** Bao hiem phai dong tren luong dong bao hiem: tran BHXH, BHYT = 20 lan luong co so; BHTN = 20 lan luong toi thieu vung. */
+function tinhBaoHiem(float $luongDong, int $vung): array
+{
+    $p = thamSoLuong();
+    $xh = min($luongDong, $p['luong_co_so'] * $p['tran_boi_so']);
+    $tn = min($luongDong, ($p['luong_toi_thieu_vung'][max(1, min(4, $vung))]) * $p['tran_boi_so']);
+    return [
+        'nld' => (int) round($xh * $p['nld_bhxh']) + (int) round($xh * $p['nld_bhyt']) + (int) round($tn * $p['nld_bhtn']),
+        'dn' => (int) round($xh * $p['dn_bhxh']) + (int) round($xh * $p['dn_bhyt']) + (int) round($tn * $p['dn_bhtn']),
+    ];
+}
+
+/** Thue TNCN tien luong luy tien tung phan tren thu nhap tinh thue cua thang. */
+function thueTncnTienLuong(float $thuNhapTinhThue): int
+{
+    $tax = 0.0;
+    $truoc = 0.0;
+    foreach (thamSoLuong()['bieu_thue'] as [$tran, $suat]) {
+        if ($thuNhapTinhThue <= $truoc) break;
+        $tax += (min($thuNhapTinhThue, $tran) - $truoc) * $suat / 100;
+        $truoc = $tran;
+    }
+    return (int) round($tax);
+}
+
+function loaiHopDong(): array
+{
+    return ['PROBATION' => 'Thử việc', 'FIXED' => 'Có thời hạn', 'INDEFINITE' => 'Không thời hạn', 'SEASONAL' => 'Thời vụ'];
+}
+
+/** Dem so ngay nghi (tru Chu nhat) giua hai ngay, tinh ca hai dau. */
+function demNgayNghi(string $tu, string $den): float
+{
+    $n = 0;
+    for ($t = strtotime($tu); $t <= strtotime($den); $t += 86400) {
+        if ((int) date('w', $t) !== 0) $n++;
+    }
+    return (float) $n;
+}
+
+/** Ngay phep nam da dung (da duyet) va con lai cua 1 nhan vien trong nam. */
+function soDuNghiPhep(PDO $pdo, int $userId, string $nam, float $quyDinh): array
+{
+    $st = $pdo->prepare("SELECT COALESCE(SUM(days),0) FROM leave_requests WHERE user_id = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED' AND YEAR(from_date) = ?");
+    $st->execute([$userId, $nam]);
+    $dung = (float) $st->fetchColumn();
+    return ['quy_dinh' => $quyDinh, 'da_dung' => $dung, 'con_lai' => $quyDinh - $dung];
 }
