@@ -27,6 +27,7 @@ $navGroups = [
             'ca_ban_hang.php' => 'Mở ca / đóng ca',
             'order_form.php' => 'Tạo đơn giao hàng',
             'orders.php' => 'Danh sách đơn hàng',
+            'quotes.php' => 'Báo giá',
             'order_returns.php' => 'Đơn trả hàng',
             'don_cho_thanh_toan.php' => 'Đơn online chờ thanh toán',
             'shipments.php' => 'Vận chuyển',
@@ -143,7 +144,8 @@ foreach ($navGroups as $lk) {
     }
 }
 $menuAlias = [
-    'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php',
+    'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
+    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php',
     'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',
@@ -155,7 +157,7 @@ if (isset($allNavFiles['cong_no.php'])) {
     unset($navGroups['Khách hàng']['customer_debt_reminders.php']);
 }
 $menuRename = [
-    'orders.php' => 'Đơn hàng, trả hàng, vận chuyển', 'channels.php' => 'Kênh & nguồn bán hàng',
+    'orders.php' => 'Đơn hàng, báo giá, trả hàng, vận chuyển', 'accounting.php' => 'Kế toán, thuế, chi phí, tài sản', 'channels.php' => 'Kênh & nguồn bán hàng',
     'canh_bao.php' => 'Kiểm soát số liệu', 'reports.php' => 'Báo cáo & phân tích',
     'categories.php' => 'Danh mục & nhãn hiệu', 'promotions.php' => 'Khuyến mại, mã giảm giá, chiến dịch',
     'inventory.php' => 'Kho: tồn, lô hạn, xuất hủy',

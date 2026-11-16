@@ -132,6 +132,7 @@ require_once __DIR__ . '/inc_header.php';
 $tabs = ['asset' => 'Tài sản cố định', 'prepaid' => 'Chi phí trả trước', 'deferred' => 'Doanh thu nhận trước'];
 ?>
 
+<?= thanhTabNghiepVu('ketoan') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:6px;">Tài sản và phân bổ</h1>
 <p class="muted" style="margin:0 0 14px;max-width:780px;font-size:14px;">
   Tài sản cố định khấu hao đều theo tháng (bắt đầu từ tháng sau tháng dùng). Chi phí trả trước (thuê nhiều tháng, bảo hiểm, công cụ)

@@ -1099,3 +1099,37 @@ CREATE TABLE IF NOT EXISTS leave_requests (
   KEY idx_leave_tenant (tenant_id, status),
   KEY idx_leave_user (user_id, from_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Bao gia =====
+CREATE TABLE IF NOT EXISTS quotes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  code VARCHAR(30) NOT NULL,
+  customer_id INT NULL,
+  customer_name VARCHAR(255) NOT NULL,
+  customer_phone VARCHAR(50) NULL,
+  customer_address VARCHAR(500) NULL,
+  valid_until DATE NOT NULL,
+  discount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  total DECIMAL(14,2) NOT NULL DEFAULT 0,
+  note TEXT NULL,
+  status ENUM('DRAFT','SENT','ACCEPTED','REJECTED') NOT NULL DEFAULT 'DRAFT',
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_quote_code (tenant_id, code),
+  KEY idx_quote_tenant (tenant_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS quote_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  quote_id INT NOT NULL,
+  product_id INT NOT NULL,
+  variant_id INT NULL,
+  name VARCHAR(255) NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL,
+  unit_price DECIMAL(14,2) NOT NULL,
+  line_total DECIMAL(14,2) NOT NULL,
+  KEY idx_quote_items (quote_id),
+  FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

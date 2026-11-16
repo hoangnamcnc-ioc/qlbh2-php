@@ -152,6 +152,7 @@ require_once __DIR__ . '/inc_header.php';
 $qs = static fn(array $extra = []) => http_build_query(array_merge(['from' => $from, 'to' => $to], $extra));
 ?>
 
+<?= thanhTabNghiepVu('ketoan') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:6px;">Chi phí kinh doanh</h1>
 <p class="muted" style="margin:0 0 16px;max-width:760px;font-size:14px;">
   Phân loại các khoản chi trong sổ quỹ để tính thuế TNCN theo thu nhập (doanh thu trừ giá vốn trừ chi phí được trừ). Khoản chi

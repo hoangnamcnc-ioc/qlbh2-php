@@ -65,6 +65,7 @@ $soDuHienTai = $branchId ? $soDuTienMat($branchId, date('Y-m-d')) : 0.0;
 require_once __DIR__ . '/inc_header.php';
 ?>
 
+<?= thanhTabNghiepVu('ketoan') ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:6px;">Kiểm kê quỹ tiền mặt</h1>
 <p class="muted" style="margin:0 0 14px;max-width:760px;font-size:14px;">
   Đếm tiền trong két theo từng mệnh giá, so với số dư tiền mặt trên <a href="cashbook.php">Sổ quỹ</a>. Biên bản được lưu lại;
