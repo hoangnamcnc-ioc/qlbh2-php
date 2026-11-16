@@ -89,6 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$lines) {
             $error = 'Vui lòng thêm ít nhất 1 sản phẩm với số lượng hợp lệ';
+        } elseif ($invoiceDate !== null && kyDaKhoa($invoiceDate)) {
+            $error = 'Ngày hóa đơn thuộc kỳ đã khóa sổ đến ' . date('d/m/Y', strtotime(ngayKhoaSo())) . ', hãy dùng ngày sau ngày khóa.';
         } else {
             $pdo->beginTransaction();
             try {
