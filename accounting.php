@@ -33,6 +33,17 @@ if (!preg_match('/^\d{4}$/', $nam)) $nam = date('Y');
 
 $tenantId = currentTenantId();
 
+// Danh dau da nop to khai / thong bao doanh thu (chi ghi nho de nhac viec, khong gui gi cho co quan thue)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'tax_done') {
+    checkCsrf();
+    $k = (string) ($_POST['k'] ?? '');
+    if (preg_match('/^\d{4}(Q[1-4]|N)$/', $k)) {
+        setSetting('tax_done_' . $k, !empty($_POST['done']) ? date('Y-m-d') : '');
+        logActivity('TAX_DONE', $k . ' ' . (!empty($_POST['done']) ? 'done' : 'undone'));
+    }
+    redirect('accounting.php?nam=' . urlencode((string) $nam) . '#han-nop');
+}
+
 $rows = $pdo->prepare(
     "SELECT MONTH(o.created_at) AS thang, COALESCE(SUM(o.total_amount),0) AS doanh_thu
      FROM orders o JOIN branches b ON b.id = o.branch_id
@@ -68,6 +79,22 @@ if ($vuotNguong) {
         $ucTinh = ['ap_dung' => false];
     }
 }
+
+// Tinh TNCN theo thu nhap (doanh thu - gia von - chi phi duoc tru): bat buoc tren 3 ty, tuy chon trong khoang 1-3 ty.
+$cpNam = tongHopChiPhiNam($pdo, $tenantId, $nam);
+$thuNhapNam = max(0.0, $tongDoanhThuNam - $cpNam['gia_von'] - $cpNam['chi_phi_duoc_tru']);
+$thueSuatThuNhap = thueSuatTncnThuNhap($tongDoanhThuNam);
+$tncnThuNhap = $vuotNguong ? round($thuNhapNam * $thueSuatThuNhap) : 0;
+$gtgtNam = round($tongDoanhThuNam * TY_LE_GTGT_HANG_HOA);
+
+// Lich han ke khai: quy nop truoc ngay cuoi cua thang dau quy ke tiep; thong bao doanh thu nam truoc 31/1 nam sau.
+$lichHan = [];
+$homNay = date('Y-m-d');
+foreach ([1 => [$nam . '-04-30', 'Quý 1'], 2 => [$nam . '-07-31', 'Quý 2'], 3 => [$nam . '-10-31', 'Quý 3'], 4 => [((int) $nam + 1) . '-01-31', 'Quý 4']] as $q => [$han, $ten]) {
+    $key = $nam . 'Q' . $q;
+    $lichHan[] = ['key' => $key, 'han' => $han, 'ten' => 'Khai và nộp thuế GTGT, TNCN ' . $ten . '/' . $nam, 'bat_buoc' => $vuotNguong, 'xong' => getSetting('tax_done_' . $key, '')];
+}
+$lichHan[] = ['key' => $nam . 'N', 'han' => ((int) $nam + 1) . '-01-31', 'ten' => 'Thông báo doanh thu năm ' . $nam . ' (hộ dưới ngưỡng cũng phải nộp)', 'bat_buoc' => true, 'xong' => getSetting('tax_done_' . $nam . 'N', '')];
 
 // Nhom nop thue khi da vuot nguong (chi ho kinh doanh tu chon, phan mem khong the tu suy ra):
 //   Nhom 2: GTGT + TNCN deu tinh theo ty le (%) tren doanh thu -> dung mau S2a-HKD.
@@ -208,8 +235,8 @@ require_once __DIR__ . '/inc_header.php';
     <div class="alert alert-warning">
       Doanh thu năm đã vượt <?= money(MUC_TRAN_TY_LE_TNCN) ?> — theo Điều 7 khoản 2 Luật Thuế
       TNCN 109/2025/QH15, thuế TNCN phải tính theo phương pháp (doanh thu trừ chi phí được
-      trừ) nhân thuế suất lũy tiến 15%/17%/20%. Phần mềm chưa có dữ liệu chi phí được trừ nên
-      không tự tính, vui lòng liên hệ cơ quan thuế/kế toán viên.
+      trừ) nhân thuế suất lũy tiến 15%/17%/20%. Xem phần "TNCN theo thu nhập" bên dưới: phần mềm tính từ
+      giá vốn và chi phí đã phân loại; đối chiếu với cơ quan thuế/kế toán viên trước khi kê khai.
     </div>
   <?php endif; ?>
 
@@ -219,6 +246,72 @@ require_once __DIR__ . '/inc_header.php';
       <?php for ($m = 1; $m <= 12; $m++): ?>
         <tr><td><?= e($nam) ?>-<?= str_pad((string) $m, 2, '0', STR_PAD_LEFT) ?></td><td class="text-right"><?= money($byMonth[$m]) ?></td></tr>
       <?php endfor; ?>
+    </tbody>
+  </table>
+</div>
+
+<?php if ($vuotNguong): ?>
+<div class="card" style="margin-bottom:24px;">
+  <h2 style="font-size:15px;font-weight:600;margin:0 0 8px;">TNCN theo thu nhập (doanh thu trừ chi phí)</h2>
+  <p class="muted" style="font-size:13px;margin:0 0 12px;">
+    Bắt buộc khi doanh thu năm trên <?= money(MUC_TRAN_TY_LE_TNCN) ?>; từ 1 đến 3 tỷ bạn được chọn cách có lợi hơn.
+    Chi phí lấy từ giá vốn hàng bán (trừ hàng trả lại) và các khoản chi đã đánh dấu "được trừ" ở
+    <a href="chi_phi.php">Chi phí kinh doanh</a>.
+  </p>
+  <table style="max-width:640px;">
+    <tbody>
+      <tr><td>Doanh thu thuần năm <?= e($nam) ?></td><td class="text-right"><?= money($tongDoanhThuNam) ?></td></tr>
+      <tr><td>Trừ giá vốn hàng bán</td><td class="text-right">− <?= money($cpNam['gia_von']) ?></td></tr>
+      <tr><td>Trừ chi phí được trừ</td><td class="text-right">− <?= money($cpNam['chi_phi_duoc_tru']) ?></td></tr>
+      <tr style="border-top:1px solid #e2e8f0;"><td style="font-weight:600;">Thu nhập tính thuế</td><td class="text-right" style="font-weight:600;"><?= money($thuNhapNam) ?></td></tr>
+      <tr><td>Thuế TNCN ước tính (<?= rtrim(rtrim(number_format($thueSuatThuNhap * 100, 1, ',', ''), '0'), ',') ?>% × thu nhập)</td><td class="text-right" style="font-weight:700;color:#2563eb;"><?= money($tncnThuNhap) ?></td></tr>
+      <tr><td>Thuế GTGT ước tính (1% × doanh thu)</td><td class="text-right"><?= money($gtgtNam) ?></td></tr>
+      <tr style="border-top:1px solid #e2e8f0;"><td style="font-weight:700;">Tổng thuế ước tính (cách theo thu nhập)</td><td class="text-right" style="font-weight:700;"><?= money($tncnThuNhap + $gtgtNam) ?></td></tr>
+    </tbody>
+  </table>
+  <?php if ($ucTinh && $ucTinh['ap_dung']): $t1 = $ucTinh['tong']; $t2 = $tncnThuNhap + $gtgtNam; ?>
+    <div class="alert" style="margin:14px 0 0;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;">
+      So sánh hai cách: theo % doanh thu <b><?= money($t1) ?></b>, theo thu nhập <b><?= money($t2) ?></b>.
+      <?= $t1 <= $t2 ? 'Cách % doanh thu đang nhẹ hơn ' . money($t2 - $t1) . '.' : 'Cách theo thu nhập đang nhẹ hơn ' . money($t1 - $t2) . '.' ?>
+      Chi phí còn thiếu chứng từ có thể làm cách theo thu nhập thấp hơn thực tế; đối chiếu với kế toán trước khi chọn.
+    </div>
+  <?php endif; ?>
+  <?php if ($cpNam['chua_phan_loai_so'] > 0): ?>
+    <div class="alert" style="margin:14px 0 0;background:#fffbeb;border:1px solid #fde68a;color:#92400e;">
+      Còn <b><?= (int) $cpNam['chua_phan_loai_so'] ?></b> khoản chi chưa phân loại (<?= money($cpNam['chua_phan_loai_tien']) ?>) chưa được tính là chi phí được trừ.
+      <a href="chi_phi.php?from=<?= e($nam) ?>-01-01&amp;to=<?= e($nam) ?>-12-31&amp;f=todo">Phân loại ngay</a>.
+    </div>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
+
+<div class="card" id="han-nop" style="margin-bottom:24px;max-width:760px;">
+  <h2 style="font-size:15px;font-weight:600;margin:0 0 8px;">Lịch hạn kê khai và nộp thuế <?= e($nam) ?></h2>
+  <p class="muted" style="font-size:13px;margin:0 0 10px;">Nhắc việc dựa trên doanh thu đã ghi sổ. Ngày hạn rơi vào ngày nghỉ có thể được lùi theo quy định, đối chiếu với cơ quan thuế. Bấm "Đã nộp" để ghi nhớ.</p>
+  <table>
+    <thead><tr><th>Hạn</th><th>Việc phải làm</th><th>Tình trạng</th></tr></thead>
+    <tbody>
+      <?php foreach ($lichHan as $h):
+          $conLai = (int) floor((strtotime($h['han']) - strtotime($homNay)) / 86400); ?>
+        <tr<?= !$h['bat_buoc'] ? ' style="opacity:.55;"' : '' ?>>
+          <td style="white-space:nowrap;"><?= e(date('d/m/Y', strtotime($h['han']))) ?></td>
+          <td><?= e($h['ten']) ?><?= !$h['bat_buoc'] ? ' <span class="muted" style="font-size:12px;">(chỉ khi doanh thu vượt 1 tỷ)</span>' : '' ?></td>
+          <td>
+            <form method="post" style="display:flex;gap:8px;align-items:center;margin:0;">
+              <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="tax_done"><input type="hidden" name="k" value="<?= e($h['key']) ?>">
+              <?php if ($h['xong']): ?>
+                <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:99px;font-size:12px;">Đã nộp <?= e(date('d/m/Y', strtotime($h['xong']))) ?></span>
+                <button class="btn btn-secondary" style="padding:3px 10px;font-size:12px;" type="submit">Bỏ đánh dấu</button>
+              <?php else: ?>
+                <?php if ($conLai < 0): ?><span style="color:#dc2626;font-size:13px;">Quá hạn <?= -$conLai ?> ngày</span>
+                <?php elseif ($conLai <= 30): ?><span style="color:#d97706;font-size:13px;">Còn <?= $conLai ?> ngày</span>
+                <?php else: ?><span class="muted" style="font-size:13px;">Còn <?= $conLai ?> ngày</span><?php endif; ?>
+                <input type="hidden" name="done" value="1"><button class="btn btn-secondary" style="padding:3px 10px;font-size:12px;" type="submit">Đã nộp</button>
+              <?php endif; ?>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
     </tbody>
   </table>
 </div>

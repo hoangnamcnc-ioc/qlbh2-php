@@ -347,7 +347,7 @@ const PERMISSION_GROUP_FILES = [
         'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
-    'finance' => ['accounting.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
+    'finance' => ['accounting.php', 'chi_phi.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
     'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php'],
 ];
 
@@ -1086,4 +1086,80 @@ function thanhTabNghiepVu(string $nhom): string
             . ($dang ? 'background:var(--brand,#2563eb);color:#fff;font-weight:600;' : 'background:#f1f5f9;color:#334155;') . '">' . e($nhan) . '</a>';
     }
     return $html . '</div>';
+}
+
+// ===== Chi phi kinh doanh, thue theo thu nhap, khoa so (nang cap ke toan thue) =====
+const NGUONG_CHI_TIEN_MAT = 5000000; // khoan chi tu muc nay tra tien mat thi khong chac duoc tru (NĐ 68/2026 Điều 6)
+
+function nhomChiPhi(): array
+{
+    return [
+        'RENT' => 'Thuê mặt bằng', 'UTILITY' => 'Điện, nước, internet', 'SALARY' => 'Lương nhân viên',
+        'TRANSPORT' => 'Vận chuyển, giao hàng', 'MARKETING' => 'Quảng cáo, marketing', 'REPAIR' => 'Sửa chữa, bảo trì',
+        'FEE' => 'Phí ngân hàng, phí sàn', 'TAX' => 'Thuế, lệ phí', 'OTHER' => 'Chi phí khác',
+    ];
+}
+
+/** Khoa so: moi but toan co ngay <= ngay khoa khong con duoc sua/huy. Luu o store_settings.books_locked_until (Y-m-d). */
+function ngayKhoaSo(): ?string
+{
+    $v = getSetting('books_locked_until', '');
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
+}
+
+function kyDaKhoa(string $date): bool
+{
+    $k = ngayKhoaSo();
+    return $k !== null && substr($date, 0, 10) <= $k;
+}
+
+/** Dieu kien SQL cua cac khoan chi kinh doanh (phieu chi nhap tay, khong phai chu rut, hoan tien don, tra NCC). */
+function dieuKienChiKinhDoanh(): string
+{
+    return "ce.type = 'PAYMENT' AND ce.auto_generated = 0 AND ce.order_id IS NULL AND ce.receipt_id IS NULL AND (ce.category IS NULL OR ce.category NOT IN ('OWNER_DRAW','OWNER_DEPOSIT'))";
+}
+
+/**
+ * Chi phi cua 1 nam de tinh thue theo thu nhap: gia von hang ban (tru hang tra lai) + chi phi da danh dau "duoc tru".
+ * Chi phi chua phan loai KHONG duoc tru cho den khi chu cua hang phan loai.
+ */
+function tongHopChiPhiNam(PDO $pdo, int $tenantId, string $nam): array
+{
+    $gv = $pdo->prepare(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(oi.cost_price,0), p.cost_price, 0) * oi.quantity),0)
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN branches b ON b.id = o.branch_id
+         JOIN products p ON p.id = oi.product_id
+         WHERE YEAR(o.created_at) = ? AND o.status NOT IN ('CANCELLED','DRAFT') AND b.tenant_id = ?"
+    );
+    $gv->execute([$nam, $tenantId]);
+    $giaVon = (float) $gv->fetchColumn();
+    $gt = $pdo->prepare(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(oi.cost_price,0), p.cost_price, 0) * ri.quantity),0)
+         FROM order_return_items ri JOIN order_returns r ON r.id = ri.return_id JOIN order_items oi ON oi.id = ri.order_item_id
+         JOIN products p ON p.id = ri.product_id JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id
+         WHERE YEAR(r.created_at) = ? AND b.tenant_id = ?"
+    );
+    $gt->execute([$nam, $tenantId]);
+    $giaVon = max(0.0, $giaVon - (float) $gt->fetchColumn());
+
+    $cp = $pdo->prepare(
+        'SELECT COALESCE(SUM(CASE WHEN ce.deductible = 1 THEN ce.amount ELSE 0 END),0) AS duoc_tru,
+                COALESCE(SUM(CASE WHEN ce.deductible = 0 THEN ce.amount ELSE 0 END),0) AS khong_tru,
+                COALESCE(SUM(CASE WHEN ce.deductible IS NULL THEN ce.amount ELSE 0 END),0) AS chua_pl_tien,
+                COALESCE(SUM(CASE WHEN ce.deductible IS NULL THEN 1 ELSE 0 END),0) AS chua_pl_so
+         FROM cashbook_entries ce JOIN branches b ON b.id = ce.branch_id
+         WHERE YEAR(ce.created_at) = ? AND b.tenant_id = ? AND ' . dieuKienChiKinhDoanh()
+    );
+    $cp->execute([$nam, $tenantId]);
+    $r = $cp->fetch();
+    return [
+        'gia_von' => $giaVon, 'chi_phi_duoc_tru' => (float) $r['duoc_tru'], 'chi_phi_khong_tru' => (float) $r['khong_tru'],
+        'chua_phan_loai_tien' => (float) $r['chua_pl_tien'], 'chua_phan_loai_so' => (int) $r['chua_pl_so'],
+    ];
+}
+
+/** Thue suat TNCN luy tien theo doanh thu khi tinh theo thu nhap: 15% den 3 ty, 17% den 50 ty, 20% tren 50 ty. */
+function thueSuatTncnThuNhap(float $doanhThu): float
+{
+    return $doanhThu > 50000000000 ? 0.20 : ($doanhThu > 3000000000 ? 0.17 : 0.15);
 }

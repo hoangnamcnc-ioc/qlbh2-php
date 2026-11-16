@@ -981,3 +981,8 @@ CREATE TABLE IF NOT EXISTS supplier_reviews (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 ALTER TABLE suppliers ADD COLUMN tax_code VARCHAR(20) NULL;
+
+-- ===== Chi phi kinh doanh (tinh TNCN theo thu nhap), khoa so =====
+ALTER TABLE cashbook_entries ADD COLUMN expense_group VARCHAR(20) NULL;
+ALTER TABLE cashbook_entries ADD COLUMN deductible TINYINT NULL;
+ALTER TABLE cashbook_entries ADD COLUMN has_document TINYINT NOT NULL DEFAULT 0;

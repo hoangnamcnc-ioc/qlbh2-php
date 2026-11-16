@@ -17,6 +17,9 @@ $reason = $reason ?: null;
 $order = layDonHangCuaToi($orderId);
 
 if ($order && $order['status'] !== 'CANCELLED') {
+    if (kyDaKhoa((string) $order['created_at'])) {
+        redirect('order_view.php?id=' . $orderId . '&err=' . urlencode('Đơn thuộc kỳ đã khóa sổ đến ' . date('d/m/Y', strtotime(ngayKhoaSo())) . ', không hủy được.'));
+    }
     // Đơn đã có phiếu trả hàng: hủy nữa sẽ hoàn kho/tiền lần thứ hai cho cùng số hàng đó.
     $returnCheck = $pdo->prepare('SELECT COUNT(*) FROM order_returns WHERE order_id = ?');
     $returnCheck->execute([$orderId]);
