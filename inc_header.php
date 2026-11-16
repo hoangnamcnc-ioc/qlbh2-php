@@ -145,6 +145,7 @@ foreach ($navGroups as $lk) {
         $allNavFiles[$f] = true;
     }
 }
+$navGroupsFull = $navGroups; // day du truoc khi gop trang vao tab (dung cho so do nghiep vu tung nhom)
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
     'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php',
@@ -306,12 +307,13 @@ if ($isManagerUp) {
       <span>QLBH-CLOUD</span>
     </div>
     <?php foreach ($navGroups as $label => $links): ?>
-      <?php $hasActive = array_key_exists($navCurrent, $links) || $label === 'Chức năng'; ?>
+      <?php $hasActive = array_key_exists($navCurrent, $links) || $label === 'Chức năng' || ($currentFile === 'nhom.php' && ($_GET['g'] ?? '') === $label); ?>
+      <?php $coSoDo = !in_array($label, ['Chức năng', 'Cá nhân'], true); ?>
       <?php $groupIcon = $groupIcons[$label] ?? '•'; ?>
       <?php if (count($links) > 1): ?>
-        <div class="group-toggle<?= $hasActive ? ' open has-active' : '' ?>" onclick="toggleGroup(this)">
+        <div class="group-toggle<?= $hasActive ? ' open has-active' : '' ?>"<?= $coSoDo ? ' onclick="location.href=\'nhom.php?g=' . e(rawurlencode($label)) . '\'"' : ' onclick="toggleGroup(this)"' ?>>
           <span><span class="nav-icon"><?= $groupIcon ?></span><?= e($label) ?></span>
-          <span class="chevron">▸</span>
+          <span class="chevron" <?= $coSoDo ? 'onclick="event.stopPropagation();toggleGroup(this.parentNode)" title="Mở rộng, thu gọn"' : '' ?>>▸</span>
         </div>
         <div class="submenu<?= $hasActive ? ' open' : '' ?>">
           <?php foreach ($links as $file => $text): ?>
