@@ -45,6 +45,7 @@ $navGroups = [
             'stock_takes.php' => 'Kiểm hàng',
             'batches.php' => 'Lô hàng & hạn dùng',
             'xuat_huy.php' => 'Xuất hủy hàng',
+            'san_xuat.php' => 'Sản xuất, giá thành',
             'ton_cham.php' => 'Hàng tồn lâu / bán chậm',
             'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu',
             'stock_transfers.php' => 'Chuyển hàng',
@@ -80,6 +81,7 @@ if ($canGroup('finance')) {
     $navGroups['Tài chính & Báo cáo'] = [
         'cashbook.php' => 'Sổ quỹ',
         'chi_phi.php' => 'Chi phí kinh doanh',
+        'hoa_don.php' => 'Sổ hóa đơn',
         'phan_bo.php' => 'Tài sản và phân bổ',
         'kiem_ke_quy.php' => 'Kiểm kê quỹ',
         'reports.php' => 'Báo cáo',
@@ -145,12 +147,12 @@ foreach ($navGroups as $lk) {
 }
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
-    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php',
+    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php',
     'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',
     'coupons.php' => 'promotions.php', 'campaigns.php' => 'promotions.php',
-    'batches.php' => 'inventory.php', 'ton_cham.php' => 'inventory.php', 'xuat_huy.php' => 'inventory.php',
+    'batches.php' => 'inventory.php', 'ton_cham.php' => 'inventory.php', 'xuat_huy.php' => 'inventory.php', 'san_xuat.php' => 'inventory.php',
 ];
 // Nhac no khach da gop vao trang Cong no: nguoi co nhom Tai chinh khong can muc rieng
 if (isset($allNavFiles['cong_no.php'])) {

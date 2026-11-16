@@ -1133,3 +1133,65 @@ CREATE TABLE IF NOT EXISTS quote_items (
   KEY idx_quote_items (quote_id),
   FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== San xuat va gia thanh =====
+CREATE TABLE IF NOT EXISTS product_recipes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  product_id INT NOT NULL,
+  material_id INT NOT NULL,
+  qty_per_unit DECIMAL(16,4) NOT NULL,
+  UNIQUE KEY uq_recipe (product_id, material_id),
+  KEY idx_recipe_tenant (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS productions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  code VARCHAR(30) NOT NULL,
+  product_id INT NOT NULL,
+  qty DECIMAL(16,3) NOT NULL,
+  material_cost DECIMAL(16,2) NOT NULL DEFAULT 0,
+  extra_cost DECIMAL(16,2) NOT NULL DEFAULT 0,
+  unit_cost DECIMAL(16,2) NOT NULL DEFAULT 0,
+  note VARCHAR(255) NULL,
+  prod_date DATE NOT NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_production_code (tenant_id, code),
+  KEY idx_production_tenant (tenant_id, prod_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS production_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  production_id INT NOT NULL,
+  material_id INT NOT NULL,
+  qty DECIMAL(16,4) NOT NULL,
+  unit_cost DECIMAL(16,2) NOT NULL,
+  amount DECIMAL(16,2) NOT NULL,
+  KEY idx_production_items (production_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== So hoa don =====
+CREATE TABLE IF NOT EXISTS invoice_register (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  direction ENUM('SALE','PURCHASE') NOT NULL,
+  symbol VARCHAR(20) NOT NULL,
+  number VARCHAR(20) NOT NULL,
+  issue_date DATE NOT NULL,
+  partner_name VARCHAR(255) NOT NULL,
+  partner_tax_code VARCHAR(20) NULL,
+  amount_before_tax DECIMAL(16,2) NOT NULL,
+  vat_rate DECIMAL(4,1) NOT NULL DEFAULT 0,
+  vat_amount DECIMAL(16,2) NOT NULL DEFAULT 0,
+  total DECIMAL(16,2) NOT NULL,
+  order_id INT NULL,
+  status ENUM('ISSUED','VOID') NOT NULL DEFAULT 'ISSUED',
+  note VARCHAR(255) NULL,
+  created_by_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_invoice_tenant (tenant_id, direction, issue_date),
+  KEY idx_invoice_order (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
