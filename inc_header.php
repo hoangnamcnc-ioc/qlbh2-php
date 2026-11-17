@@ -82,6 +82,8 @@ if ($canGroup('finance')) {
         'cashbook.php' => 'Sổ quỹ',
         'chi_phi.php' => 'Chi phí kinh doanh',
         'hoa_don.php' => 'Sổ hóa đơn',
+        'chi_dinh_ky.php' => 'Chi định kỳ',
+        'muc_tieu.php' => 'Mục tiêu doanh thu',
         'phan_bo.php' => 'Tài sản và phân bổ',
         'kiem_ke_quy.php' => 'Kiểm kê quỹ',
         'reports.php' => 'Báo cáo',
@@ -148,7 +150,7 @@ foreach ($navGroups as $lk) {
 $navGroupsFull = $navGroups; // day du truoc khi gop trang vao tab (dung cho so do nghiep vu tung nhom)
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
-    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php',
+    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php', 'chi_dinh_ky.php' => 'accounting.php', 'muc_tieu.php' => 'reports.php',
     'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',

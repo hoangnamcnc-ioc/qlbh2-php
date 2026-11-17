@@ -362,12 +362,12 @@ function addLine(id, variantId, name, cost, packUnit, packSize, sellPrice) {
     lines.push({
       key, id, variantId, name,
       packUnit: packUnit || null, packSize: packSize > 1 ? packSize : 1,
-      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '', baseCost: cost, sell: sellPrice || 0, ncc: null,
+      mode: 'le', qtyInput: 1, costInput: cost, qty: 1, cost, lot: '', exp: '', baseCost: cost, sell: sellPrice || 0, ncc: null, stats: null,
     });
   }
   recalc();
   render();
-  if (!existing) loadNcc(lines[lines.length - 1]);
+  if (!existing) { loadNcc(lines[lines.length - 1]); loadStats(lines[lines.length - 1]); }
 }
 
 // Tinh lai qty/cost (don vi le, gui len server) tu qtyInput/costInput/mode cua tung dong.
@@ -396,6 +396,24 @@ function nccHint(l) {
     warn = ' ⚠ NCC đang chọn đắt hơn ' + best.name + ' khoảng ' + Math.round((mine.cost / best.cost - 1) * 100) + '%.';
   }
   return '<div style="font-size:11px;color:' + (warn ? '#b45309' : '#64748b') + ';margin-top:3px;">' + esc(s + warn) + '</div>';
+}
+function loadStats(l) {
+  if (l.variantId || l.stats !== null) return;
+  l.stats = { n: 0 };
+  fetch('stock_receipt_stats.php?product_id=' + encodeURIComponent(l.id)).then(r => r.json()).then(d => { l.stats = d || { n: 0 }; render(); }).catch(() => {});
+}
+// Canh bao so luong / don gia lech nhieu so voi cac lan nhap truoc (hay go nham them so 0 hoac nham don vi)
+function qtyHint(l) {
+  const s = l.stats;
+  if (!s || s.n < 2 || !(l.qty > 0)) return '';
+  const out = [];
+  if (s.avg_qty > 0 && l.qty >= s.avg_qty * 5) out.push('⛔ Số lượng ' + fmt(l.qty) + ' gấp ' + (l.qty / s.avg_qty).toFixed(1) + ' lần mức nhập trung bình (' + fmt(s.avg_qty) + '). Kiểm tra lại có gõ thừa số 0 hoặc nhầm đơn vị không.');
+  else if (s.avg_qty > 0 && l.qty >= s.avg_qty * 3) out.push('⚠ Số lượng ' + fmt(l.qty) + ' gấp ' + (l.qty / s.avg_qty).toFixed(1) + ' lần mức nhập trung bình (' + fmt(s.avg_qty) + ').');
+  if (s.avg_cost > 0 && l.cost > 0) {
+    const d = (l.cost - s.avg_cost) / s.avg_cost * 100;
+    if (Math.abs(d) >= 50) out.push('⛔ Đơn giá ' + fmt(l.cost) + ' lệch ' + (d > 0 ? '+' : '') + Math.round(d) + '% so với giá nhập trung bình ' + fmt(s.avg_cost) + '.');
+  }
+  return out.length ? '<div style="font-size:12px;color:#b91c1c;margin-top:3px;">' + out.join('<br>') + '</div>' : '';
 }
 function loadNcc(l) {
   if (l.variantId || l.ncc !== null) return;
@@ -448,7 +466,7 @@ function render() {
         <td class="text-right">
           <input type="number" min="0" value="${l.costInput}" data-i="${i}" data-f="costInput" style="width:100px;text-align:right;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">
           ${l.mode === 'lon' ? `<div class="muted" style="font-size:11px;">= ${fmt(l.cost)}/lẻ</div>` : ''}
-          ${costHint(l)}${nccHint(l)}
+          ${costHint(l)}${nccHint(l)}${qtyHint(l)}
         </td>
         <td class="text-right">${fmt(l.qty * l.cost)}</td>
         <td class="text-right"><a href="#" data-i="${i}" class="remove" style="color:#ef4444;font-size:12px;">Xóa</a></td>

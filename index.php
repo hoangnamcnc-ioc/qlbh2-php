@@ -377,6 +377,23 @@ if (hasRole('ADMIN', 'MANAGER')) {
   </div>
 </div>
 
+<?php if (hasRole('ADMIN', 'MANAGER')) {
+    $mTgt = $pdo->prepare('SELECT amount FROM sales_targets WHERE tenant_id = ? AND month = ?');
+    $mTgt->execute([$tenantId, date('Y-m')]);
+    $mTgt = (float) ($mTgt->fetchColumn() ?: 0);
+    if ($mTgt > 0) {
+        $mRev = $pdo->prepare("SELECT COALESCE(SUM(o.total_amount),0) FROM orders o JOIN branches b ON b.id = o.branch_id WHERE b.tenant_id = ? AND DATE_FORMAT(o.created_at,'%Y-%m') = ? AND o.status NOT IN ('CANCELLED','DRAFT')");
+        $mRev->execute([$tenantId, date('Y-m')]);
+        $mRev = (float) $mRev->fetchColumn();
+        $mRet = $pdo->prepare("SELECT COALESCE(SUM(r.refund_amount),0) FROM order_returns r JOIN orders o ON o.id = r.order_id JOIN branches b ON b.id = o.branch_id WHERE b.tenant_id = ? AND DATE_FORMAT(r.created_at,'%Y-%m') = ?");
+        $mRet->execute([$tenantId, date('Y-m')]);
+        $mRev = max(0.0, $mRev - (float) $mRet->fetchColumn());
+        $mPct = $mRev / $mTgt * 100; ?>
+<a href="muc_tieu.php" class="card" style="display:block;margin-bottom:16px;text-decoration:none;color:inherit;">
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><b>🎯 Mục tiêu doanh thu tháng <?= e(date('m/Y')) ?></b><span><?= money($mRev) ?> / <?= money($mTgt) ?> · <b><?= round($mPct) ?>%</b></span></div>
+  <div style="height:10px;background:#e2e8f0;border-radius:99px;overflow:hidden;"><div style="height:100%;width:<?= min(100, round($mPct, 1)) ?>%;background:<?= $mPct >= 100 ? '#059669' : '#2563eb' ?>;"></div></div>
+</a>
+<?php } } ?>
 <?php if ($banTin): $bq = $banTin['hom_qua']; $bt = $banTin['tuan_truoc'];
   $chenh = $bt['doanh_thu'] > 0 ? round(($bq['doanh_thu'] / $bt['doanh_thu'] - 1) * 100) : null; ?>
 <div class="card" style="margin-bottom:16px;border-left:4px solid #2563eb;">
