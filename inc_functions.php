@@ -100,6 +100,7 @@ function generateTenantExportSql(int $tid): string
         'productions' => "tenant_id = $tid",
         'invoice_register' => "tenant_id = $tid",
         'sales_targets' => "tenant_id = $tid",
+        'checklist_items' => "tenant_id = $tid",
         'stock_take_schedules' => "tenant_id = $tid",
         'auto_deduct_rules' => "tenant_id = $tid",
         'recurring_expenses' => "tenant_id = $tid",
@@ -335,7 +336,7 @@ const PERMISSION_GROUPS = [
 
 const PERMISSION_GROUP_FILES = [
     'pos' => [
-        'pos.php', 'ca_ban_hang.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
+        'pos.php', 'ca_ban_hang.php', 'ban_giao_ca.php', 'pos_checkout.php', 'pos_switch_branch.php', 'orders.php', 'orders_export.php',
         'order_view.php', 'order_edit.php', 'order_edit_items.php', 'don_cho_thanh_toan.php', 'order_advance.php', 'order_cancel.php', 'order_revert.php',
         'quotes.php', 'quote_form.php', 'quote_view.php', 'order_pay.php', 'order_returns.php', 'order_return_form.php', 'shipments.php',
         'shipment_form.php', 'shipment_reconcile.php', 'shipping_settings.php', 'channels.php',
@@ -1381,4 +1382,74 @@ function hoanVatTuVaQua(PDO $pdo, int $orderId): void
         $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL')->execute([$d['qty'], $d['branch_id'], $d['product_id']]);
         $pdo->prepare('UPDATE order_auto_deductions SET restored = 1 WHERE id = ?')->execute([$d['id']]);
     }
+}
+
+// ===== Danh sach mo/dong cua, tu cham cong khi mo/dong ca =====
+function layChecklist(PDO $pdo, int $tenantId, string $kind): array
+{
+    $st = $pdo->prepare('SELECT id, label FROM checklist_items WHERE tenant_id = ? AND kind = ? AND is_active = 1 ORDER BY sort_order, id');
+    $st->execute([$tenantId, $kind]);
+    return $st->fetchAll();
+}
+
+/** Doc ket qua tick tu form: moi muc chua tick phai ghi ly do. Tra ve [danh sach ket qua, loi|null]. */
+function docChecklistTuForm(array $items): array
+{
+    $out = [];
+    foreach ($items as $it) {
+        $id = (int) $it['id'];
+        $done = !empty($_POST['chk'][$id]) ? 1 : 0;
+        $note = trim(mb_substr((string) ($_POST['chk_note'][$id] ?? ''), 0, 255));
+        if (!$done && $note === '') {
+            return [[], 'Mục "' . $it['label'] . '" chưa tick: hãy ghi lý do chưa làm.'];
+        }
+        $out[] = ['label' => $it['label'], 'done' => $done, 'note' => $note !== '' ? $note : null];
+    }
+    return [$out, null];
+}
+
+function luuChecklist(PDO $pdo, int $shiftId, string $kind, array $results): void
+{
+    $ins = $pdo->prepare('INSERT INTO shift_checklist_results (shift_id, kind, label, done, note) VALUES (?,?,?,?,?)');
+    foreach ($results as $r) {
+        $ins->execute([$shiftId, $kind, $r['label'], $r['done'], $r['note']]);
+    }
+}
+
+/** Mo ca tu cham cong vao (neu hom nay chua co dong cham cong). */
+function chamCongVao(PDO $pdo, int $tenantId, int $userId): void
+{
+    $pdo->prepare("INSERT IGNORE INTO attendance (tenant_id, user_id, work_date, time_in, note) VALUES (?,?,CURDATE(),CURTIME(),'Tự chấm công khi mở ca')")->execute([$tenantId, $userId]);
+}
+
+/** Dong ca tu cham cong ra: dong cham cong gan nhat (hom nay hoac hom qua) con thieu gio ra. */
+function chamCongRa(PDO $pdo, int $tenantId, int $userId): void
+{
+    $pdo->prepare('UPDATE attendance SET time_out = CURTIME() WHERE tenant_id = ? AND user_id = ? AND time_in IS NOT NULL AND time_out IS NULL AND work_date >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) ORDER BY work_date DESC LIMIT 1')->execute([$tenantId, $userId]);
+}
+
+/**
+ * Don vua tao trong N phut cua cung nguoi ban, cung chi nhanh, cung danh sach hang va so luong: nghi bam nham 2 lan hoac quet trung.
+ * Tra ve ma don cu neu trung, null neu khong.
+ */
+function donTrungGanDay(PDO $pdo, int $branchId, int $userId, array $items, int $phut = 3): ?string
+{
+    $sig = [];
+    foreach ($items as $it) {
+        $sig[] = (int) ($it['product_id'] ?? 0) . ':' . (int) ($it['variant_id'] ?? 0) . ':' . round((float) ($it['quantity'] ?? 0), 3);
+    }
+    sort($sig);
+    $st = $pdo->prepare("SELECT id, code FROM orders WHERE branch_id = ? AND sold_by_id = ? AND status <> 'DRAFT' AND status <> 'CANCELLED' AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id DESC LIMIT 5");
+    $st->execute([$branchId, $userId, $phut]);
+    $oi = $pdo->prepare('SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?');
+    foreach ($st->fetchAll() as $o) {
+        $oi->execute([$o['id']]);
+        $s2 = [];
+        foreach ($oi->fetchAll() as $r) {
+            $s2[] = (int) $r['product_id'] . ':' . (int) $r['variant_id'] . ':' . round((float) $r['quantity'], 3);
+        }
+        sort($s2);
+        if ($s2 === $sig) return $o['code'];
+    }
+    return null;
 }

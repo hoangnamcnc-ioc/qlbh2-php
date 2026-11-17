@@ -725,6 +725,7 @@ function renderCustomerInfo(data) {
   if (data.no > 0) h += '<div style="color:#dc2626;font-weight:600;">Đang nợ ' + formatMoney(data.no) + '</div>';
   if (data.so_don > 0) h += '<div>Đã mua ' + data.so_don + ' đơn, gần nhất ' + escapeHtml(data.lan_cuoi || '') + '</div>';
   if ((data.hay_mua || []).length) h += '<div>Hay mua: ' + data.hay_mua.map(escapeHtml).join(', ') + '</div>';
+  if (data.hay_tra) h += '<div>Thường trả: <b>' + escapeHtml(data.hay_tra.label) + '</b> (' + data.hay_tra.n + '/' + data.hay_tra.tong + ' đơn) · TB ' + formatMoney(data.hay_tra.tb) + '/đơn</div>';
   if ((data.lan_truoc || []).length) h += '<button type="button" id="add-last-order" class="btn btn-secondary" style="padding:2px 10px;font-size:12px;margin-top:4px;">＋ Thêm các món lần trước (' + data.lan_truoc.length + ')</button>';
   return h;
 }
@@ -1073,6 +1074,17 @@ document.getElementById('checkout-btn').addEventListener('click', () => {
     body: JSON.stringify(buildCheckoutPayload()),
   })
     .then(r => r.json())
+    .then(data => {
+      if (data.duplicate) {
+        // Don trung vua tao: hoi lai, dong y thi gui lai kem co xac nhan
+        if (confirm(data.error + '\n\nVẫn tạo đơn mới?')) {
+          const p2 = buildCheckoutPayload(); p2.confirm_duplicate = true;
+          return fetch('pos_checkout.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p2) }).then(r => r.json());
+        }
+        return { error: 'Đã hủy, không tạo đơn trùng.' };
+      }
+      return data;
+    })
     .then(data => {
       if (data.error) {
         msgBox.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error)}</div>`;

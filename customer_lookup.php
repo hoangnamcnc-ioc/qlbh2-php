@@ -49,6 +49,22 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$customer['id']]);
 $hayMua = $stmt->fetchAll(PDO::FETCH_COLUMN);
+// Thoi quen thanh toan: hinh thuc tra hay dung nhat (theo phieu thu cua cac don) va gia tri don trung binh
+$hayTra = null;
+$stmt = $pdo->prepare(
+    "SELECT ce.payment_method, COUNT(DISTINCT ce.order_id) AS n FROM cashbook_entries ce JOIN orders o ON o.id = ce.order_id
+     WHERE o.customer_id = ? AND ce.type = 'RECEIPT' AND $okStatus GROUP BY ce.payment_method ORDER BY n DESC LIMIT 1"
+);
+$stmt->execute([$customer['id']]);
+if ($tt = $stmt->fetch()) {
+    $stmt = $pdo->prepare("SELECT COUNT(*), AVG(o.total_amount) FROM orders o WHERE o.customer_id = ? AND $okStatus");
+    $stmt->execute([$customer['id']]);
+    [$tong, $tb] = $stmt->fetch(PDO::FETCH_NUM);
+    $nhan = ['CASH' => 'Tiền mặt', 'BANK_TRANSFER' => 'Chuyển khoản', 'CARD' => 'Quẹt thẻ', 'QR_CODE' => 'Quét mã QR'];
+    if ((int) $tong >= 2) {
+        $hayTra = ['label' => $nhan[$tt['payment_method']] ?? $tt['payment_method'], 'n' => (int) $tt['n'], 'tong' => (int) $tong, 'tb' => round((float) $tb)];
+    }
+}
 $lanTruoc = [];
 $stmt = $pdo->prepare("SELECT o.id FROM orders o WHERE o.customer_id = ? AND $okStatus ORDER BY o.created_at DESC LIMIT 1");
 $stmt->execute([$customer['id']]);
@@ -71,6 +87,7 @@ echo json_encode([
     'so_don' => (int) $soDon,
     'lan_cuoi' => $lanCuoi ? date('d/m/Y', strtotime($lanCuoi)) : null,
     'hay_mua' => $hayMua,
+    'hay_tra' => $hayTra,
     'lan_truoc' => $lanTruoc,
     'id' => (int) $customer['id'],
     'name' => $customer['name'],

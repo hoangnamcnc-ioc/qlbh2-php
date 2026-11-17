@@ -1271,3 +1271,28 @@ CREATE TABLE IF NOT EXISTS order_auto_deductions (
   restored TINYINT NOT NULL DEFAULT 0,
   KEY idx_auto_ded_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Danh sach mo/dong cua, ban giao ca =====
+ALTER TABLE pos_shifts ADD COLUMN handover_to_id INT NULL;
+
+ALTER TABLE pos_shifts ADD COLUMN handover_note TEXT NULL;
+
+CREATE TABLE IF NOT EXISTS checklist_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  kind ENUM('OPEN','CLOSE') NOT NULL,
+  label VARCHAR(255) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT NOT NULL DEFAULT 1,
+  KEY idx_checklist (tenant_id, kind, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS shift_checklist_results (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  shift_id INT NOT NULL,
+  kind ENUM('OPEN','CLOSE') NOT NULL,
+  label VARCHAR(255) NOT NULL,
+  done TINYINT NOT NULL,
+  note VARCHAR(255) NULL,
+  KEY idx_shift_chk (shift_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
