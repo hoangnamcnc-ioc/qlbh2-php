@@ -41,7 +41,7 @@ PID=$(curl -s -b $CJ "$A/pos_search.php?q=REG1" | python -c "import sys,json;pri
 [ -n "$PID" ] || { echo "Khong tao duoc cua hang/san pham thu - dung"; exit 1; }
 stock() { curl -s -b $CJ "$A/pos_search.php?q=REG1" | python -c "import sys,json;print(int(float(json.load(sys.stdin)[0]['qty'])))" 2>/dev/null; }
 PT=$(curl -s -b $CJ -c $CJ $A/pos.php | grep -o 'csrfToken = "[^"]*"' | head -1 | sed 's/.*= "//;s/"//')
-checkout() { curl -s -b $CJ -c $CJ -H 'Content-Type: application/json' -d "$1" $A/pos_checkout.php; }
+checkout() { curl -s -b $CJ -c $CJ -H 'Content-Type: application/json' -d "$(echo "$1" | sed 's/^{/{"confirm_duplicate":true,/')" $A/pos_checkout.php; }
 BASE="\"csrf\":\"$PT\",\"payment_method\":\"CASH\",\"customer_phone\":\"0911000111\",\"customer_name\":\"Khach Reg\""
 ITEM2="\"items\":[{\"product_id\":$PID,\"variant_id\":null,\"quantity\":2,\"unit_price\":100000}]"
 

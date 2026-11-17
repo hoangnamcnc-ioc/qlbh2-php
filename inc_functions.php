@@ -1432,15 +1432,26 @@ function chamCongRa(PDO $pdo, int $tenantId, int $userId): void
  * Don vua tao trong N phut cua cung nguoi ban, cung chi nhanh, cung danh sach hang va so luong: nghi bam nham 2 lan hoac quet trung.
  * Tra ve ma don cu neu trung, null neu khong.
  */
-function donTrungGanDay(PDO $pdo, int $branchId, int $userId, array $items, int $phut = 3): ?string
+function donTrungGanDay(PDO $pdo, int $branchId, int $userId, array $items, string $customerPhone = '', int $phut = 3): ?string
 {
+    // Chi canh bao khi du dau hieu "bam nham": co khach cu the, hoac don co tu 3 mat hang tro len.
+    // Don 1-2 mat hang cho khach le giong nhau (hai nguoi cung mua 1 goi thuoc) la binh thuong, khong hoi.
+    $cid = null;
+    if ($customerPhone !== '') {
+        $c = $pdo->prepare('SELECT id FROM customers WHERE phone = ? AND tenant_id = ? LIMIT 1');
+        $c->execute([$customerPhone, currentTenantId()]);
+        $cid = $c->fetchColumn() ?: null;
+    }
+    if ($cid === null && count($items) < 3) {
+        return null;
+    }
     $sig = [];
     foreach ($items as $it) {
         $sig[] = (int) ($it['product_id'] ?? 0) . ':' . (int) ($it['variant_id'] ?? 0) . ':' . round((float) ($it['quantity'] ?? 0), 3);
     }
     sort($sig);
-    $st = $pdo->prepare("SELECT id, code FROM orders WHERE branch_id = ? AND sold_by_id = ? AND status <> 'DRAFT' AND status <> 'CANCELLED' AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id DESC LIMIT 5");
-    $st->execute([$branchId, $userId, $phut]);
+    $st = $pdo->prepare("SELECT id, code FROM orders WHERE branch_id = ? AND sold_by_id = ? AND (customer_id <=> ?) AND status <> 'DRAFT' AND status <> 'CANCELLED' AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id DESC LIMIT 5");
+    $st->execute([$branchId, $userId, $cid, $phut]);
     $oi = $pdo->prepare('SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?');
     foreach ($st->fetchAll() as $o) {
         $oi->execute([$o['id']]);

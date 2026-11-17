@@ -109,7 +109,7 @@ if ($channelIdInput) {
 
 try {
     if (!$isDraft && empty($input['confirm_duplicate'])) {
-        $trung = donTrungGanDay($pdo, (int) $branchId, (int) $user['id'], $items);
+        $trung = donTrungGanDay($pdo, (int) $branchId, (int) $user['id'], $items, $customerPhone);
         if ($trung) {
             http_response_code(409);
             echo json_encode(['error' => 'Đơn này giống hệt đơn ' . $trung . ' vừa tạo cách đây vài phút (cùng hàng, cùng số lượng). Có thể bạn bấm thanh toán hai lần.', 'duplicate' => true]);
