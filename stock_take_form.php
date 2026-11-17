@@ -80,6 +80,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $itemStmt->execute([$takeId, $pid, $vid, $sys, $counted]);
                 }
 
+                // Ghi nhan da kiem theo lich (nhom hang / hang de mat) neu phieu duoc mo tu Lich kiem kho
+                if (!empty($_POST['schedule_cat'])) {
+                    $pdo->prepare('UPDATE stock_take_schedules SET last_done = CURDATE() WHERE tenant_id = ? AND category_id = ?')
+                        ->execute([currentTenantId(), (int) $_POST['schedule_cat']]);
+                }
+                if (!empty($_POST['schedule_loss'])) {
+                    setSetting('loss_check_last', date('Y-m-d'));
+                }
                 $pdo->commit();
                 redirect('stock_take_view.php?id=' . $takeId);
             } catch (Throwable $ex) {
@@ -100,6 +108,8 @@ require_once __DIR__ . '/inc_header.php';
 
 <form method="post" id="take-form">
   <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>">
+  <?php if (!empty($_GET['cat'])): ?><input type="hidden" name="schedule_cat" value="<?= (int) $_GET['cat'] ?>"><?php endif; ?>
+  <?php if (!empty($_GET['loss'])): ?><input type="hidden" name="schedule_loss" value="1"><?php endif; ?>
 
   <div class="card" style="max-width:640px;margin-bottom:16px;">
     <div class="field">
@@ -240,6 +250,22 @@ function scanMessage(text, isError) {
   el.style.color = isError ? '#dc2626' : '#16a34a';
   setTimeout(() => { el.textContent = ''; }, 2500);
 }
+
+// Mo tu Lich kiem kho: ?cat=ID tu chon nhom, ?loss=1 nap hang de mat
+function autoLoad(url) {
+  const msg = document.getElementById('scan-msg');
+  fetch(url).then(r => r.json()).then(data => {
+    data.forEach(p => addLine(p.id, p.variant_id, p.name, parseFloat(p.qty) || 0));
+    if (msg) { msg.textContent = data.length ? 'Đã nạp ' + data.length + ' mặt hàng cần kiểm.' : 'Không có mặt hàng nào để kiểm.'; msg.style.color = data.length ? '#059669' : '#dc2626'; }
+  });
+}
+window.addEventListener('load', () => {
+  const qs = new URLSearchParams(location.search);
+  const b = branchSelect.value;
+  if (!b) return;
+  if (qs.get('cat')) { const sel = document.getElementById('cat-select'); if (sel) sel.value = qs.get('cat'); autoLoad('stock_take_search.php?category_id=' + encodeURIComponent(qs.get('cat')) + '&branch_id=' + encodeURIComponent(b)); }
+  else if (qs.get('loss')) autoLoad('stock_take_search.php?loss=1&branch_id=' + encodeURIComponent(b));
+});
 
 const catAddBtn = document.getElementById('cat-add');
 if (catAddBtn) {

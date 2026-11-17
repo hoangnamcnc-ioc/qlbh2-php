@@ -47,6 +47,28 @@ $branchId = effectiveBranchId($user);
 $tenantId = currentTenantId();
 $priceListId = (int) ($_GET['price_list_id'] ?? 0) ?: null;
 $pdo = db();
+
+// Ma can dien tu EAN-13: 2 + PLU(5 so) + gia tri(5 so) + so kiem tra. Gia tri la khoi luong (gram) hoac so tien tuy cau hinh o trang Ke hang.
+if (preg_match('/^2\d{12}$/', $q)) {
+    $plu = ltrim(substr($q, 1, 5), '0');
+    $value = (int) substr($q, 6, 5);
+    $st = $pdo->prepare(
+        "SELECT p.id, NULL AS variant_id, p.sku, p.name, p.sell_price, COALESCE(i.quantity, 0) AS qty
+         FROM products p LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
+         WHERE p.tenant_id = ? AND p.is_active = 1 AND p.plu IS NOT NULL AND TRIM(LEADING '0' FROM p.plu) = ? LIMIT 1"
+    );
+    $st->execute([$branchId, $tenantId, $plu]);
+    if ($row = $st->fetch()) {
+        $price = (float) $row['sell_price'];
+        $row['scale_qty'] = getSetting('scale_mode', 'WEIGHT') === 'PRICE'
+            ? ($price > 0 ? round($value / $price, 3) : 1)
+            : round($value / 1000, 3);
+        if ($row['scale_qty'] > 0) {
+            echo json_encode([$row], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+}
 $like = '%' . $q . '%';
 $limit = $browse ? 60 : 15;
 

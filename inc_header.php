@@ -46,6 +46,9 @@ $navGroups = [
             'batches.php' => 'Lô hàng & hạn dùng',
             'xuat_huy.php' => 'Xuất hủy hàng',
             'san_xuat.php' => 'Sản xuất, giá thành',
+            'ke_hang.php' => 'Kệ hàng, mã cân',
+            'lich_kiem_kho.php' => 'Lịch kiểm kho',
+            'vat_tu_qua.php' => 'Vật tư, quà tặng',
             'ton_cham.php' => 'Hàng tồn lâu / bán chậm',
             'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu',
             'stock_transfers.php' => 'Chuyển hàng',
@@ -155,7 +158,7 @@ $menuAlias = [
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',
     'coupons.php' => 'promotions.php', 'campaigns.php' => 'promotions.php',
-    'batches.php' => 'inventory.php', 'ton_cham.php' => 'inventory.php', 'xuat_huy.php' => 'inventory.php', 'san_xuat.php' => 'inventory.php',
+    'batches.php' => 'inventory.php', 'ton_cham.php' => 'inventory.php', 'xuat_huy.php' => 'inventory.php', 'san_xuat.php' => 'inventory.php', 'ke_hang.php' => 'inventory.php', 'lich_kiem_kho.php' => 'inventory.php', 'vat_tu_qua.php' => 'inventory.php',
 ];
 // Nhac no khach da gop vao trang Cong no: nguoi co nhom Tai chinh khong can muc rieng
 if (isset($allNavFiles['cong_no.php'])) {

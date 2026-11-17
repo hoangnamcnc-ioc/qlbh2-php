@@ -22,6 +22,19 @@ if (hasRole('ADMIN') && $branchId) {
         exit;
     }
 }
+// Hang de mat (danh dau o trang Ke hang): kiem moi ngay
+if (!empty($_GET['loss']) && $branchId) {
+    $stmt = $pdo->prepare(
+        "SELECT p.id, NULL AS variant_id, p.sku, p.name, COALESCE(i.quantity,0) AS qty
+         FROM products p
+         LEFT JOIN inventory i ON i.product_id = p.id AND i.branch_id = ? AND i.variant_id IS NULL
+         WHERE p.tenant_id = ? AND p.high_loss = 1 AND p.is_active = 1 AND p.product_type = 'PRODUCT'
+         ORDER BY p.name LIMIT 500"
+    );
+    $stmt->execute([$branchId, $tenantId]);
+    echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_UNICODE);
+    exit;
+}
 // Them ca 1 nhom hang vao phieu kiem (kiem theo nhom: thu 2 banh keo, thu 4 hoa my pham...)
 $categoryId = (int) ($_GET['category_id'] ?? 0);
 if ($categoryId && $branchId) {

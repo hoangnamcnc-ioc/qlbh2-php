@@ -10,6 +10,20 @@ $currentUser = requireRole('ADMIN', 'MANAGER');
 
 $pdo = db();
 $tenantId = currentTenantId();
+$thongBao = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deactivate') {
+    checkCsrf();
+    $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])))));
+    if (!$ids) {
+        $thongBao = ['error', 'Chọn ít nhất một mặt hàng.'];
+    } else {
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $up = $pdo->prepare("UPDATE products SET is_active = 0 WHERE tenant_id = ? AND id IN ($in)");
+        $up->execute(array_merge([$tenantId], $ids));
+        logActivity('PRODUCT_BULK_DEACTIVATE', 'n=' . $up->rowCount() . ' ids=' . implode(',', array_slice($ids, 0, 50)));
+        redirect('ton_cham.php?days=' . (int) ($_POST['days'] ?? 30) . '&ngung=' . $up->rowCount());
+    }
+}
 
 $branchesStmt = $pdo->prepare('SELECT id, name FROM branches WHERE tenant_id = ? ORDER BY name');
 $branchesStmt->execute([$tenantId]);
@@ -112,13 +126,17 @@ require_once __DIR__ . '/inc_header.php';
   <div class="card" style="min-width:200px;"><div class="muted" style="font-size:12px;">Vốn đang bị chôn (giá vốn × tồn)</div><div style="font-size:22px;font-weight:700;color:#dc2626;"><?= money($tongVon) ?></div></div>
 </div>
 
-<div class="card" style="padding:0;overflow-x:auto;">
+<?php if ($thongBao): ?><div class="alert alert-error"><?= e($thongBao[1]) ?></div><?php endif; ?>
+<?php if (!empty($_GET['ngung'])): ?><div class="alert alert-success">Đã ngừng kinh doanh <?= (int) $_GET['ngung'] ?> mặt hàng (ẩn khỏi bán hàng, vẫn giữ lịch sử; bật lại ở Sản phẩm).</div><?php endif; ?>
+<form method="post" class="card" style="padding:0;overflow-x:auto;" onsubmit="var n=this.querySelectorAll('.chk-sp:checked').length; if(!n){alert('Chọn ít nhất một mặt hàng.'); return false;} return confirm('Ngừng kinh doanh ' + n + ' mặt hàng đã chọn? Hàng sẽ ẩn khỏi màn hình bán hàng.');">
+  <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="deactivate"><input type="hidden" name="days" value="<?= (int) $days ?>">
   <table>
-    <thead><tr><th>Sản phẩm</th><th class="text-right">Tồn</th><th class="text-right">Giá vốn</th><th class="text-right">Vốn chôn</th><th>Bán lần cuối</th><th></th></tr></thead>
+    <thead><tr><th style="width:34px;"><input type="checkbox" onclick="document.querySelectorAll('.chk-sp').forEach(function(c){c.checked=this.checked}.bind(this))" title="Chọn tất cả"></th><th>Sản phẩm</th><th class="text-right">Tồn</th><th class="text-right">Giá vốn</th><th class="text-right">Vốn chôn</th><th>Bán lần cuối</th><th></th></tr></thead>
     <tbody>
-      <?php if (!$rows): ?><tr><td colspan="6" class="text-center muted" style="padding:24px;">Không có mặt hàng nào ế trong <?= $days ?> ngày — tốt!</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="7" class="text-center muted" style="padding:24px;">Không có mặt hàng nào ế trong <?= $days ?> ngày — tốt!</td></tr><?php endif; ?>
       <?php foreach ($rows as $r): ?>
         <tr>
+          <td><input type="checkbox" class="chk-sp" name="ids[]" value="<?= (int) $r['id'] ?>"></td>
           <td><?= e($r['name']) ?> <span class="muted" style="font-family:monospace;font-size:12px;">(<?= e($r['sku']) ?>)</span></td>
           <td class="text-right"><?= fmtQty($r['qty']) ?></td>
           <td class="text-right"><?= money($r['cost_price']) ?></td>
@@ -132,7 +150,8 @@ require_once __DIR__ . '/inc_header.php';
       <?php endforeach; ?>
     </tbody>
   </table>
-</div>
+  <?php if ($rows): ?><div style="padding:12px 16px;border-top:1px solid #e2e8f0;"><button class="btn btn-danger" type="submit">Ngừng kinh doanh các mặt hàng đã chọn</button> <span class="muted" style="font-size:12px;">Dành cho hàng ế không nhập nữa; tick chọn nhiều mặt hàng cùng lúc.</span></div><?php endif; ?>
+</form>
 <p class="muted" style="font-size:12px;margin:12px 0 0;max-width:820px;">⚖️ Số liệu tính từ dữ liệu bạn nhập, chỉ mang tính tham khảo. Hàng mới nhập gần đây chưa kịp bán cũng có thể xuất hiện ở đây.</p>
 
 <?php require_once __DIR__ . '/inc_footer.php'; ?>

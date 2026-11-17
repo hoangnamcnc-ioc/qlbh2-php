@@ -100,6 +100,8 @@ function generateTenantExportSql(int $tid): string
         'productions' => "tenant_id = $tid",
         'invoice_register' => "tenant_id = $tid",
         'sales_targets' => "tenant_id = $tid",
+        'stock_take_schedules' => "tenant_id = $tid",
+        'auto_deduct_rules' => "tenant_id = $tid",
         'recurring_expenses' => "tenant_id = $tid",
         'leave_requests' => "tenant_id = $tid",
         'supplier_reviews' => "tenant_id = $tid",
@@ -345,7 +347,7 @@ const PERMISSION_GROUP_FILES = [
         'variant_update.php', 'variant_delete.php', 'combo_item_save.php', 'combo_item_delete.php',
         'products.php', 'products_export.php', 'products_import.php', 'price_lists.php',
         'price_adjustments.php', 'price_adjustment_search.php', 'reorder_suggestions.php', 'purchase_orders.php',
-        'san_xuat.php', 'purchase_order_form.php', 'purchase_order_view.php', 'purchase_order_receive.php',
+        'san_xuat.php', 'ke_hang.php', 'lich_kiem_kho.php', 'vat_tu_qua.php', 'purchase_order_form.php', 'purchase_order_view.php', 'purchase_order_receive.php',
         'purchase_order_search.php', 'stock_receipts.php', 'stock_receipt_form.php',
         'stock_receipt_view.php', 'stock_receipt_pay.php', 'stock_receipt_search.php', 'stock_receipt_stats.php', 'product_quick_add.php',
         'stock_takes.php', 'stock_take_form.php', 'stock_take_view.php', 'stock_take_balance.php',
@@ -781,6 +783,7 @@ function huyDonHangTrongGiaoDich(PDO $pdo, array $order, int $userId, ?string $r
         capNhatTonKho($pdo, (int) $order['branch_id'], (int) $item['product_id'], $item['variant_id'] ? (int) $item['variant_id'] : null, (float) $item['quantity']);
     }
 
+    hoanVatTuVaQua($pdo, $orderId);
     hoanTacTaiChinhKhiHuyDon($pdo, $order, $userId);
     $pdo->prepare("UPDATE orders SET status = 'CANCELLED' WHERE id = ?")->execute([$orderId]);
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?,?,"CANCELLED",?,?)')
@@ -1080,7 +1083,7 @@ function thanhTabNghiepVu(string $nhom): string
         'baocao' => ['reports.php' => 'Báo cáo', 'muc_tieu.php' => 'Mục tiêu doanh thu', 'phan_tich.php' => 'Phân tích kinh doanh', 'tro_ly.php' => 'Trợ lý hỏi đáp'],
         'danhmuc' => ['categories.php' => 'Danh mục', 'brands.php' => 'Nhãn hiệu', 'groups.php' => 'Nhóm khách hàng'],
         'khuyenmai' => ['promotions.php' => 'Khuyến mại', 'coupons.php' => 'Mã giảm giá', 'campaigns.php' => 'Chiến dịch'],
-        'kho' => ['inventory.php' => 'Tồn kho', 'san_xuat.php' => 'Sản xuất, giá thành', 'batches.php' => 'Lô & hạn dùng', 'ton_cham.php' => 'Tồn lâu / bán chậm', 'xuat_huy.php' => 'Xuất hủy', 'stock_takes.php' => 'Kiểm hàng'],
+        'kho' => ['inventory.php' => 'Tồn kho', 'ke_hang.php' => 'Kệ hàng, mã cân', 'lich_kiem_kho.php' => 'Lịch kiểm kho', 'vat_tu_qua.php' => 'Vật tư, quà tặng', 'san_xuat.php' => 'Sản xuất, giá thành', 'batches.php' => 'Lô & hạn dùng', 'ton_cham.php' => 'Tồn lâu / bán chậm', 'xuat_huy.php' => 'Xuất hủy', 'stock_takes.php' => 'Kiểm hàng'],
         'nhap' => ['reorder_suggestions.php' => 'Gợi ý nhập hàng', 'purchase_orders.php' => 'Đặt hàng nhập', 'stock_receipts.php' => 'Nhập hàng', 'supplier_returns.php' => 'Trả hàng NCC', 'suppliers.php' => 'Nhà cung cấp'],
     ];
     $tabs = [];
@@ -1338,4 +1341,44 @@ function soDuNghiPhep(PDO $pdo, int $userId, string $nam, float $quyDinh): array
     $st->execute([$userId, $nam]);
     $dung = (float) $st->fetchColumn();
     return ['quy_dinh' => $quyDinh, 'da_dung' => $dung, 'con_lai' => $quyDinh - $dung];
+}
+
+// ===== Vat tu tieu hao, qua tang theo moc hoa don (tu tru kho) =====
+/**
+ * Ap dung cho 1 don vua hoan tat: tru kho cac vat tu tieu hao (vd tui nilon moi don) va qua tang theo moc hoa don (chi bac cao nhat dat duoc).
+ * Chi tru toi da so ton hien co (khong tao ton am). Ghi lai tung dong de truy vet va hoan kho khi huy don.
+ */
+function apDungVatTuVaQua(PDO $pdo, int $tenantId, int $branchId, int $orderId, float $orderTotal): void
+{
+    $st = $pdo->prepare("SELECT * FROM auto_deduct_rules WHERE tenant_id = ? AND is_active = 1 AND min_total <= ? ORDER BY min_total DESC, id");
+    $st->execute([$tenantId, $orderTotal]);
+    $rules = $st->fetchAll();
+    $giftDone = false;
+    foreach ($rules as $r) {
+        if ($r['kind'] === 'GIFT') {
+            if ($giftDone) continue;   // chi tang 1 bac (bac cao nhat dat duoc)
+            $giftDone = true;
+        }
+        $inv = $pdo->prepare('SELECT id, quantity FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL FOR UPDATE');
+        $inv->execute([$branchId, (int) $r['product_id']]);
+        $row = $inv->fetch();
+        if (!$row || (float) $row['quantity'] <= 0) continue;
+        $take = min((float) $r['qty'], (float) $row['quantity']);
+        $pdo->prepare('UPDATE inventory SET quantity = quantity - ?, shelf_qty = GREATEST(0, shelf_qty - ?) WHERE id = ?')->execute([$take, $take, $row['id']]);
+        $cost = $pdo->prepare('SELECT cost_price FROM products WHERE id = ? AND tenant_id = ?');
+        $cost->execute([(int) $r['product_id'], $tenantId]);
+        $pdo->prepare('INSERT INTO order_auto_deductions (order_id, branch_id, kind, product_id, qty, cost_price) VALUES (?,?,?,?,?,?)')
+            ->execute([$orderId, $branchId, $r['kind'], (int) $r['product_id'], $take, (float) ($cost->fetchColumn() ?: 0)]);
+    }
+}
+
+/** Hoan kho cac vat tu / qua da tru tu dong khi huy don. */
+function hoanVatTuVaQua(PDO $pdo, int $orderId): void
+{
+    $st = $pdo->prepare('SELECT * FROM order_auto_deductions WHERE order_id = ? AND restored = 0');
+    $st->execute([$orderId]);
+    foreach ($st->fetchAll() as $d) {
+        $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL')->execute([$d['qty'], $d['branch_id'], $d['product_id']]);
+        $pdo->prepare('UPDATE order_auto_deductions SET restored = 1 WHERE id = ?')->execute([$d['id']]);
+    }
 }

@@ -650,14 +650,14 @@ function scanCode(q) {
     .then(data => {
       if (data.length === 1) {
         const p = data[0];
-        addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
+        addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku, p.scale_qty);
         beepThanhCong();
         searchInput.value = '';
         searchResults.style.display = 'none';
       } else if (data.length > 1) {
         const exact = data.find(p => p.sku === q);
         if (exact) {
-          addToCart(exact.id, exact.variant_id, exact.name, parseFloat(exact.sell_price), exact.sku);
+          addToCart(exact.id, exact.variant_id, exact.name, parseFloat(exact.sell_price), exact.sku, exact.scale_qty);
           beepThanhCong();
           searchInput.value = '';
           searchResults.style.display = 'none';
@@ -693,7 +693,7 @@ function renderSearchItems(data, hint) {
     el.addEventListener('mouseleave', () => el.style.background = '#fff');
     el.addEventListener('click', () => {
       const p = data[parseInt(el.dataset.i, 10)];
-      addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
+      addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku, p.scale_qty);
       searchInput.value = '';
       searchResults.style.display = 'none';
     });
@@ -753,10 +753,11 @@ function warnPrice(c, p) {
   return '';
 }
 
-function addToCart(id, variantId, name, price, sku) {
+function addToCart(id, variantId, name, price, sku, addQty) {
   const key = id + ':' + (variantId ?? '');
   const existing = cart.find(c => c.key === key);
-  if (existing) { existing.qty += 1; } else { cart.push({ key, id, variantId, name, price, basePrice: price, sku: sku || '', qty: 1 }); loadProdStats(id); }
+  const aq = parseFloat(addQty) > 0 ? parseFloat(addQty) : 1;   // hang can dien tu: so luong lay tu ma can
+  if (existing) { existing.qty = Math.round((existing.qty + aq) * 1000) / 1000; } else { cart.push({ key, id, variantId, name, price, basePrice: price, sku: sku || '', qty: aq }); loadProdStats(id); }
   renderCart();
 }
 
@@ -1165,7 +1166,7 @@ function setBrowseMode(on) {
           row.addEventListener('mouseleave', () => row.style.background = '#fff');
           row.addEventListener('click', () => {
             const p = data[parseInt(row.dataset.i, 10)];
-            addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku);
+            addToCart(p.id, p.variant_id, p.name, parseFloat(p.sell_price), p.sku, p.scale_qty);
           });
         });
       });

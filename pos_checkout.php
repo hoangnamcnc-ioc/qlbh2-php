@@ -279,8 +279,8 @@ try {
             }
 
             if ($inv) {
-                $pdo->prepare('UPDATE inventory SET quantity = quantity - ? WHERE id = ?')
-                    ->execute([$quantity, $inv['id']]);
+                $pdo->prepare('UPDATE inventory SET quantity = quantity - ?, shelf_qty = GREATEST(0, shelf_qty - ?) WHERE id = ?')
+                    ->execute([$quantity, $quantity, $inv['id']]);
             } else {
                 $pdo->prepare('INSERT INTO inventory (branch_id, product_id, variant_id, quantity) VALUES (?,?,?,?)')
                     ->execute([$branchId, $productId, $variantId, -$quantity]);
@@ -449,6 +449,7 @@ try {
     }
 
     if (!$isDraft) {
+        apDungVatTuVaQua($pdo, currentTenantId(), $branchId, $orderId, (float) $totalAmount);
         createWarrantyCardsForOrder($orderId, $customerId, $user['id']);
 
         if ($paidAmount > 0) {
