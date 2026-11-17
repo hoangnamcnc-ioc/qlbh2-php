@@ -1296,3 +1296,16 @@ CREATE TABLE IF NOT EXISTS shift_checklist_results (
   note VARCHAR(255) NULL,
   KEY idx_shift_chk (shift_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ===== Hoan so tren ke khi huy don =====
+CREATE TABLE IF NOT EXISTS order_shelf_deductions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  product_id INT NOT NULL,
+  qty DECIMAL(12,3) NOT NULL,
+  restored TINYINT NOT NULL DEFAULT 0,
+  KEY idx_shelf_ded_order (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE order_auto_deductions ADD COLUMN shelf_taken DECIMAL(12,3) NOT NULL DEFAULT 0;

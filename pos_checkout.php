@@ -161,6 +161,7 @@ try {
     $subTotal = 0.0;
     $lineData = [];
 
+    $shelfTaken = [];
     foreach ($items as $line) {
         $lineBatches = [];
         $productId = (int) ($line['product_id'] ?? 0);
@@ -287,6 +288,10 @@ try {
             }
 
             if ($inv) {
+                $shelfTake = min((float) ($inv['shelf_qty'] ?? 0), (float) $quantity);
+                if ($shelfTake > 0) {
+                    $shelfTaken[] = [(int) $productId, $shelfTake];   // ghi vao order_shelf_deductions sau khi co id don, de hoan khi huy
+                }
                 $pdo->prepare('UPDATE inventory SET quantity = quantity - ?, shelf_qty = GREATEST(0, shelf_qty - ?) WHERE id = ?')
                     ->execute([$quantity, $quantity, $inv['id']]);
             } else {
@@ -434,6 +439,9 @@ try {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )->execute([$code, $branchId, $customerId, $soldById, $sourceKind, $sourceId, $channelId, $initialStatus, $paymentStatus, $subTotal, $discount, $couponCode, $promotionId, $shippingFee, $deliveryAddress, $isDelivery ? 1 : 0, $orderNote, $orderTags, $totalAmount, $paidAmount]);
     $orderId = (int) $pdo->lastInsertId();
+    foreach ($shelfTaken as [$spid, $sqty]) {
+        $pdo->prepare('INSERT INTO order_shelf_deductions (order_id, branch_id, product_id, qty) VALUES (?,?,?,?)')->execute([$orderId, $branchId, $spid, $sqty]);
+    }
 
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_id) VALUES (?, NULL, ?, ?)')
         ->execute([$orderId, $initialStatus, $user['id']]);

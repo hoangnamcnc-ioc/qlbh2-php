@@ -785,6 +785,7 @@ function huyDonHangTrongGiaoDich(PDO $pdo, array $order, int $userId, ?string $r
     }
 
     hoanVatTuVaQua($pdo, $orderId);
+    hoanKeKhiHuy($pdo, $orderId);
     hoanTacTaiChinhKhiHuyDon($pdo, $order, $userId);
     $pdo->prepare("UPDATE orders SET status = 'CANCELLED' WHERE id = ?")->execute([$orderId]);
     $pdo->prepare('INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by_id) VALUES (?,?,"CANCELLED",?,?)')
@@ -1365,11 +1366,14 @@ function apDungVatTuVaQua(PDO $pdo, int $tenantId, int $branchId, int $orderId, 
         $row = $inv->fetch();
         if (!$row || (float) $row['quantity'] <= 0) continue;
         $take = min((float) $r['qty'], (float) $row['quantity']);
+        $shelfNow = $pdo->prepare('SELECT shelf_qty FROM inventory WHERE id = ?');
+        $shelfNow->execute([$row['id']]);
+        $shelfTake = min((float) $shelfNow->fetchColumn(), $take);
         $pdo->prepare('UPDATE inventory SET quantity = quantity - ?, shelf_qty = GREATEST(0, shelf_qty - ?) WHERE id = ?')->execute([$take, $take, $row['id']]);
         $cost = $pdo->prepare('SELECT cost_price FROM products WHERE id = ? AND tenant_id = ?');
         $cost->execute([(int) $r['product_id'], $tenantId]);
-        $pdo->prepare('INSERT INTO order_auto_deductions (order_id, branch_id, kind, product_id, qty, cost_price) VALUES (?,?,?,?,?,?)')
-            ->execute([$orderId, $branchId, $r['kind'], (int) $r['product_id'], $take, (float) ($cost->fetchColumn() ?: 0)]);
+        $pdo->prepare('INSERT INTO order_auto_deductions (order_id, branch_id, kind, product_id, qty, cost_price, shelf_taken) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$orderId, $branchId, $r['kind'], (int) $r['product_id'], $take, (float) ($cost->fetchColumn() ?: 0), $shelfTake]);
     }
 }
 
@@ -1379,7 +1383,7 @@ function hoanVatTuVaQua(PDO $pdo, int $orderId): void
     $st = $pdo->prepare('SELECT * FROM order_auto_deductions WHERE order_id = ? AND restored = 0');
     $st->execute([$orderId]);
     foreach ($st->fetchAll() as $d) {
-        $pdo->prepare('UPDATE inventory SET quantity = quantity + ? WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL')->execute([$d['qty'], $d['branch_id'], $d['product_id']]);
+        $pdo->prepare('UPDATE inventory SET quantity = quantity + ?, shelf_qty = shelf_qty + ? WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL')->execute([$d['qty'], (float) $d['shelf_taken'], $d['branch_id'], $d['product_id']]);
         $pdo->prepare('UPDATE order_auto_deductions SET restored = 1 WHERE id = ?')->execute([$d['id']]);
     }
 }
@@ -1463,4 +1467,15 @@ function donTrungGanDay(PDO $pdo, int $branchId, int $userId, array $items, stri
         if ($s2 === $sig) return $o['code'];
     }
     return null;
+}
+
+/** Hoan so luong tren ke da bi tru khi ban cac mat hang cua don (chi phan thuc su da tru tren ke luc ban). */
+function hoanKeKhiHuy(PDO $pdo, int $orderId): void
+{
+    $st = $pdo->prepare('SELECT * FROM order_shelf_deductions WHERE order_id = ? AND restored = 0');
+    $st->execute([$orderId]);
+    foreach ($st->fetchAll() as $d) {
+        $pdo->prepare('UPDATE inventory SET shelf_qty = LEAST(quantity, shelf_qty + ?) WHERE branch_id = ? AND product_id = ? AND variant_id IS NULL')->execute([$d['qty'], $d['branch_id'], $d['product_id']]);
+        $pdo->prepare('UPDATE order_shelf_deductions SET restored = 1 WHERE id = ?')->execute([$d['id']]);
+    }
 }
