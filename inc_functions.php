@@ -363,7 +363,7 @@ const PERMISSION_GROUP_FILES = [
         'gifts.php', 'marketing_settings.php', 'online_shop_settings.php',
     ],
     'warranty' => ['warranty_claim_view.php', 'warranty_policies.php'],
-    'finance' => ['accounting.php', 'chi_phi.php', 'thue_khac.php', 'hoa_don.php', 'muc_tieu.php', 'chi_dinh_ky.php', 'phan_bo.php', 'kiem_ke_quy.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
+    'finance' => ['accounting.php', 'chi_phi.php', 'thue_khac.php', 'to_khai_thue.php', 'hoa_don.php', 'muc_tieu.php', 'chi_dinh_ky.php', 'phan_bo.php', 'kiem_ke_quy.php', 'cashbook.php', 'cashbook_export.php', 'reports.php', 'doi_chieu.php', 'cong_no.php', 'bank_reconcile.php', 'canh_bao.php', 'tro_ly.php', 'phan_tich.php'],
     'hr' => ['attendance.php', 'payroll.php', 'work_schedules.php', 'nhan_su.php'],
 ];
 
@@ -1081,7 +1081,7 @@ function thanhTabNghiepVu(string $nhom): string
     $bo = [
         'don' => ['orders.php' => 'Đơn hàng', 'quotes.php' => 'Báo giá', 'order_returns.php' => 'Đơn trả hàng', 'don_cho_thanh_toan.php' => 'Đơn online chờ thanh toán', 'shipments.php' => 'Vận chuyển'],
         'kiemsoat' => ['canh_bao.php' => 'Cảnh báo bất thường', 'doi_chieu.php' => 'Đối chiếu số liệu', 'bank_reconcile.php' => 'Đối soát chuyển khoản', 'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu'],
-        'ketoan' => ['accounting.php' => 'Kế toán và Thuế', 'chi_phi.php' => 'Chi phí', 'chi_dinh_ky.php' => 'Chi định kỳ', 'hoa_don.php' => 'Sổ hóa đơn', 'phan_bo.php' => 'Tài sản & phân bổ', 'kiem_ke_quy.php' => 'Kiểm kê quỹ', 'thue_khac.php' => 'Sổ thuế khác'],
+        'ketoan' => ['accounting.php' => 'Kế toán và Thuế', 'chi_phi.php' => 'Chi phí', 'chi_dinh_ky.php' => 'Chi định kỳ', 'hoa_don.php' => 'Sổ hóa đơn', 'phan_bo.php' => 'Tài sản & phân bổ', 'kiem_ke_quy.php' => 'Kiểm kê quỹ', 'thue_khac.php' => 'Sổ thuế khác', 'to_khai_thue.php' => 'Tờ khai thuế'],
         'baocao' => ['reports.php' => 'Báo cáo', 'muc_tieu.php' => 'Mục tiêu doanh thu', 'phan_tich.php' => 'Phân tích kinh doanh', 'tro_ly.php' => 'Trợ lý hỏi đáp'],
         'danhmuc' => ['categories.php' => 'Danh mục', 'brands.php' => 'Nhãn hiệu', 'groups.php' => 'Nhóm khách hàng'],
         'khuyenmai' => ['promotions.php' => 'Khuyến mại', 'coupons.php' => 'Mã giảm giá', 'campaigns.php' => 'Chiến dịch'],

@@ -39,7 +39,32 @@ $flows = [
         ['3. Tính lương', 'Lương giờ, hoa hồng, trừ bảo hiểm và thuế TNCN', ['payroll.php']],
     ],
 ];
-if (isset($flows[$g])) {
+if ($g === 'Thuế') {
+    $T = static fn(string $m, array $x = []) => 'to_khai_thue.php?' . http_build_query(['mau' => $m] + $x);
+    $y = date('Y');
+    $thueFlow = [
+        ['1. Xem hạn nộp', 'Lịch nghĩa vụ thuế, hạn tờ khai và nộp tiền', [['📅', 'Lịch nghĩa vụ thuế', 'Hạn nộp tờ khai, nộp thuế, đánh dấu đã nộp', 'accounting.php#han-nop']]],
+        ['2. Kiểm tra sẵn sàng', 'Việc cần làm trước khi lập tờ khai', [
+            ['✅', 'Sẵn sàng kê khai', 'Danh sách kiểm tra trước khi lập tờ khai quý, điểm số sách', $T('sansang')],
+            ['🔎', 'Kiểm tra số liệu', 'Cảnh báo sai sót, thiếu sót trong sổ sách', 'kiem_tra_du_lieu.php']]],
+        ['3. Tổng hợp số liệu', 'Thuế giá trị gia tăng, thu nhập cá nhân theo quý và năm', [
+            ['📊', 'Tổng hợp thuế theo quý', 'GTGT, TNCN theo quý, năm, so sánh hai cách tính', $T('tonghop')],
+            ['🔮', 'Dự báo ngưỡng doanh thu', 'Khả năng chạm 1 tỷ, 3 tỷ, thuế phát sinh, dòng tiền 30 ngày', $T('dubao')]]],
+        ['4. Số liệu để kê khai', 'Số liệu điền tờ khai, thông báo doanh thu, sổ tài khoản, bảng kê tồn kho', [
+            ['📝', 'Thông báo doanh thu năm', 'Mẫu 01/TKN-CNKD cho hộ dưới 1 tỷ', $T('01tkn')],
+            ['📄', 'Tờ khai quý 01/CNKD', 'Mẫu 01/CNKD điền sẵn: GTGT, TNCN theo quý cho hộ doanh thu trên 1 tỷ', $T('01cnkd')],
+            ['📑', 'Quyết toán TNCN 02/CNKD-TNCN-QTT', 'Mẫu 02 điền sẵn cho hộ tính TNCN trên thu nhập', $T('02qtt')],
+            ['🧺', 'Bảng kê thu mua không hóa đơn', 'Mẫu 02/TNDN: các khoản mua của người bán không có hóa đơn', $T('thumua')],
+            ['📍', 'Thông báo địa điểm kinh doanh', 'Mẫu 01/TB-ĐĐKD: thành lập, thay đổi, tạm ngừng, chấm dứt', $T('ddkd')],
+            ['🎁', 'Giảm 30% thuế TNCN (NĐ 398/2026)', 'Mẫu số 01 kèm tờ khai: giảm 30% thuế TNCN năm 2026, 2027 cho hộ dưới 10 tỷ', $T('giam43')],
+            ['🏦', 'Thông báo số tài khoản', 'Mẫu 01/BK-STK: số tài khoản ngân hàng, ví điện tử gửi cơ quan thuế', $T('bkstk')],
+            ['📦', 'Bảng kê tồn kho, máy móc', 'Mẫu 01/BK-HTK: hàng tồn kho, máy móc, thiết bị tại 31/12', $T('bkhtk')],
+            ['🗂️', 'Sổ sách S1a–S2e', 'Sổ doanh thu, chi phí, vật tư, tiền theo mẫu Thông tư 152', 'accounting.php'],
+            ['📋', 'Sổ thuế khác (S3a)', 'Thuế tiêu thụ đặc biệt, bảo vệ môi trường, tài nguyên...', 'thue_khac.php']]],
+    ];
+    foreach ($thueFlow as [$title, $sub, $tl]) { $stages[] = [$title, $sub, $tl]; }
+    $onMap = ['to_khai_thue.php' => true, 'thue_khac.php' => true];
+} elseif (isset($flows[$g])) {
     foreach ($flows[$g] as [$title, $sub, $fl]) {
         $tl = [];
         foreach ($fl as $file) {

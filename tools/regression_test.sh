@@ -273,7 +273,7 @@ h=sys.stdin.buffer.read().decode('utf-8','replace')
 side=h[h.find('<aside'):h.find('</aside>')]
 menu=set(re.findall(r'href=\"([a-z_0-9]+\.php)\"',side))-{'so_do_chuc_nang.php','huong_dan.php','index.php','change_password.php'}
 tiles=set(re.findall(r'class=\"sdcn-tile\" href=\"([a-z_0-9]+\.php)\"',h))
-gop={'cham_cong_cua_toi.php','quotes.php','chi_phi.php','hoa_don.php','phan_bo.php','kiem_ke_quy.php','thue_khac.php','san_xuat.php','xuat_huy.php','batches.php','ton_cham.php','order_returns.php','don_cho_thanh_toan.php','shipments.php','doi_chieu.php','bank_reconcile.php','phan_tich.php','tro_ly.php','brands.php','coupons.php','campaigns.php','nghi_phep.php','nhan_su.php'}
+gop={'cham_cong_cua_toi.php','quotes.php','chi_phi.php','hoa_don.php','phan_bo.php','kiem_ke_quy.php','thue_khac.php','to_khai_thue.php','san_xuat.php','xuat_huy.php','batches.php','ton_cham.php','order_returns.php','don_cho_thanh_toan.php','shipments.php','doi_chieu.php','bank_reconcile.php','phan_tich.php','tro_ly.php','brands.php','coupons.php','campaigns.php','nghi_phep.php','nhan_su.php'}
 print(len(menu-tiles), len(tiles-menu-gop))
 ")
   eq "so do chuc nang vai tro $RR: dung va du chuc nang trong menu (thieu, thua)" "0 0" "$MISS"

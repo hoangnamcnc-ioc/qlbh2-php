@@ -99,6 +99,12 @@ if ($canGroup('finance')) {
         'phan_tich.php' => 'Phân tích kinh doanh',
     ];
 }
+if ($canGroup('finance')) {
+    $navGroups['Thuế'] = [
+        'to_khai_thue.php' => 'Kê khai thuế',
+        'thue_khac.php' => 'Sổ thuế khác (S3a)',
+    ];
+}
 // "Nhan vien & phan quyen" (users.php) tach rieng, luon can hasRole('ADMIN') that (file do tu
 // requireRole('ADMIN'), khong phai ADMIN+MANAGER) - de trong nhom 'hr' se cho ca vai tro tuy
 // chinh chi duoc tich "Cham cong & bang luong" nhin thay muc quan ly tai khoan/phan quyen (roi
@@ -153,7 +159,7 @@ foreach ($navGroups as $lk) {
 $navGroupsFull = $navGroups; // day du truoc khi gop trang vao tab (dung cho so do nghiep vu tung nhom)
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
-    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'thue_khac.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php', 'chi_dinh_ky.php' => 'accounting.php', 'muc_tieu.php' => 'reports.php',
+    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php', 'chi_dinh_ky.php' => 'accounting.php', 'muc_tieu.php' => 'reports.php',
     'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',
@@ -188,6 +194,7 @@ $groupIcons = [
     'Marketing & Khuyến mại' => '📣',
     'Bảo hành' => '🛡️',
     'Tài chính & Báo cáo' => '💰',
+    'Thuế' => '🏛️',
     'Nhân sự' => '🧑‍💼',
     'Cá nhân' => '🙋',
     'Cấu hình' => '⚙️',

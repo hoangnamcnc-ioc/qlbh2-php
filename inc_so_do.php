@@ -64,6 +64,7 @@ function soDoGiaiDoan(): array
             ['📑', 'Sổ hóa đơn', 'Hóa đơn bán ra, mua vào, đơn chưa có hóa đơn', 'hoa_don.php'],
             ['🏗️', 'Tài sản và phân bổ', 'Khấu hao, chi phí trả trước, doanh thu nhận trước', 'phan_bo.php'],
             ['🔢', 'Kiểm kê quỹ', 'Đếm tiền mặt theo mệnh giá, so với sổ quỹ', 'kiem_ke_quy.php'],
+            ['🧾', 'Tờ khai thuế (01/CNKD, 02/QTT...)', 'Tờ khai quý, quyết toán TNCN, giảm 30% NQ 43, bảng kê thu mua, thông báo doanh thu', 'to_khai_thue.php'],
             ['📋', 'Sổ thuế khác (S3a)', 'Thuế xuất nhập khẩu, tiêu thụ đặc biệt, bảo vệ môi trường...', 'thue_khac.php'],
             ['🏦', 'Đối soát chuyển khoản', 'Tự ghi thu khi khách chuyển khoản', 'bank_reconcile.php'],
             ['📒', 'Công nợ phải thu/trả', 'Khách nợ, nợ nhà cung cấp, xuất Excel', 'cong_no.php'],
