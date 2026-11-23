@@ -188,7 +188,7 @@ if (isset($_GET['export'])) {
 require_once __DIR__ . '/inc_header.php';
 ?>
 
-<?= thanhTabNghiepVu('ketoan') ?>
+<?= thanhTabThue() ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:16px;">Kế toán và Thuế</h1>
 
 <div class="card" style="margin-bottom:24px;">

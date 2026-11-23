@@ -90,7 +90,6 @@ if ($canGroup('finance')) {
         'phan_bo.php' => 'Tài sản và phân bổ',
         'kiem_ke_quy.php' => 'Kiểm kê quỹ',
         'reports.php' => 'Báo cáo',
-        'accounting.php' => 'Kế toán và Thuế',
         'cong_no.php' => 'Công nợ phải thu / phải trả',
         'bank_reconcile.php' => 'Đối soát chuyển khoản',
         'doi_chieu.php' => 'Đối chiếu số liệu',
@@ -102,6 +101,7 @@ if ($canGroup('finance')) {
 if ($canGroup('finance')) {
     $navGroups['Thuế'] = [
         'to_khai_thue.php' => 'Kê khai thuế',
+        'accounting.php' => 'Lịch thuế & sổ sách',
         'thue_khac.php' => 'Sổ thuế khác (S3a)',
     ];
 }
@@ -159,7 +159,7 @@ foreach ($navGroups as $lk) {
 $navGroupsFull = $navGroups; // day du truoc khi gop trang vao tab (dung cho so do nghiep vu tung nhom)
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
-    'chi_phi.php' => 'accounting.php', 'phan_bo.php' => 'accounting.php', 'kiem_ke_quy.php' => 'accounting.php', 'hoa_don.php' => 'accounting.php', 'chi_dinh_ky.php' => 'accounting.php', 'muc_tieu.php' => 'reports.php',
+    'phan_bo.php' => 'chi_phi.php', 'kiem_ke_quy.php' => 'chi_phi.php', 'hoa_don.php' => 'chi_phi.php', 'chi_dinh_ky.php' => 'chi_phi.php', 'accounting.php' => 'to_khai_thue.php', 'thue_khac.php' => 'to_khai_thue.php', 'muc_tieu.php' => 'reports.php',
     'doi_chieu.php' => 'canh_bao.php', 'bank_reconcile.php' => 'canh_bao.php',
     'phan_tich.php' => 'reports.php', 'tro_ly.php' => 'reports.php',
     'brands.php' => 'categories.php',
@@ -171,7 +171,7 @@ if (isset($allNavFiles['cong_no.php'])) {
     unset($navGroups['Khách hàng']['customer_debt_reminders.php']);
 }
 $menuRename = [
-    'orders.php' => 'Đơn hàng, báo giá, trả hàng, vận chuyển', 'accounting.php' => 'Kế toán, thuế, chi phí, tài sản', 'channels.php' => 'Kênh & nguồn bán hàng',
+    'orders.php' => 'Đơn hàng, báo giá, trả hàng, vận chuyển', 'chi_phi.php' => 'Chi phí, hóa đơn, tài sản, kiểm kê quỹ', 'channels.php' => 'Kênh & nguồn bán hàng',
     'canh_bao.php' => 'Kiểm soát số liệu', 'reports.php' => 'Báo cáo & phân tích',
     'categories.php' => 'Danh mục & nhãn hiệu', 'promotions.php' => 'Khuyến mại, mã giảm giá, chiến dịch',
     'inventory.php' => 'Kho: tồn, lô hạn, xuất hủy',

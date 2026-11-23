@@ -30,7 +30,7 @@ foreach (soDoGiaiDoan() as [$title, $sub, $tiles]) {
 $flows = [
     'Tài chính & Báo cáo' => [
         ['1. Chi phí và tiền', 'Mọi khoản chi, thu tiền khác và đối chiếu', ['chi_phi.php', 'cashbook.php', 'kiem_ke_quy.php', 'bank_reconcile.php', 'cong_no.php']],
-        ['2. Hóa đơn và sổ sách', 'Hóa đơn, khấu hao, phân bổ, sổ kế toán', ['hoa_don.php', 'phan_bo.php', 'accounting.php', 'thue_khac.php']],
+        ['2. Hóa đơn và sổ sách', 'Hóa đơn, khấu hao, phân bổ, sổ kế toán', ['hoa_don.php', 'phan_bo.php']],
         ['3. Kiểm soát và báo cáo', 'Đối chiếu số liệu, xem kết quả', ['doi_chieu.php', 'canh_bao.php', 'reports.php', 'phan_tich.php', 'tro_ly.php']],
     ],
     'Nhân sự' => [

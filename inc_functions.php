@@ -1081,7 +1081,7 @@ function thanhTabNghiepVu(string $nhom): string
     $bo = [
         'don' => ['orders.php' => 'Đơn hàng', 'quotes.php' => 'Báo giá', 'order_returns.php' => 'Đơn trả hàng', 'don_cho_thanh_toan.php' => 'Đơn online chờ thanh toán', 'shipments.php' => 'Vận chuyển'],
         'kiemsoat' => ['canh_bao.php' => 'Cảnh báo bất thường', 'doi_chieu.php' => 'Đối chiếu số liệu', 'bank_reconcile.php' => 'Đối soát chuyển khoản', 'kiem_tra_du_lieu.php' => 'Kiểm tra dữ liệu'],
-        'ketoan' => ['accounting.php' => 'Kế toán và Thuế', 'chi_phi.php' => 'Chi phí', 'chi_dinh_ky.php' => 'Chi định kỳ', 'hoa_don.php' => 'Sổ hóa đơn', 'phan_bo.php' => 'Tài sản & phân bổ', 'kiem_ke_quy.php' => 'Kiểm kê quỹ', 'thue_khac.php' => 'Sổ thuế khác', 'to_khai_thue.php' => 'Tờ khai thuế'],
+        'ketoan' => ['chi_phi.php' => 'Chi phí', 'chi_dinh_ky.php' => 'Chi định kỳ', 'hoa_don.php' => 'Sổ hóa đơn', 'phan_bo.php' => 'Tài sản & phân bổ', 'kiem_ke_quy.php' => 'Kiểm kê quỹ'],
         'baocao' => ['reports.php' => 'Báo cáo', 'muc_tieu.php' => 'Mục tiêu doanh thu', 'phan_tich.php' => 'Phân tích kinh doanh', 'tro_ly.php' => 'Trợ lý hỏi đáp'],
         'danhmuc' => ['categories.php' => 'Danh mục', 'brands.php' => 'Nhãn hiệu', 'groups.php' => 'Nhóm khách hàng'],
         'khuyenmai' => ['promotions.php' => 'Khuyến mại', 'coupons.php' => 'Mã giảm giá', 'campaigns.php' => 'Chiến dịch'],
@@ -1102,6 +1102,28 @@ function thanhTabNghiepVu(string $nhom): string
     foreach ($tabs as $file => $nhan) {
         $dang = $file === $currentFile;
         $html .= '<a href="' . e($file) . '" style="padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;'
+            . ($dang ? 'background:var(--brand,#2563eb);color:#fff;font-weight:600;' : 'background:#f1f5f9;color:#334155;') . '">' . e($nhan) . '</a>';
+    }
+    return $html . '</div>';
+}
+
+/** Thanh tab chung cua nhom Thue (lich & so sach, cac mau to khai, so thue khac) - cung kieu chu voi thanhTabNghiepVu. */
+function thanhTabThue(string $mau = ''): string
+{
+    global $currentFile;
+    $nam = (int) ($_GET['nam'] ?? date('Y'));
+    $tabs = [
+        'accounting.php?nam=' . $nam => ['Lịch & sổ sách', $currentFile === 'accounting.php'],
+    ];
+    foreach (['sansang' => 'Sẵn sàng kê khai', 'tonghop' => 'Tổng hợp theo quý', '01tkn' => 'Thông báo doanh thu', 'dubao' => 'Dự báo ngưỡng', '01cnkd' => 'Tờ khai quý 01/CNKD',
+        '02qtt' => 'Quyết toán TNCN', 'thumua' => 'Bảng kê thu mua không hóa đơn', 'giam43' => 'Giảm 30% TNCN (NĐ 398)', 'ddkd' => 'Thông báo địa điểm KD',
+        'bkstk' => 'Thông báo số tài khoản', 'bkhtk' => 'Bảng kê tồn kho, máy móc'] as $k => $t) {
+        $tabs['to_khai_thue.php?mau=' . $k . '&nam=' . $nam] = [$t, $currentFile === 'to_khai_thue.php' && $mau === $k];
+    }
+    $tabs['thue_khac.php'] = ['Sổ thuế khác (S3a)', $currentFile === 'thue_khac.php'];
+    $html = '<div class="tab-nghiep-vu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">';
+    foreach ($tabs as $href => [$nhan, $dang]) {
+        $html .= '<a href="' . e($href) . '" style="padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;'
             . ($dang ? 'background:var(--brand,#2563eb);color:#fff;font-weight:600;' : 'background:#f1f5f9;color:#334155;') . '">' . e($nhan) . '</a>';
     }
     return $html . '</div>';

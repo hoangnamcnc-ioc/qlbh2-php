@@ -79,7 +79,7 @@ if (isset($_GET['export'])) {
 require_once __DIR__ . '/inc_header.php';
 ?>
 
-<?= thanhTabNghiepVu('ketoan') ?>
+<?= thanhTabThue() ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:6px;">Sổ nghĩa vụ thuế khác (S3a-HKD)</h1>
 <p class="muted" style="margin:0 0 16px;max-width:760px;font-size:14px;">
   Dùng khi cửa hàng phát sinh thuế xuất nhập khẩu, tiêu thụ đặc biệt, bảo vệ môi trường, tài nguyên, sử dụng đất...

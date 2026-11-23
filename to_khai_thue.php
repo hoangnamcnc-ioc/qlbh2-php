@@ -227,14 +227,7 @@ if (!$inMode) require_once __DIR__ . '/inc_header.php';
 else echo '<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>' . e($form['code'] ?? 'Tờ khai') . '</title><style>@page{size:A4 landscape;margin:10mm}.noprint{display:none}</style></head><body style="margin:0;">';
 ?>
 <?php if (!$inMode): ?>
-<div style="display:flex;gap:4px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">
-  <a href="accounting.php?nam=<?= e((string) $nam) ?>#han-nop" style="padding:8px 12px;border-radius:8px 8px 0 0;text-decoration:none;color:#334155;">Lịch &amp; hạn nộp</a>
-  <?php foreach ($tabNhan as $k => $t): $on = $k === $mau; ?>
-    <a href="<?= e($qs(['mau' => $k])) ?>" style="padding:8px 12px;border-radius:8px 8px 0 0;text-decoration:none;<?= $on ? 'background:var(--brand,#2563eb);color:#fff;font-weight:600;' : 'color:#334155;' ?>"><?= e($t) ?></a>
-  <?php endforeach; ?>
-  <a href="accounting.php?nam=<?= e((string) $nam) ?>" style="padding:8px 12px;text-decoration:none;color:#334155;">Sổ S1a–S2e</a>
-  <a href="thue_khac.php" style="padding:8px 12px;text-decoration:none;color:#334155;">Sổ thuế khác S3a</a>
-</div>
+<?= thanhTabThue($mau) ?>
 <h1 style="font-size:24px;font-weight:600;margin-bottom:6px;">Tờ khai thuế hộ kinh doanh</h1>
 <p class="muted" style="font-size:13px;margin:0 0 14px;">Điền sẵn từ đơn hàng, chi phí, khấu hao đã ghi sổ để đối chiếu và nhập vào ứng dụng kê khai của cơ quan thuế. Không phải bản nộp, không thay thế tư vấn của kế toán.</p>
 
