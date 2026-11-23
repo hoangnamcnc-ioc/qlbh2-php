@@ -112,40 +112,12 @@ $rev = tkDoanhThuQuy($pdo, $tenantId, $nam);
 $tongNam = array_sum($rev);
 $first = tkQuyDauVuot($rev);
 $form = null;
+require_once __DIR__ . '/inc_to_khai_mau.php';
 
 if ($mau === '01cnkd') {
-    $f = tkQuy($rev, $quy, $nhomThue);
-    $form = tkTieuDe($nnt, '01/CNKD', '(Kèm theo Thông tư số 50/2026/TT-BTC ngày 13/5/2026 của Bộ trưởng Bộ Tài chính)', 'TỜ KHAI THUẾ ĐỐI VỚI HỘ KINH DOANH, CÁ NHÂN KINH DOANH', '[01] Kỳ tính thuế: Quý ' . $quy . ' năm ' . $nam . '   [02] Lần đầu: ☑   [03] Bổ sung lần thứ: ....');
-    $cols = ['STT [08]', 'Nhóm ngành nghề [09]', 'Mã chỉ tiêu [10]', 'Tổng doanh thu [11]', 'Không chịu thuế GTGT [12]', 'Chịu thuế suất 0% [13]', 'Thuế GTGT phải nộp [14]', 'Doanh thu chịu thuế TNCN [15]', 'Doanh thu được trừ [16]', 'Thuế TNCN phải nộp [17]'];
-    $nhom = [['1.1', 'Phân phối, cung cấp hàng hóa', '(a)', true], ['1.2', 'Dịch vụ, xây dựng không bao thầu nguyên vật liệu', '(b)', false], ['1.3', 'Cho thuê tài sản trừ bất động sản', '(c)', false],
-        ['1.4', 'Sản xuất, vận tải, dịch vụ gắn với hàng hóa, xây dựng bao thầu nguyên vật liệu', '(d)', false], ['1.5', 'Cung cấp sản phẩm nội dung thông tin số', '(đ)', false], ['1.6', 'Hoạt động kinh doanh khác', '(e)', false]];
-    $rows = [['nhom', 'I. Hoạt động sản xuất, kinh doanh hàng hóa, cung cấp dịch vụ có địa điểm kinh doanh cố định (1. Trụ sở kinh doanh)']];
-    foreach ($nhom as [$stt, $ten, $ch, $co]) {
-        $rows[] = ['dong', $stt, $ten, $ch, $co ? tkSo($f['total']) : '0', $co ? tkSo($f['exempt']) : '0', '0', $co ? tkSo($f['vat']) : '0', $co ? tkSo($f['base']) : '0', $co ? tkSo($f['ded']) : '0', $co ? tkSo($f['pit']) : '0'];
-    }
-    $rows[] = ['nhom', 'II. Hoạt động kinh doanh trên nền tảng thương mại điện tử không có chức năng thanh toán: hộ tự bổ sung nếu có'];
-    $rows[] = ['tong', 'IV', 'Tổng cộng', '[18]', tkSo($f['total']), tkSo($f['exempt']), '0', tkSo($f['vat']), tkSo($f['base']), tkSo($f['ded']), tkSo($f['pit'])];
-    $rows[] = ['dong', 'V', 'Số thuế được miễn', '[19]', '', '', '', '0', '', '', '0'];
-    $rows[] = ['tong', 'VI', 'Số thuế còn phải nộp', '[20]', '', '', '', tkSo($f['vat']), '', '', tkSo($f['pit'])];
-    $form['bang'][] = ['tieu_de' => 'A. KÊ KHAI THUẾ GTGT, TNCN', 'cot' => $cols, 'dong' => $rows];
-    $form['ghi_chu'][] = 'Bản điền sẵn từ đơn hàng đã ghi sổ (doanh thu thuần, đã trừ hàng trả lại), để đối chiếu và nhập vào ứng dụng kê khai của cơ quan thuế; không phải bản nộp. Cửa hàng được xếp vào nhóm (a) phân phối, cung cấp hàng hóa: GTGT 1%, TNCN 0,5%.';
-    if (!$f['liable']) {
-        $form['ghi_chu'][] = $first === null
-            ? 'Doanh thu lũy kế năm ' . $nam . ' chưa vượt 1 tỷ đồng: chưa phải nộp thuế GTGT, TNCN; toàn bộ doanh thu ghi ở cột "không chịu thuế GTGT". Hộ chỉ cần nộp thông báo doanh thu năm (Mẫu 01/TKN-CNKD).'
-            : 'Quý ' . $quy . ' trước quý phát sinh nghĩa vụ (quý ' . $first . '): chưa phải khai thuế; mẫu này chỉ để tham khảo.';
-    } elseif ($quy === $first) {
-        $form['ghi_chu'][] = 'Quý ' . $quy . ' là quý doanh thu lũy kế vượt 1 tỷ đồng: doanh thu tính thuế là doanh thu lũy kế từ đầu năm, các quý sau tính theo từng quý (NĐ 68/2026 Điều 8, 9 đã sửa bởi NĐ 141/2026).';
-    }
-    $form['ghi_chu'][] = $nhomThue === '3'
-        ? 'Hộ tính TNCN trên thu nhập: số thuế TNCN [17] là số tạm nộp theo quý = 0,5% × doanh thu tính thuế; cột [16] không có số trừ. Quyết toán cả năm dùng Mẫu 02/CNKD-TNCN-QTT.'
-        : 'Hộ tính TNCN theo % doanh thu: cột [16] là phần 1 tỷ đồng được trừ ở quý đầu tiên phát sinh nghĩa vụ (NĐ 68/2026 Điều 4 khoản 3).';
-    $form['ghi_chu'][] = 'Chưa có dữ liệu trong phần mềm: doanh thu theo từng địa điểm, hoạt động trên sàn không có chức năng thanh toán, thuế tiêu thụ đặc biệt, tài nguyên, bảo vệ môi trường (dùng sổ S3a), số thuế được miễn. Hộ tự bổ sung khi nhập vào ứng dụng của cơ quan thuế.';
-    if ($f['liable'] && $nhomThue === '2') {
-        $form['chan'] = 'Bạn còn được tiếp tục trừ ' . tkSo(max(0.0, TK_NGUONG - $f['ded'])) . ' đồng vào doanh thu tính thuế TNCN của kỳ tiếp theo.';
-    }
+    $form = tkMauCnkd($nnt, $nam, $quy, tkQuy($rev, $quy, $nhomThue), $first, $nhomThue);
 } elseif ($mau === '02qtt') {
     $cp = tongHopChiPhiNam($pdo, $tenantId, (string) $nam);
-    // chi phi duoc tru theo nhom a-e cua mau
     $c = ['a' => $cp['gia_von'], 'b' => 0.0, 'c' => $cp['khau_hao'], 'd' => 0.0, 'dd' => 0.0, 'e' => $cp['phan_bo_tra_truoc']];
     $q = $pdo->prepare('SELECT ce.category, COALESCE(SUM(ce.amount),0) v FROM cashbook_entries ce JOIN branches b ON b.id=ce.branch_id
         WHERE ' . dieuKienChiKinhDoanh() . ' AND ce.deductible = 1 AND YEAR(ce.created_at)=? AND b.tenant_id=? GROUP BY ce.category');
@@ -164,184 +136,95 @@ if ($mau === '01cnkd') {
     for ($k = 1; $k <= 4; $k++) $tam += tkQuy($rev, $k, '3')['pit'];
     $net = $pit - $tam;
     $phaiNop = max(0.0, $net);
-    $mien = ($phaiNop > 0 && $phaiNop <= 50000) ? $phaiNop : 0.0;
-    $thua = max(0.0, -$net);
-    $form = tkTieuDe($nnt, '02/CNKD-TNCN-QTT', '(Kèm theo Thông tư số 89/2026/TT-BTC ngày 30 tháng 6 năm 2026 của Bộ trưởng Bộ Tài chính)', 'TỜ KHAI QUYẾT TOÁN THUẾ THU NHẬP CÁ NHÂN', '[01] Kỳ tính thuế: Năm ' . $nam . '   [02] Lần đầu: ☑   [03] Bổ sung lần thứ: ....');
-    $R = fn(string $stt, string $nd, string $ma, float|string $v, bool $tong = false) => [$tong ? 'tong' : 'dong', $stt, $nd, $ma, is_string($v) ? $v : tkSo($v)];
-    $rows = [
-        $R('1', 'Doanh thu bán hàng hoá và cung cấp dịch vụ [09] = [09a]+[09b]+[09c]', '[09]', $tongNam),
-        $R('1.1', 'Doanh thu từ hoạt động sản xuất kinh doanh không gồm kinh doanh trên nền tảng TMĐT, nền tảng số', '[09a]', $tongNam),
-        $R('1.2', 'Doanh thu trên nền tảng TMĐT đã được khấu trừ, nộp thay', '[09b]', 0),
-        $R('1.3', 'Doanh thu trên nền tảng TMĐT không có chức năng thanh toán trực tiếp', '[09c]', 0),
-        $R('2', 'Các khoản chi được trừ [10] = [10a]+[10b]+[10c]+[10d]+[10đ]+[10e]', '[10]', $chi),
-        $R('2.1', 'Chi phí nguyên liệu, vật liệu, nhiên liệu, năng lượng, hàng hóa sử dụng vào sản xuất, kinh doanh', '[10a]', $c['a']),
-        $R('2.2', 'Chi phí tiền lương, tiền công, phụ cấp, bảo hiểm bắt buộc cho người lao động', '[10b]', $c['b']),
-        $R('2.3', 'Chi phí khấu hao tài sản cố định phục vụ sản xuất, kinh doanh', '[10c]', $c['c']),
-        $R('2.4', 'Chi phí dịch vụ mua ngoài: điện, nước, điện thoại, internet, vận chuyển, thuê tài sản, sửa chữa, bảo dưỡng', '[10d]', $c['d']),
-        $R('2.5', 'Chi phí trả lãi tiền vay vốn sản xuất, kinh doanh', '[10đ]', $c['dd']),
-        $R('2.6', 'Các khoản chi khác phục vụ trực tiếp hoạt động sản xuất, kinh doanh', '[10e]', $c['e']),
-        $R('3', 'Thu nhập tính thuế [11] = [09] − [10]', '[11]', $thuNhap, true),
-        $R('4', 'Thuế suất (%)', '[12]', rtrim(rtrim(number_format($suat * 100, 2, ',', ''), '0'), ',')),
-        $R('5', 'Số thuế TNCN phát sinh trong kỳ [13] = [11] x [12]', '[13]', $pit, true),
-        $R('6', 'Số thuế TNCN đã khấu trừ', '[14]', 0),
-        $R('7', 'Số thuế TNCN đã tạm nộp trong năm', '[15]', $tam),
-        $R('8', 'Số thuế TNCN được giảm do thiên tai, dịch bệnh, hỏa hoạn, tai nạn, bệnh hiểm nghèo', '[16]', 0),
-        $R('9', 'Tổng số thuế TNCN còn phải nộp [17] = [13] − [14] − [15] − [16] ≥ 0', '[17]', $phaiNop, true),
-        $R('10', 'Số thuế TNCN được miễn từ 50.000 đồng trở xuống [18]', '[18]', $mien),
-        $R('11', 'Số thuế TNCN còn phải nộp sau miễn [19] = [17] − [18]', '[19]', $phaiNop - $mien, true),
-        $R('12', 'Tổng số thuế TNCN nộp thừa [20] = [13] − [14] − [15] − [16] < 0', '[20]', $thua),
-    ];
-    $form['bang'][] = ['tieu_de' => 'A. KÊ KHAI THÔNG TIN TÍNH THUẾ', 'cot' => ['STT', 'Chỉ tiêu', 'Mã chỉ tiêu', 'Số tiền'], 'dong' => $rows];
-    $ton = $pdo->prepare("SELECT COALESCE(SUM(i.quantity * p.cost_price),0) FROM inventory i JOIN products p ON p.id=i.product_id JOIN branches b ON b.id=i.branch_id WHERE b.tenant_id=?");
-    try { $ton->execute([$tenantId]); $tonKho = (float) $ton->fetchColumn(); } catch (Throwable $e) { $tonKho = 0.0; }
-    $form['bang'][] = ['tieu_de' => 'B. VẬT LIỆU, DỤNG CỤ, SẢN PHẨM, HÀNG HÓA (theo sổ S2d)', 'cot' => ['STT [25]', 'Nội dung [26]', 'Tồn cuối kỳ [30]'], 'dong' => [
-        ['dong', '1', 'Hàng tồn kho tại thời điểm hiện tại (theo giá vốn)', tkSo($tonKho)]]];
-    $form['bang'][] = ['tieu_de' => 'C. HỖ TRỢ THÔNG TIN NỘP THUẾ', 'cot' => ['STT [35]', 'Nội dung các khoản nộp NSNN [36]', 'Số tiền [37]', 'Chương [38]', 'Tiểu mục [39]', 'Cơ quan thuế [42]', 'Hạn nộp [43]'], 'dong' => [
-        ['dong', '1', 'Thuế TNCN còn phải nộp', tkSo($phaiNop - $mien), '', '', '', '31/03/' . ($nam + 1)]]];
-    if ($nhomThue !== '3') $form['ghi_chu'][] = 'Cửa hàng đang chọn tính TNCN theo % doanh thu (nhóm 2): mẫu này không áp dụng; số liệu bên dưới chỉ để so sánh với cách tính trên thu nhập. Đổi cách tính ở trang Kế toán và Thuế.';
-    $form['ghi_chu'][] = 'Bản điền sẵn để đối chiếu và nhập vào ứng dụng của cơ quan thuế; không phải bản nộp. Thuế suất [12] theo bậc doanh thu cả năm: 15% đến 3 tỷ, 17% trên 3 tỷ đến 50 tỷ, 20% trên 50 tỷ (Luật TNCN Điều 7 khoản 2).';
-    $form['ghi_chu'][] = 'Số đã tạm nộp [15] là số phần mềm tính theo quý (0,5% × doanh thu tính thuế); nếu đã nộp thực tế khác, hãy sửa theo chứng từ nộp tiền. Chi phí chỉ gồm khoản đã đánh dấu "được trừ" (cùng giá vốn, khấu hao, phân bổ trả trước); khoản chi từ 5 triệu đồng trả tiền mặt cần chứng từ không dùng tiền mặt mới được trừ (NĐ 68/2026 Điều 6).';
-    if ($cp['chua_phan_loai_so'] > 0) $form['ghi_chu'][] = 'Còn ' . $cp['chua_phan_loai_so'] . ' khoản chi chưa phân loại (' . tkSo($cp['chua_phan_loai_tien']) . ' đ) chưa được tính vào chi phí được trừ: hãy phân loại ở trang Chi phí trước khi lập tờ khai.';
-    $form['ghi_chu'][] = 'Chưa có dữ liệu: mục D (hoàn trả, bù trừ nộp thừa), giảm thuế do thiên tai [16], thuế sàn đã khấu trừ [14], doanh thu sàn không có chức năng thanh toán [09c].';
+    $kho = ['dau' => 0.0, 'nhap' => 0.0, 'xuat' => 0.0, 'cuoi' => 0.0];
+    try {
+        $st = $pdo->prepare('SELECT COALESCE(SUM(i.quantity * p.cost_price),0) FROM inventory i JOIN products p ON p.id=i.product_id JOIN branches b ON b.id=i.branch_id WHERE b.tenant_id=?');
+        $st->execute([$tenantId]);
+        $kho['cuoi'] = (float) $st->fetchColumn();
+        $st = $pdo->prepare('SELECT COALESCE(SUM(sri.quantity * sri.cost_price),0) FROM stock_receipt_items sri JOIN stock_receipts sr ON sr.id=sri.receipt_id JOIN branches b ON b.id=sr.branch_id WHERE YEAR(sr.created_at)=? AND b.tenant_id=?');
+        $st->execute([$nam, $tenantId]);
+        $kho['nhap'] = (float) $st->fetchColumn();
+        $kho['xuat'] = $cp['gia_von'];
+        $kho['dau'] = max(0.0, $kho['cuoi'] - $kho['nhap'] + $kho['xuat']);
+    } catch (Throwable $e) {
+    }
+    $form = tkMauQtt($nnt, $nam, ['rev' => $tongNam, 'chi' => $chi, 'c' => $c, 'thu_nhap' => $thuNhap, 'suat' => $suat, 'pit' => $pit, 'tam' => $tam, 'phai_nop' => $phaiNop,
+        'mien' => ($phaiNop > 0 && $phaiNop <= 50000) ? $phaiNop : 0.0, 'thua' => max(0.0, -$net), 'kho' => $kho, 'nhom' => $nhomThue, 'chua_pl_so' => $cp['chua_phan_loai_so'], 'chua_pl_tien' => $cp['chua_phan_loai_tien']]);
 } elseif ($mau === 'giam43') {
     $cut = ($nam === 2026 || $nam === 2027) && $tongNam <= TK_NGUONG_GIAM ? 0.30 : 0.0;
     $dong = [];
-    $tong = [0.0, 0.0];
     if ($nhomThue === '3') {
         $cpx = tongHopChiPhiNam($pdo, $tenantId, (string) $nam);
         $thuNhapX = max(0.0, $tongNam - $cpx['gia_von'] - $cpx['chi_phi_duoc_tru']);
         $pitX = $tongNam > TK_NGUONG ? round($thuNhapX * thueSuatTncnThuNhap($tongNam)) : 0.0;
-        $ky = 'Năm ' . $nam . ' (hộ tính TNCN trên thu nhập, theo tờ khai quyết toán 02/CNKD-TNCN-QTT)';
-        if ($pitX > 0) $dong[] = [$pitX, round($pitX * $cut)];
+        $ky = 'Năm ' . $nam . ' (hộ tính TNCN trên thu nhập, theo tờ khai 02/CNKD-TNCN-QTT)';
+        if ($pitX > 0) $dong[] = [$pitX, '', $nnt['ten']];
     } else {
         $f = tkQuy($rev, $quy, $nhomThue);
         $ky = 'Quý ' . $quy . ' năm ' . $nam . ' (theo tờ khai 01/CNKD cùng kỳ)';
-        if ($f['pit'] > 0) $dong[] = [$f['pit'], round($f['pit'] * $cut)];
+        if ($f['pit'] > 0) $dong[] = [$f['pit'], '', 'Trụ sở kinh doanh'];
     }
-    $rows = [];
-    foreach ($dong as $i => [$p, $g]) { $rows[] = ['dong', (string) ($i + 1), '', 'Trụ sở kinh doanh', 'Phân phối, cung cấp hàng hóa', tkSo($p), tkSo($g)]; $tong = [$tong[0] + $p, $tong[1] + $g]; }
-    if (!$rows) $rows[] = ['dong', '1', '', '', '', '0', '0'];
-    $rows[] = ['tong', '', '', 'Tổng cộng [13], [14]', '', tkSo($tong[0]), tkSo($tong[1])];
-    $form = tkTieuDe($nnt, 'Mẫu số 01', '(Kèm theo Nghị định số 398/2026/NĐ-CP ngày 29 tháng 10 năm 2026 của Chính phủ)', 'GIẢM THUẾ THU NHẬP CÁ NHÂN THEO NGHỊ QUYẾT SỐ 43/2026/QH16', 'Kỳ tính thuế: ' . $ky);
-    $form['bang'][] = ['tieu_de' => '', 'cot' => ['STT [06]', 'Mã địa điểm [07]', 'Tên địa điểm kinh doanh [08]', 'Hoạt động sản xuất kinh doanh [09]', 'Nhóm ngành nghề [10]', 'Số thuế TNCN phải nộp [11]', 'Số thuế TNCN được giảm [12]'], 'dong' => $rows];
-    $form['ghi_chu'][] = 'Nộp kèm tờ khai thuế TNCN của kỳ (NĐ 398/2026/NĐ-CP Điều 2 khoản 4 điểm a). Được giảm 30% số thuế TNCN phải nộp của kỳ tính thuế năm 2026, 2027 nếu doanh thu năm không quá 10 tỷ đồng, không phân biệt cách tính thuế.';
-    $form['ghi_chu'][] = $cut > 0
-        ? 'Doanh thu năm ' . $nam . ' đến nay ' . tkSo($tongNam) . ' đ: thuộc diện được giảm. Nếu cả năm vượt 10 tỷ đồng thì phải nộp lại số đã giảm theo Mẫu số 03 kèm tờ khai của kỳ vượt.'
-        : (in_array($nam, [2026, 2027], true) ? 'Doanh thu năm ' . $nam . ' đã vượt 10 tỷ đồng: không thuộc diện được giảm; nếu đã kê khai giảm ở kỳ trước thì phải nộp lại theo Mẫu số 03.' : 'Mức giảm chỉ áp dụng cho kỳ tính thuế năm 2026 và 2027.');
+    $form = tkMauGiam($nnt, $nam, $ky, $dong, $cut, $tongNam);
 } elseif ($mau === '01tkn') {
-    $form = tkTieuDe($nnt, '01/TKN-CNKD', '(Kèm theo Thông tư số 18/2026/TT-BTC ngày 05/3/2026 của Bộ trưởng Bộ Tài chính)', 'THÔNG BÁO DOANH THU NĂM', 'Năm ' . $nam . ' (hộ có doanh thu năm từ 01 tỷ đồng trở xuống, nộp trước 31/01/' . ($nam + 1) . ')');
-    $rows = [];
-    foreach ([1, 2, 3, 4] as $k) $rows[] = ['dong', (string) $k, 'Quý ' . $k . '/' . $nam, tkSo($rev[$k])];
-    $rows[] = ['tong', '', 'Tổng doanh thu năm ' . $nam . ' (doanh thu thuần)', tkSo($tongNam)];
-    $form['bang'][] = ['tieu_de' => '', 'cot' => ['STT', 'Kỳ', 'Doanh thu (đồng)'], 'dong' => $rows];
-    $form['ghi_chu'][] = $tongNam <= TK_NGUONG
-        ? 'Doanh thu năm không quá 1 tỷ đồng: chưa phải nộp thuế GTGT, TNCN; hộ chỉ thông báo doanh thu năm cho cơ quan thuế trước 31/01 năm sau.'
-        : 'Doanh thu năm ' . $nam . ' đã vượt 1 tỷ đồng: hộ khai và nộp thuế theo quý (Mẫu 01/CNKD), không dùng mẫu thông báo này.';
-    $form['ghi_chu'][] = 'Bản điền sẵn doanh thu từ đơn hàng; hộ kiểm tra lại và nhập vào ứng dụng của cơ quan thuế. Không phải bản nộp.';
+    $f1 = tkQuy([1 => $tongNam, 2 => 0.0, 3 => 0.0, 4 => 0.0], 1, $nhomThue);   // ca nam xem nhu mot ky
+    $form = tkMauTkn($nnt, $nam, $tongNam, $tongNam, $tongNam > TK_NGUONG, $nhomThue, $f1['vat'], $f1['pit'], $f1['ded']);
 } elseif ($mau === 'thumua') {
     $tu = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['tu'] ?? '') ? $_GET['tu'] : "$nam-01-01";
     $den = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['den'] ?? '') ? $_GET['den'] : "$nam-12-31";
-    $s = $pdo->prepare("SELECT r.code, COALESCE(r.invoice_date, DATE(r.created_at)) ngay, r.reference_no, s.name sname, s.address saddr, s.phone sphone, s.tax_code stax,
+    $st = $pdo->prepare("SELECT r.code, COALESCE(r.invoice_date, DATE(r.created_at)) ngay, s.name sname, s.address saddr, s.phone sphone,
             p.name pname, p.unit, i.quantity, i.cost_price
         FROM stock_receipts r JOIN branches b ON b.id=r.branch_id LEFT JOIN suppliers s ON s.id=r.supplier_id
         JOIN stock_receipt_items i ON i.receipt_id=r.id JOIN products p ON p.id=i.product_id
         WHERE b.tenant_id=? AND COALESCE(r.invoice_date, DATE(r.created_at)) BETWEEN ? AND ?
           AND (r.reference_no IS NULL OR r.reference_no = '') AND (s.tax_code IS NULL OR s.tax_code = '')
         ORDER BY ngay, r.id, i.id");
-    $s->execute([$tenantId, $tu, $den]);
+    $st->execute([$tenantId, $tu, $den]);
     $rows = [];
     $tong = 0.0;
-    foreach ($s->fetchAll() as $r) {
+    foreach ($st->fetchAll() as $r) {
         $tt = (float) $r['quantity'] * (float) $r['cost_price'];
         $tong += $tt;
-        $rows[] = ['dong', date('d/m/Y', strtotime($r['ngay'])), (string) $r['sname'], (string) $r['saddr'], '', (string) $r['sphone'], $r['pname'],
-            rtrim(rtrim(number_format((float) $r['quantity'], 3, ',', '.'), '0'), ',') . ' ' . $r['unit'], tkSo((float) $r['cost_price']), tkSo($tt), $r['code']];
+        $rows[] = [date('d/m/Y', strtotime($r['ngay'])), (string) $r['sname'], (string) $r['saddr'], '', (string) $r['sphone'], $r['pname'],
+            rtrim(rtrim(number_format((float) $r['quantity'], 3, ',', '.'), '0'), ',') . ' ' . $r['unit'], (int) round((float) $r['cost_price']), (int) round($tt), $r['code']];
     }
-    $rows[] = ['tong', '', 'Tổng giá trị hàng hóa, dịch vụ mua vào', '', '', '', '', '', '', tkSo($tong), ''];
-    $form = tkTieuDe($nnt, '02/TNDN', '(Ban hành kèm theo Thông tư số 20/2026/TT-BTC của Bộ trưởng Bộ Tài chính)', 'BẢNG KÊ THU MUA HÀNG HÓA, DỊCH VỤ KHÔNG CÓ HÓA ĐƠN', 'Từ ngày ' . date('d/m/Y', strtotime($tu)) . ' đến ngày ' . date('d/m/Y', strtotime($den)));
-    $form['bang'][] = ['tieu_de' => '', 'cot' => ['Ngày mua (1)', 'Tên người bán (2)', 'Địa chỉ (3)', 'Số căn cước (4)', 'Số điện thoại (5)', 'Tên hàng hóa, dịch vụ (6)', 'Số lượng (7)', 'Đơn giá (8)', 'Tổng giá thanh toán (9)', 'Ghi chú: số phiếu nhập (10)'], 'dong' => $rows];
-    $form['ghi_chu'][] = 'Chỉ gồm các phiếu nhập hàng không có số hóa đơn đầu vào và nhà cung cấp chưa có mã số thuế. Phần mềm chưa lưu số căn cước của người bán nên cột (4) để trống, hãy ghi tay hoặc xin giấy tờ khi mua.';
-    $form['ghi_chu'][] = 'Với hộ tính TNCN trên thu nhập, khoản mua không có hóa đơn chỉ được trừ khi có đủ chứng từ theo quy định (NĐ 68/2026 Điều 6); khoản thanh toán từ 5 triệu đồng trở lên cần chứng từ không dùng tiền mặt.';
+    $form = tkMauThuMua($nnt, $tu, $den, $rows, $tong);
 } elseif ($mau === 'ddkd') {
-    $loai = ['establish' => 'Thành lập địa điểm kinh doanh', 'change' => 'Thay đổi thông tin', 'suspend' => 'Tạm ngừng kinh doanh', 'resume' => 'Khôi phục tạm ngừng kinh doanh trước thời hạn', 'close' => 'Chấm dứt hoạt động'];
-    $lo = isset($loai[$_GET['loai'] ?? '']) ? $_GET['loai'] : 'establish';
-    $s = $pdo->prepare('SELECT name, address, phone FROM branches WHERE tenant_id = ? ORDER BY id');
-    $s->execute([$tenantId]);
-    $cn = $s->fetchAll();
-    $form = tkTieuDe($nnt, '01/TB-ĐĐKD', '(Kèm theo Thông tư số 18/2026/TT-BTC ngày 05/3/2026 của Bộ trưởng Bộ Tài chính)', 'THÔNG BÁO về việc thành lập/thay đổi thông tin/tạm ngừng/chấm dứt hoạt động đối với địa điểm kinh doanh', 'Loại thông báo: ' . $loai[$lo]);
-    $form['dau'][] = 'Kính gửi: (Cơ quan thuế quản lý trực tiếp NNT) ……………';
-    $cot = match ($lo) {
-        'establish' => ['Tên địa điểm kinh doanh', 'Hình thức kinh doanh TMĐT', 'Ngày bắt đầu hoạt động', 'Ngành nghề kinh doanh chính', 'Địa chỉ', 'Điện thoại'],
-        'change' => ['Tên địa điểm kinh doanh', 'Chuyển thành trụ sở chính (x)', 'Ngày bắt đầu hoạt động', 'Ngành nghề chính', 'Địa chỉ', 'Điện thoại'],
-        'suspend' => ['Tên địa điểm kinh doanh', 'Từ ngày', 'Đến ngày', 'Lý do tạm ngừng', 'Địa chỉ', 'Điện thoại'],
-        'resume' => ['Tên địa điểm kinh doanh', 'Đã thông báo tạm ngừng từ ngày', 'Đến ngày', 'Tiếp tục kinh doanh từ ngày', 'Địa chỉ', 'Điện thoại'],
-        default => ['Tên địa điểm kinh doanh', 'Ngày chấm dứt hoạt động', 'Lý do chấm dứt', '', 'Địa chỉ', 'Điện thoại'],
-    };
-    $rows = [];
-    foreach ($cn as $c) $rows[] = ['dong', $c['name'], '', '', '', (string) $c['address'], (string) $c['phone']];
-    if (!$rows) $rows[] = ['dong', '', '', '', '', '', ''];
-    $form['bang'][] = ['tieu_de' => '', 'cot' => $cot, 'dong' => $rows];
-    $form['ghi_chu'][] = 'Bản điền sẵn từ danh sách chi nhánh. Các thông tin phần mềm chưa lưu (ngày bắt đầu, ngành nghề chính, lý do) hộ tự điền.';
-    $form['ghi_chu'][] = 'Thời hạn thông báo: 10 ngày làm việc kể từ ngày địa điểm đi vào hoạt động, thay đổi thông tin, tạm ngừng hoặc chấm dứt (NĐ 68/2026 Điều 8 khoản 4 điểm đ). Gửi cơ quan thuế quản lý trực tiếp trụ sở của hộ.';
-}
-
-if ($mau === 'bkstk') {
-    $rows = [];
+    $lo = isset(['establish' => 1, 'change' => 1, 'suspend' => 1, 'resume' => 1, 'close' => 1][$_GET['loai'] ?? '']) ? $_GET['loai'] : 'establish';
+    $st = $pdo->prepare('SELECT name, address, phone FROM branches WHERE tenant_id = ? ORDER BY id');
+    $st->execute([$tenantId]);
+    $form = tkMauDdkd($nnt, $lo, $st->fetchAll());
+} elseif ($mau === 'bkstk') {
+    $acc = [];
     foreach (preg_split('/\r?\n/', getSetting('tax_bank_accounts', '')) as $ln) {
         if (trim($ln) === '') continue;
-        $p = array_map('trim', explode('|', $ln)) + ['', '', ''];
-        $rows[] = ['dong', (string) (count($rows) + 1), $p[0], $p[1], $p[2] !== '' ? $p[2] : $nnt['chu'], 'Thêm mới'];
+        $pp = array_map('trim', explode('|', $ln)) + ['', '', ''];
+        $acc[] = [$pp[0], $pp[1], $pp[2]];
     }
-    if (!$rows) $rows[] = ['dong', '1', '', '', '', ''];
-    $form = tkTieuDe($nnt, '01/BK-STK', '(Kèm theo Thông tư số 18/2026/TT-BTC ngày 05/3/2026 của Bộ trưởng Bộ Tài chính)', 'THÔNG BÁO SỐ TÀI KHOẢN NGÂN HÀNG, SỐ HIỆU VÍ ĐIỆN TỬ DÙNG CHO HOẠT ĐỘNG KINH DOANH', 'Gửi cơ quan thuế quản lý trực tiếp');
-    $form['bang'][] = ['tieu_de' => '', 'cot' => ['STT', 'Tổ chức cung ứng dịch vụ thanh toán (ngân hàng, ví)', 'Số tài khoản/số hiệu ví', 'Tên chủ tài khoản', 'Nội dung thông báo'], 'dong' => $rows];
-    $form['ghi_chu'][] = 'Hộ kinh doanh có doanh thu năm trên 1 tỷ đồng phải thông báo số tài khoản dùng cho hoạt động kinh doanh với cơ quan thuế. Nhập danh sách tài khoản ở khung phía trên, mỗi dòng một tài khoản.';
-}
-if ($mau === 'bkhtk') {
-    $s = $pdo->prepare("SELECT p.name, p.unit, SUM(i.quantity) q, p.cost_price FROM inventory i JOIN products p ON p.id=i.product_id JOIN branches b ON b.id=i.branch_id
+    $form = tkMauStk($nnt, $acc, $nnt['ten']);
+} elseif ($mau === 'bkhtk') {
+    $st = $pdo->prepare("SELECT p.name, p.unit, SUM(i.quantity) q, p.cost_price FROM inventory i JOIN products p ON p.id=i.product_id JOIN branches b ON b.id=i.branch_id
         WHERE b.tenant_id=? AND i.quantity > 0 GROUP BY p.id, p.name, p.unit, p.cost_price ORDER BY p.name");
-    $s->execute([$tenantId]);
-    $rows = [];
-    $tong = 0.0;
-    foreach ($s->fetchAll() as $r) {
-        $gt = (float) $r['q'] * (float) $r['cost_price'];
-        $tong += $gt;
-        $rows[] = ['dong', (string) (count($rows) + 1), $r['name'], (string) $r['unit'], rtrim(rtrim(number_format((float) $r['q'], 3, ',', '.'), '0'), ','), tkSo((float) $r['cost_price']), tkSo($gt)];
-    }
-    $rows[] = ['tong', '', 'Tổng giá trị hàng tồn kho', '', '', '', tkSo($tong)];
-    $ts = $pdo->prepare('SELECT code, name, cost, acquired_date FROM fixed_assets WHERE tenant_id=? AND disposed_date IS NULL ORDER BY acquired_date');
-    $ts->execute([$tenantId]);
-    $rows2 = [];
-    $tt = 0.0;
-    foreach ($ts->fetchAll() as $r) { $tt += (float) $r['cost']; $rows2[] = ['dong', (string) (count($rows2) + 1), $r['name'] . ' (' . $r['code'] . ')', date('d/m/Y', strtotime($r['acquired_date'])), tkSo((float) $r['cost'])]; }
-    $rows2[] = ['tong', '', 'Tổng nguyên giá', '', tkSo($tt)];
-    $form = tkTieuDe($nnt, '01/BK-HTK', '(Kèm theo Thông tư số 18/2026/TT-BTC ngày 05/3/2026 của Bộ trưởng Bộ Tài chính)', 'BẢNG KÊ HÀNG TỒN KHO, MÁY MÓC, THIẾT BỊ', 'Tại thời điểm ' . date('d/m/Y'));
-    $form['bang'][] = ['tieu_de' => 'I. HÀNG HÓA TỒN KHO (giá vốn)', 'cot' => ['STT', 'Tên hàng hóa', 'ĐVT', 'Số lượng', 'Đơn giá', 'Thành tiền'], 'dong' => $rows];
-    $form['bang'][] = ['tieu_de' => 'II. MÁY MÓC, THIẾT BỊ (tài sản cố định đang dùng)', 'cot' => ['STT', 'Tên tài sản', 'Ngày mua', 'Nguyên giá'], 'dong' => $rows2];
-    $form['ghi_chu'][] = 'Số liệu lấy từ tồn kho hiện tại và danh sách tài sản cố định chưa thanh lý. Hộ bắt đầu nộp thuế theo doanh thu trên 1 tỷ cần lập bảng kê tại ngày 31/12 của năm trước: xuất Excel và lưu lại vào ngày đó.';
+    $st->execute([$tenantId]);
+    $hang = [];
+    foreach ($st->fetchAll() as $r) $hang[] = ['name' => $r['name'], 'unit' => (string) $r['unit'], 'qty' => (float) $r['q'], 'value' => (float) $r['q'] * (float) $r['cost_price']];
+    $st = $pdo->prepare('SELECT name, cost FROM fixed_assets WHERE tenant_id=? AND disposed_date IS NULL ORDER BY name');
+    $st->execute([$tenantId]);
+    $tsan = [];
+    foreach ($st->fetchAll() as $r) $tsan[] = ['name' => $r['name'], 'unit' => 'cái', 'qty' => 1.0, 'value' => (float) $r['cost']];
+    $form = tkMauHtk($nnt, date('Y-m-d'), $hang, $tsan);
 }
 
 // Xuat Excel
 if ($form && isset($_GET['export'])) {
-    $x = [[$form['ma'] . ' - ' . $form['tieu_de']], [$form['ref']], [$form['ky']]];
-    foreach ($form['dau'] as $d) $x[] = [$d];
-    foreach ($form['bang'] as $b) {
-        $x[] = [''];
-        if ($b['tieu_de'] !== '') $x[] = [$b['tieu_de']];
-        $x[] = $b['cot'];
-        foreach ($b['dong'] as $d) $x[] = $d[0] === 'nhom' ? [$d[1]] : array_slice($d, 1);
-    }
-    $x[] = [''];
-    foreach ($form['ghi_chu'] as $g) $x[] = ['Ghi chú: ' . $g];
     logActivity('EXPORT_TOKHAI', $mau . ' ' . $nam);
-    downloadXlsx($x, 'to_khai_' . $mau . '_' . $nam . '.xlsx');
+    downloadXlsx(tkExcelRows($form), 'to_khai_' . $mau . '_' . $nam . '.xlsx');
     exit;
 }
 
 $qs = fn(array $o = []) => 'to_khai_thue.php?' . http_build_query(array_merge(['mau' => $mau, 'nam' => $nam, 'quy' => $quy], $o));
 $inMode = isset($_GET['in']);
 if (!$inMode) require_once __DIR__ . '/inc_header.php';
-else echo '<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>' . e($form['ma'] ?? 'Tờ khai') . '</title></head><body style="font-family:Times New Roman,serif;margin:20px;">';
+else echo '<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>' . e($form['code'] ?? 'Tờ khai') . '</title><style>@page{size:A4 landscape;margin:10mm}.noprint{display:none}</style></head><body style="margin:0;">';
 ?>
 <?php if (!$inMode): ?>
 <div style="display:flex;gap:4px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">
@@ -465,39 +348,8 @@ else echo '<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>' .
     <textarea name="accounts" rows="4" style="width:100%;" placeholder="Vietcombank | 0123456789 | Nguyễn Văn A"><?= e(getSetting('tax_bank_accounts', '')) ?></textarea></label>
     <button class="btn" type="submit" style="margin-top:8px;">Lưu danh sách</button></form>
 <?php endif; ?>
-<div class="card" style="<?= $inMode ? 'border:0;' : '' ?>overflow-x:auto;">
-  <div style="text-align:center;margin-bottom:10px;">
-    <div style="font-weight:700;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div><div style="font-weight:600;">Độc lập - Tự do - Hạnh phúc</div>
-    <div style="text-align:right;font-size:13px;">Mẫu số: <b><?= e($form['ma']) ?></b></div>
-    <h2 style="margin:8px 0 4px;font-size:17px;white-space:pre-line;"><?= e($form['tieu_de']) ?></h2>
-    <div style="font-size:13px;"><?= e($form['ky']) ?></div>
-    <div class="muted" style="font-size:12px;"><?= e($form['ref']) ?></div>
-  </div>
-  <div style="font-size:14px;line-height:1.7;margin-bottom:10px;"><?php foreach ($form['dau'] as $d): ?><div><?= e($d) ?></div><?php endforeach; ?></div>
-  <?php foreach ($form['bang'] as $b): ?>
-    <?php if ($b['tieu_de'] !== ''): ?><h3 style="font-size:14px;margin:14px 0 6px;"><?= e($b['tieu_de']) ?></h3><?php endif; ?>
-    <table class="table" style="width:100%;border-collapse:collapse;font-size:13px;" border="1" cellpadding="5">
-      <thead><tr><?php foreach ($b['cot'] as $c): ?><th><?= e($c) ?></th><?php endforeach; ?></tr></thead>
-      <tbody>
-      <?php foreach ($b['dong'] as $d): $kind = $d[0]; ?>
-        <?php if ($kind === 'nhom'): ?><tr><td colspan="<?= count($b['cot']) ?>" style="font-weight:600;background:#f1f5f9;"><?= e($d[1]) ?></td></tr>
-        <?php else: ?><tr<?= $kind === 'tong' ? ' style="font-weight:700;background:#f8fafc;"' : '' ?>>
-          <?php foreach (array_slice($d, 1) as $i => $cell): $so = preg_match('/^-?[\d.,]+$/', (string) $cell) && $cell !== '' && $i >= 3 - ($b['cot'][0] === 'STT' ? 0 : 0); ?>
-            <td<?= $so && strlen((string) $cell) > 0 && preg_match('/^-?[\d.]+$/', (string) $cell) ? ' style="text-align:right;"' : '' ?>><?= e((string) $cell) ?></td>
-          <?php endforeach; ?></tr><?php endif; ?>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-  <?php endforeach; ?>
-  <?php if (!empty($form['chan'])): ?><p style="font-size:13px;margin:10px 0 0;"><?= e($form['chan']) ?></p><?php endif; ?>
-  <p style="font-size:14px;margin:14px 0 6px;">Tôi cam đoan những nội dung kê khai trên là đúng và chịu trách nhiệm trước pháp luật về những nội dung đã khai./.</p>
-  <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font-size:13px;margin-top:8px;">
-    <div style="text-align:center;min-width:220px;"><b>NHÂN VIÊN ĐẠI LÝ THUẾ</b><br>Họ và tên: ……………<br>Chứng chỉ hành nghề số: ……<br><i>(để trống khi hộ tự khai)</i></div>
-    <div style="text-align:center;min-width:240px;">……, ngày …… tháng …… năm ……<br><b>NGƯỜI NỘP THUẾ hoặc ĐẠI DIỆN HỢP PHÁP</b><br><i>(Ký, ghi rõ họ tên)</i><br><br><br><?= e($nnt['chu']) ?></div>
-  </div>
-  <?php if ($form['ghi_chu']): ?><div class="muted" style="font-size:12px;margin-top:14px;border-top:1px dashed #cbd5e1;padding-top:8px;">
-    <?php foreach ($form['ghi_chu'] as $g): ?><p style="margin:0 0 4px;">• <?= e($g) ?></p><?php endforeach; ?></div><?php endif; ?>
-</div>
+<?php if (!$inMode): ?><div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin-bottom:12px;font-size:13px;"><b>Kiểm tra trước khi nộp.</b> Số liệu điền sẵn từ chứng từ đã ghi sổ theo đúng bố cục mẫu của cơ quan thuế. Hãy đối chiếu các mục tự khai (ủy quyền, đại lý thuế, địa bàn, hạn nộp) rồi in ký hoặc nhập vào ứng dụng kê khai của cơ quan thuế (eTax, HTKK).</div><?php endif; ?>
+<div class="card" style="<?= $inMode ? 'border:0;padding:0;' : 'overflow-x:auto;padding:0;' ?>"><?php tkRender($form); ?></div>
 <?php endif; ?>
 
 <?php
