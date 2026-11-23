@@ -156,6 +156,12 @@ foreach ($navGroups as $lk) {
         $allNavFiles[$f] = true;
     }
 }
+// Thu tu menu theo nhom chuc nang: dau quay (ban hang, khach, khuyen mai, bao hanh) -> hang hoa kho -> tai chinh, thue -> nhan su -> he thong
+$thuTuNhom = ['Chức năng', 'Tổng quan', 'Bán hàng', 'Khách hàng', 'Marketing & Khuyến mại', 'Bảo hành', 'Sản phẩm', 'Tài chính & Báo cáo', 'Thuế', 'Nhân sự', 'Cấu hình', 'Cá nhân'];
+$sapXep = [];
+foreach ($thuTuNhom as $tn) { if (isset($navGroups[$tn])) $sapXep[$tn] = $navGroups[$tn]; }
+foreach ($navGroups as $tn => $lk) { if (!isset($sapXep[$tn])) $sapXep[$tn] = $lk; }
+$navGroups = $sapXep;
 $navGroupsFull = $navGroups; // day du truoc khi gop trang vao tab (dung cho so do nghiep vu tung nhom)
 $menuAlias = [
     'order_returns.php' => 'orders.php', 'don_cho_thanh_toan.php' => 'orders.php', 'shipments.php' => 'orders.php', 'quotes.php' => 'orders.php',
