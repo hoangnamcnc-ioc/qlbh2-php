@@ -140,7 +140,8 @@ if (hasRole('ADMIN')) {
     }
 }
 
-$navGroups['Cá nhân'] = ['cham_cong_cua_toi.php' => 'Chấm công & lương của tôi', 'nghi_phep.php' => 'Nghỉ phép'];
+// Muc ca nhan (cham cong, nghi phep cua toi) gop vao nhom Nhan su: ai cung thay, muc quan ly chi hien voi nguoi co quyen
+$navGroups['Nhân sự'] = array_merge($navGroups['Nhân sự'] ?? [], ['cham_cong_cua_toi.php' => 'Chấm công & lương của tôi', 'nghi_phep.php' => 'Nghỉ phép']);
 if ($strictNoPos) {
     unset($navGroups['Bán hàng']);
 }
@@ -157,7 +158,7 @@ foreach ($navGroups as $lk) {
     }
 }
 // Thu tu menu theo nhom chuc nang: dau quay (ban hang, khach, khuyen mai, bao hanh) -> hang hoa kho -> tai chinh, thue -> nhan su -> he thong
-$thuTuNhom = ['Chức năng', 'Tổng quan', 'Bán hàng', 'Khách hàng', 'Marketing & Khuyến mại', 'Bảo hành', 'Sản phẩm', 'Tài chính & Báo cáo', 'Thuế', 'Nhân sự', 'Cấu hình', 'Cá nhân'];
+$thuTuNhom = ['Chức năng', 'Tổng quan', 'Bán hàng', 'Khách hàng', 'Marketing & Khuyến mại', 'Bảo hành', 'Sản phẩm', 'Tài chính & Báo cáo', 'Thuế', 'Nhân sự', 'Cấu hình'];
 $sapXep = [];
 foreach ($thuTuNhom as $tn) { if (isset($navGroups[$tn])) $sapXep[$tn] = $navGroups[$tn]; }
 foreach ($navGroups as $tn => $lk) { if (!isset($sapXep[$tn])) $sapXep[$tn] = $lk; }

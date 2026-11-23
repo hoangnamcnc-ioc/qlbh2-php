@@ -10,7 +10,7 @@ require_once __DIR__ . '/inc_header.php';
 require_once __DIR__ . '/inc_so_do.php';
 
 $g = (string) ($_GET['g'] ?? '');
-if (!isset($navGroupsFull[$g]) || in_array($g, ['Chức năng', 'Cá nhân'], true)) {
+if (!isset($navGroupsFull[$g]) || in_array($g, ['Chức năng'], true)) {
     redirect('so_do_chuc_nang.php');
 }
 // Cac file cua nhom nay ma nguoi dung duoc phep mo (ke ca trang da gop vao tab cua trang khac)
@@ -37,6 +37,7 @@ $flows = [
         ['1. Hồ sơ nhân sự', 'Hợp đồng, bảo hiểm, người phụ thuộc, ngày phép', ['nhan_su.php']],
         ['2. Chấm công và lịch làm việc', 'Giờ công hằng ngày, xếp lịch', ['attendance.php', 'work_schedules.php']],
         ['3. Tính lương', 'Lương giờ, hoa hồng, trừ bảo hiểm và thuế TNCN', ['payroll.php']],
+        ['Việc của tôi', 'Chấm công, lương tạm tính và nghỉ phép của chính bạn', ['cham_cong_cua_toi.php', 'nghi_phep.php']],
     ],
 ];
 if ($g === 'Thuế') {
