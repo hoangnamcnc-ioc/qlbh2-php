@@ -26,7 +26,7 @@ $brStmt = $pdo->prepare('SELECT id, name FROM branches WHERE is_active = 1 AND t
 $brStmt->execute([$tenantId]);
 $chiNhanh = $brStmt->fetchAll();
 $them = !empty($_GET['them']) && $laAdmin;
-$f = ['name' => '', 'email' => '', 'role' => 'CASHIER', 'branch_id' => 0, 'hourly_wage' => 0];
+$nvMoi = ['name' => '', 'email' => '', 'role' => 'CASHIER', 'branch_id' => 0, 'hourly_wage' => 0];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_employee' && $laAdmin) {
     checkCsrf();
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_e
     $dep = max(0, min(20, (int) ($_POST['dependents'] ?? 0)));
     $leave = max(0.0, min(60.0, postFloat('annual_leave_days', 12)));
     $tax = preg_replace('/\D/', '', (string) ($_POST['tax_code'] ?? ''));
-    $f = ['name' => $name, 'email' => $email, 'role' => $role, 'branch_id' => (int) $branchId, 'hourly_wage' => $wage];
+    $nvMoi = ['name' => $name, 'email' => $email, 'role' => $role, 'branch_id' => (int) $branchId, 'hourly_wage' => $wage];
     $dup = $pdo->prepare('SELECT id FROM users WHERE email = ?');
     $dup->execute([$email]);
     if ($name === '' || $email === '' || strlen($password) < 6) {
@@ -184,12 +184,12 @@ require_once __DIR__ . '/inc_header.php';
   <div style="font-weight:600;margin-bottom:10px;">Thêm nhân viên và hồ sơ nhân sự</div>
   <form method="post" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;align-items:end;">
     <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"><input type="hidden" name="action" value="add_employee">
-    <div><label>Họ và tên *</label><input class="input" name="name" value="<?= e($f['name']) ?>" required maxlength="100"></div>
-    <div><label>Email đăng nhập *</label><input class="input" type="email" name="email" value="<?= e($f['email']) ?>" required></div>
+    <div><label>Họ và tên *</label><input class="input" name="name" value="<?= e($nvMoi['name']) ?>" required maxlength="100"></div>
+    <div><label>Email đăng nhập *</label><input class="input" type="email" name="email" value="<?= e($nvMoi['email']) ?>" required></div>
     <div><label>Mật khẩu * (từ 6 ký tự)</label><input class="input" type="text" name="password" minlength="6" required autocomplete="new-password"></div>
-    <div><label>Vai trò</label><select name="role"><option value="CASHIER" <?= $f['role'] === 'CASHIER' ? 'selected' : '' ?>>Thu ngân</option><option value="MANAGER" <?= $f['role'] === 'MANAGER' ? 'selected' : '' ?>>Quản lý</option></select></div>
-    <div><label>Chi nhánh</label><select name="branch_id"><option value="0">Tất cả / chưa gán</option><?php foreach ($chiNhanh as $b): ?><option value="<?= (int) $b['id'] ?>" <?= (int) $f['branch_id'] === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option><?php endforeach; ?></select></div>
-    <div><label>Lương theo giờ (đ)</label><input class="input" type="number" min="0" step="1" name="hourly_wage" value="<?= e((string) (int) $f['hourly_wage']) ?>"></div>
+    <div><label>Vai trò</label><select name="role"><option value="CASHIER" <?= $nvMoi['role'] === 'CASHIER' ? 'selected' : '' ?>>Thu ngân</option><option value="MANAGER" <?= $nvMoi['role'] === 'MANAGER' ? 'selected' : '' ?>>Quản lý</option></select></div>
+    <div><label>Chi nhánh</label><select name="branch_id"><option value="0">Tất cả / chưa gán</option><?php foreach ($chiNhanh as $b): ?><option value="<?= (int) $b['id'] ?>" <?= (int) $nvMoi['branch_id'] === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['name']) ?></option><?php endforeach; ?></select></div>
+    <div><label>Lương theo giờ (đ)</label><input class="input" type="number" min="0" step="1" name="hourly_wage" value="<?= e((string) (int) $nvMoi['hourly_wage']) ?>"></div>
     <div><label>Loại hợp đồng</label><select name="contract_type"><?php foreach ($loaiHD as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?></select></div>
     <div><label>Số hợp đồng</label><input class="input" name="contract_number"></div>
     <div><label>Ngày bắt đầu</label><input class="input" type="date" name="contract_start" value="<?= e(date('Y-m-d')) ?>"></div>

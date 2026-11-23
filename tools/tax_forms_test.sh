@@ -31,7 +31,7 @@ chk "menu co nhom Thue" "to_khai_thue.php" "Kê khai thuế"
 code=$(curl -s -b $AD -o "$W/x.xlsx" -w '%{http_code}' "$A/to_khai_thue.php?mau=01cnkd&nam=$Y&quy=1&export=1"); size=$(stat -c %s "$W/x.xlsx" 2>/dev/null || echo 0)
 if [ "$code" = 200 ] && [ "$size" -gt 1000 ]; then ok=$((ok+1)); echo "  dat   xuat Excel ($size byte)"; else bad=$((bad+1)); echo "  HONG  xuat Excel http $code size $size"; fi
 chk "nut them ho so nhan su" "nhan_su.php" "Thêm hồ sơ nhân sự"
-chk "form them nhan vien" "nhan_su.php?them=1" "Thêm nhân viên và hồ sơ nhân sự"
+chk "form them nhan vien day du (toi nut Them)" "nhan_su.php?them=1" "Thêm nhân viên</button>"
 T=$(curl -s -b $AD "$A/nhan_su.php?them=1" | grep -o 'name="csrf" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b $AD -o /dev/null --data-urlencode csrf="$T" -d "action=add_employee&name=Nhan Vien Thu&email=zzreg_nv1@example.com&password=Test1234&role=CASHIER&branch_id=0&hourly_wage=25000&contract_type=INDEFINITE&contract_start=$(date +%F)&insured_salary=0&region=1&dependents=0&annual_leave_days=12" "$A/nhan_su.php"
 chk "them nhan vien xong, co trong danh sach" "nhan_su.php?added=1" "Nhan Vien Thu"
